@@ -39,11 +39,11 @@ describe("close restore + toolbar regression (finalize fix)", () => {
       const m = css.match(/@media\(max-width:480px\)\{[^}]+\}[^]*?scrollbar-width:thin[^]*?scrollbar-color:[^;]+;[^]*?\}/s);
       // broader checks
       expect(css, `${p} thin scrollbar`).toMatch(/scrollbar-width:\s*thin/);
-      expect(css, `${p} contrast color`).toMatch(/scrollbar-color:\s*#94a3b8\s+#f1f5f9/);
+      expect(css, `${p} contrast color`).toMatch(/scrollbar-color:\s*#94a3b8\s+(#f1f5f9|var\(--bp-slate-100\))/);
       expect(css, `${p} overscroll contain`).toMatch(/overscroll-behavior-x:\s*contain/);
       expect(css, `${p} 6px height`).toMatch(/#bugaputa-ann-toolbar::-webkit-scrollbar\{[^}]*height:\s*6px/);
-      expect(css, `${p} track contrast`).toMatch(/#bugaputa-ann-toolbar::-webkit-scrollbar-track\{[^}]*background:\s*#f1f5f9/);
-      expect(css, `${p} thumb contrast`).toMatch(/#bugaputa-ann-toolbar::-webkit-scrollbar-thumb\{[^}]*background:\s*#94a3b8[^}]*border:\s*1px solid #e2e8f0/);
+      expect(css, `${p} track contrast`).toMatch(/#bugaputa-ann-toolbar::-webkit-scrollbar-track\{[^}]*background:\s*(#f1f5f9|var\(--bp-slate-100\))/);
+      expect(css, `${p} thumb contrast`).toMatch(/#bugaputa-ann-toolbar::-webkit-scrollbar-thumb\{[^}]*background:\s*#94a3b8[^}]*border:\s*1px solid (#e2e8f0|var\(--bp-slate-200\))/);
       // 44px targets retained
       expect(css, `${p} 44px toolbar btn`).toMatch(/#bugaputa-ann-toolbar button\{[^}]*min-width:\s*44px/);
     }

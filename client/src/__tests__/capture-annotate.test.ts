@@ -102,7 +102,7 @@ describe("capture+annotate chooser/capture/editor flows (widget-local)", () => {
     const css = readCss();
     expect(css).toMatch(/#bugaputa-ann-toolbar/);
     expect(css).toMatch(/position:\s*fixed/);
-    expect(css).toMatch(/border-radius:\s*999px/);
+    expect(css).toMatch(/border-radius:\s*(999px|var\(--bp-radius-pill\))/);
     expect(css).toMatch(/min-height:\s*44px|min-width:\s*44px/);
     expect(css).toMatch(/max-width:\s*390|@media.*480/);
     expect(css).toMatch(/safe-area-inset-bottom/);

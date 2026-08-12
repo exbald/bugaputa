@@ -1,0 +1,123 @@
+{
+  "viewport": {
+    "w": 360,
+    "h": 800
+  },
+  "metrics": {
+    "hdr": {
+      "h": 122,
+      "rect": {
+        "w": 360,
+        "h": 122,
+        "x": 0,
+        "y": 0
+      },
+      "title": null
+    },
+    "stage": {
+      "w": 360,
+      "h": 604,
+      "x": 0,
+      "y": 122
+    },
+    "toolbar": {
+      "scrollWidth": 504,
+      "clientWidth": 342,
+      "canScroll": true,
+      "rect": {
+        "w": 344,
+        "h": 58,
+        "x": 8,
+        "y": 734
+      }
+    },
+    "palette": {
+      "scrollWidth": 340,
+      "clientWidth": 340,
+      "rect": {
+        "w": 340,
+        "h": 54,
+        "x": 10,
+        "y": 60
+      }
+    },
+    "title": null,
+    "cancel": {
+      "w": 73,
+      "h": 44,
+      "text": "Cancel"
+    },
+    "done": {
+      "w": 62,
+      "h": 44,
+      "text": "Done"
+    },
+    "paletteBtns": [
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      }
+    ],
+    "toolbarBtns": [
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      },
+      {
+        "w": 44,
+        "h": 44
+      }
+    ],
+    "approxNote": null,
+    "hasAnnotate": true
+  },
+  "scrollOk": true
+}

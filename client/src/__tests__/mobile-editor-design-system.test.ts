@@ -8,7 +8,9 @@ const widgetJs = fs.readFileSync(path.resolve(__dirname, "../../../widget/widget
 
 describe("mobile editor design system (t_74ebd39e)", () => {
   it("CSS uses shared design tokens (CSS variables) for colors/spacing/radii/typography", () => {
-    expect(widgetCss).toMatch(/:root\s*\{[^}]*--bp-/s);
+    // tokens must be scoped to widget containers, not leaked to global :root
+    expect(widgetCss).toMatch(/#bugaputa-root[^{]*\{[^}]*--bp-/s);
+    expect(widgetCss).not.toMatch(/:root\s*\{[^}]*--bp-/s);
     expect(widgetCss).toMatch(/--bp-navy|--bp-lime| --bp-slate/);
     // header and toolbar should reference variables or tokens, not just ad-hoc hex everywhere
     expect(widgetCss).toMatch(/var\(--bp-/);
