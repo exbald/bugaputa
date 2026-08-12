@@ -78,6 +78,17 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
     }
     res.type("text/css").send("/* Bugaputa widget.css not built yet */");
   });
+  // Lazy capture chunk — html2canvas (MIT) loaded only after explicit consent
+  app.get("/html2canvas.min.js", (_req, res) => {
+    const candidates = [
+      path.resolve("widget/html2canvas.min.js"),
+      path.resolve("node_modules/html2canvas/dist/html2canvas.min.js"),
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return res.type("application/javascript").sendFile(path.resolve(p));
+    }
+    res.status(404).type("application/javascript").send("/* html2canvas not found */");
+  });
 
   // CORS for widget/report public routes is handled inside reports router
   // General CORS for API — allow same-origin by default; public routes handle their own

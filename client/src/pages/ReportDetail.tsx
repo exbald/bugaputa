@@ -11,6 +11,7 @@ export default function ReportDetail(){
   const [status,setStatus]=useState("");
   const [saving,setSaving]=useState(false);
   const [deleting,setDeleting]=useState(false);
+  const [lightbox,setLightbox]=useState(false);
   useEffect(()=>{
     if(!id) return;
     (async()=>{
@@ -74,10 +75,28 @@ export default function ReportDetail(){
           <div className="md:col-span-2">
             <div className="bg-white border rounded-2xl p-5">
               <h2 className="font-semibold text-sm">Screenshot</h2>
-              {imgSrc ? <img src={imgSrc} alt="Report screenshot" className="mt-3 w-full rounded-xl border object-contain max-h-[400px]" /> : <div className="mt-3 border-2 border-dashed rounded-xl p-8 text-center text-sm text-slate-400">No screenshot</div>}
+              {imgSrc ? (
+                <div>
+                  <button onClick={()=> setLightbox(true)} className="mt-3 block w-full text-left rounded-xl overflow-hidden border hover:opacity-90 transition" aria-label="Open screenshot full size">
+                    <img src={imgSrc} alt="Report screenshot — click to open full size" className="w-full object-contain max-h-[400px] bg-slate-50" />
+                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={()=> setLightbox(true)} className="flex-1 px-3 py-2 rounded-lg border bg-white text-sm font-medium hover:bg-slate-50 min-h-[40px]">Open full size</button>
+                    <a href={imgSrc} download target="_blank" rel="noopener noreferrer" className="flex-1 px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium text-center hover:bg-slate-800 min-h-[40px] flex items-center justify-center">Download</a>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400">Annotated PNG — flattened at submission.</p>
+                </div>
+              ) : <div className="mt-3 border-2 border-dashed rounded-xl p-8 text-center text-sm text-slate-400">No screenshot</div>}
             </div>
           </div>
         </div>
+        {lightbox && imgSrc && (
+          <div role="dialog" aria-modal="true" aria-label="Screenshot full size" onClick={()=> setLightbox(false)} className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out">
+            <img src={imgSrc} alt="Report screenshot full size" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl bg-white" onClick={e=> e.stopPropagation()} />
+            <button onClick={()=> setLightbox(false)} aria-label="Close" className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/90 text-slate-800 flex items-center justify-center text-xl font-bold hover:bg-white">×</button>
+            <a href={imgSrc} download className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white text-sm font-semibold shadow">Download</a>
+          </div>
+        )}
       </main>
     </div>
   )

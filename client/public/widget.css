@@ -25,3 +25,38 @@
 @media(max-width:640px){#bugaputa-btn{right:16px;bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
 @media(max-width:360px){#bugaputa-modal{padding:16px}#bugaputa-btn{right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:52px;height:52px}}
 #bugaputa-btn svg{display:block;flex-shrink:0}
+/* chooser */
+#bugaputa-chooser{padding:4px 0}
+#bugaputa-chooser-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+#bugaputa-choose-capture,#bugaputa-choose-general{width:100%;min-height:48px;border-radius:12px;border:1px solid #e2e8f0;padding:12px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px}
+#bugaputa-choose-capture{background:#0f172a;color:#fff;border-color:#0f172a}
+#bugaputa-choose-capture:hover{background:#1e293b}
+#bugaputa-choose-general{background:#fff;color:#0f172a}
+#bugaputa-choose-general:hover{background:#f8fafc}
+#bugaputa-choose-capture:focus-visible,#bugaputa-choose-general:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-capture-pane{margin-top:4px}
+#bugaputa-consent-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
+#bugaputa-do-capture{flex:1;min-height:44px;border-radius:10px;border:none;background:#0f172a;color:#fff;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
+#bugaputa-do-capture:hover{background:#1e293b}
+#bugaputa-cap-back{flex:0 0 auto;min-height:44px;min-width:80px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
+#bugaputa-fallback-upload{width:100%;min-height:44px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#0f172a;font-weight:600;font-size:14px;cursor:pointer}
+#bugaputa-cap-status{padding:8px 10px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca}
+#bugaputa-file-label{margin-top:16px}
+/* annotation editor */
+#bugaputa-annotate{position:fixed;inset:0;z-index:2147483647;background:#0f172a;display:flex;flex-direction:column;touch-action:none;overscroll-behavior:none}
+#bugaputa-ann-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:#0f172a;color:#fff;flex-wrap:wrap}
+#bugaputa-palette{display:flex;gap:8px;align-items:center}
+#bugaputa-ann-header button{border:none;border-radius:10px;cursor:pointer;font-weight:600}
+#bugaputa-ann-cancel{background:rgba(255,255,255,0.12);color:#fff;padding:10px 14px;min-height:44px}
+#bugaputa-ann-done{background:#a3e635;color:#0f172a;padding:10px 18px;min-height:44px}
+#bugaputa-ann-stage{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:12px;background:#1e293b;touch-action:none}
+#bugaputa-ann-canvas-wrap{position:relative;flex-shrink:0;box-shadow:0 8px 32px rgba(0,0,0,0.4);background:#fff}
+#bugaputa-ann-bg{display:block;max-width:100%;height:auto;pointer-events:none;user-select:none}
+#bugaputa-ann-canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#bugaputa-ann-toolbar{position:fixed;left:50%;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px;background:#fff;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,0.25);border:1px solid #e2e8f0;z-index:2;max-width:calc(100vw - 16px);overflow-x:auto;scrollbar-width:none}
+#bugaputa-ann-toolbar::-webkit-scrollbar{display:none}
+#bugaputa-ann-toolbar button{border:1px solid #e2e8f0;background:#fff;color:#0f172a;border-radius:999px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#bugaputa-ann-toolbar button[aria-pressed="true"]{background:#a3e635;border-color:#a3e635;color:#0f172a;box-shadow:0 2px 8px rgba(163,230,53,0.4)}
+#bugaputa-ann-toolbar button:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-ann-toolbar button:disabled{opacity:0.4;cursor:not-allowed}
+@media(max-width:480px){#bugaputa-ann-header{padding:8px 10px} #bugaputa-palette button{width:40px !important;height:40px !important} #bugaputa-ann-toolbar{bottom:calc(8px + env(safe-area-inset-bottom,0px));padding:6px;gap:4px} #bugaputa-ann-toolbar button{min-width:42px !important;min-height:42px !important}}
