@@ -389,27 +389,29 @@
     var stage=h('div',{id:'bugaputa-ann-stage'});
     // capture image as background
     var bgImg=h('img',{id:'bugaputa-ann-bg',alt:'Captured page',src:blobUrl});
-    // use a wrapper with fixed viewport size at capture time
     var canvasWrap=h('div',{id:'bugaputa-ann-canvas-wrap'});
     var cvs=document.createElement('canvas');
     cvs.id='bugaputa-ann-canvas';
-    // Viewport-sized capture: editor matches visible viewport 1:1
+    // Model stays in CSS viewport space; display is fitted with contain (never upscale above 1:1)
     cvs.width=capturedDims.cssW;
     cvs.height=capturedDims.cssH;
-    cvs.style.width=cvs.width+'px';
-    cvs.style.height=cvs.height+'px';
+    // CSS size is driven by fitted wrap bounds (100% of wrap); no inline px that would force overflow
+    cvs.style.width='100%';
+    cvs.style.height='100%';
+    bgImg.style.width='100%';
+    bgImg.style.height='100%';
     canvasWrap.appendChild(bgImg);
     canvasWrap.appendChild(cvs);
     stage.appendChild(canvasWrap);
     // bottom pill toolbar
     var toolbar=h('div',{id:'bugaputa-ann-toolbar',role:'toolbar','aria-label':'Annotation tools'});
     var tools=[
-      {id:'select',label:'Select / move',icon:'↖'},
-      {id:'pen',label:'Pen',icon:'✎'},
-      {id:'arrow',label:'Arrow',icon:'→'},
-      {id:'rect',label:'Rectangle',icon:'▭'},
-      {id:'text',label:'Text',icon:'T'},
-      {id:'pin',label:'Numbered pin',icon:'📍'}
+      {id:'select',label:'Select / move',icon:'👆'},
+      {id:'pen',label:'Pen',icon:'✏️'},
+      {id:'arrow',label:'Arrow',icon:'➡️'},
+      {id:'rect',label:'Rectangle',icon:'🔲'},
+      {id:'text',label:'Text',icon:'🔤'},
+      {id:'pin',label:'Numbered pin',icon:'📌'}
     ];
     var toolBtns={};
     tools.forEach(function(t){
@@ -422,10 +424,10 @@
     });
     var sep=h('div',{style:'width:1px;height:24px;background:#e2e8f0;margin:0 4px','aria-hidden':'true'});
     toolbar.appendChild(sep);
-    var btnUndo=h('button',{type:'button',text:'↩','aria-label':'Undo', title:'Undo'});
-    var btnRedo=h('button',{type:'button',text:'↪','aria-label':'Redo', title:'Redo'});
-    var btnDel=h('button',{type:'button',text:'✕','aria-label':'Delete selected', title:'Delete selected'});
-    var btnClear=h('button',{type:'button',text:'Clear','aria-label':'Clear all', title:'Clear all'});
+    var btnUndo=h('button',{type:'button',text:'↩️','aria-label':'Undo', title:'Undo'});
+    var btnRedo=h('button',{type:'button',text:'↪️','aria-label':'Redo', title:'Redo'});
+    var btnDel=h('button',{type:'button',text:'🗑️','aria-label':'Delete selected', title:'Delete selected'});
+    var btnClear=h('button',{type:'button',text:'🧹','aria-label':'Clear all', title:'Clear all'});
     [btnUndo,btnRedo,btnDel,btnClear].forEach(function(b){ b.style.minWidth='44px'; b.style.minHeight='44px'; });
     btnUndo.addEventListener('click', doUndo);
     btnRedo.addEventListener('click', doRedo);
@@ -466,6 +468,42 @@
     ed.appendChild(stage);
     ed.appendChild(toolbar);
     document.body.appendChild(ed);
+    // Fit wrap to available stage with contain, never upscale beyond 1:1
+    function applyFit(){
+      // stage content box available (respect padding)
+      var cs=getComputedStyle(stage);
+      var padL=parseFloat(cs.paddingLeft)||0, padR=parseFloat(cs.paddingRight)||0, padT=parseFloat(cs.paddingTop)||0, padB=parseFloat(cs.paddingBottom)||0;
+      var availW=Math.max(0, stage.clientWidth - padL - padR);
+      var availH=Math.max(0, stage.clientHeight - padT - padB);
+      // fallback to rect-based if client is 0 during initial layout
+      if(availW<10 || availH<10){
+        var r=stage.getBoundingClientRect();
+        availW=Math.max(0, r.width - padL - padR);
+        availH=Math.max(0, r.height - padT - padB);
+      }
+      if(availW<10 || availH<10 || !capturedDims) return;
+      var sx=availW / capturedDims.cssW;
+      var sy=availH / capturedDims.cssH;
+      var scale=Math.min(1, sx, sy);
+      var w=Math.max(1, Math.floor(capturedDims.cssW * scale));
+      var h=Math.max(1, Math.floor(capturedDims.cssH * scale));
+      canvasWrap.style.width=w+'px';
+      canvasWrap.style.height=h+'px';
+    }
+    // initial fit next frame (after layout) and on resize
+    requestAnimationFrame(function(){ applyFit(); requestAnimationFrame(applyFit); });
+    var _ro=null;
+    if(typeof ResizeObserver!=='undefined'){
+      _ro=new ResizeObserver(function(){ applyFit(); });
+      _ro.observe(stage);
+    }
+    var _onWinResize=function(){ applyFit(); };
+    window.addEventListener('resize', _onWinResize);
+    // cleanup additions chained below
+    var _applyFitCleanup=function(){
+      window.removeEventListener('resize', _onWinResize);
+      if(_ro) try{ _ro.disconnect(); }catch(_){}
+    };
     // expose count for discard confirm
     ed._annCount=function(){ return state.annotations.length; };
     // focus trap for editor
@@ -490,7 +528,7 @@
       else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
     }
     document.addEventListener('keydown', edTrap);
-    ed._cleanup=function(){ document.removeEventListener('keydown', edTrap); document.body.style.overflow=''; };
+    ed._cleanup=function(){ document.removeEventListener('keydown', edTrap); document.body.style.overflow=''; try{ _applyFitCleanup(); }catch(_){} };
     // canvas drawing
     var ctx=cvs.getContext('2d');
     var dpr=window.devicePixelRatio||1;
@@ -499,11 +537,14 @@
     // Keep backing = CSS size * dpr for preview, but we already have CSS size equal to viewport. For simplicity keep 1x for editor, export will re-render at DPR.
     function cssPoint(e){
       var rect=cvs.getBoundingClientRect();
-      var x=e.clientX - rect.left;
-      var y=e.clientY - rect.top;
-      // clamp
-      x=Math.max(0, Math.min(cvs.width, x));
-      y=Math.max(0, Math.min(cvs.height, y));
+      if(!rect.width || !rect.height) return {x:0,y:0};
+      var sx=capturedDims.cssW / rect.width;
+      var sy=capturedDims.cssH / rect.height;
+      var x=(e.clientX - rect.left) * sx;
+      var y=(e.clientY - rect.top) * sy;
+      // clamp to model bounds
+      x=Math.max(0, Math.min(capturedDims.cssW, x));
+      y=Math.max(0, Math.min(capturedDims.cssH, y));
       return {x:x, y:y};
     }
     function hitTest(pt){
