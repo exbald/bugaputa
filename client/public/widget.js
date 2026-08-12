@@ -48,9 +48,16 @@
   }
   function close(){
     if(capturedBlobUrl){ URL.revokeObjectURL(capturedBlobUrl); capturedBlobUrl=null; }
+    capturedDataUrl=null; capturedDims=null;
     // cleanup annotate listeners if any
     cleanupAnnotate();
+    var ed2=document.getElementById('bugaputa-annotate');
+    if(ed2){ try{ if(ed2._cleanup) ed2._cleanup(); }catch(_){} ed2.remove(); document.body.style.overflow=''; }
+    // restore trigger button (hidden during capture)
+    var b=document.getElementById('bugaputa-btn');
+    if(b) b.style.display='';
     if(overlay){ overlay.remove(); overlay=null; document.removeEventListener('keydown', trapFocus); document.body.style.overflow=''; if(lastFocus) try{ lastFocus.focus(); }catch(_){} }
+    else { document.body.style.overflow=''; }
   }
   function cleanupAnnotate(){
     // called on close; individual editor cleans its listeners
@@ -193,7 +200,7 @@
       var msg=textarea.value.trim(); var email=emailInput.value.trim(); var hasError=false;
       if(msg.length<10){ msgErr.textContent='Please describe the bug (at least 10 characters).'; msgErr.style.display='block'; hasError=true; }
       else if(msg.length>2000){ msgErr.textContent='Message too long (max 2000 characters).'; msgErr.style.display='block'; hasError=true; }
-      if(email && !/^[^\\s@]+@[^\\s@]+\.[^\\s@]+$/.test(email)){ emailErr.textContent='Enter a valid email or leave empty.'; emailErr.style.display='block'; hasError=true; }
+      if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ emailErr.textContent='Enter a valid email or leave empty.'; emailErr.style.display='block'; hasError=true; }
       if(hpInput.value){ close(); return; }
       if(hasError) return;
       submitBtn.disabled=true; submitBtn.textContent='Sending...';
