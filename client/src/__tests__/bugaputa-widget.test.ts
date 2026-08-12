@@ -30,7 +30,7 @@ describe("BugaputaWidget embed contract", () => {
   it("Landing mounts BugaputaWidget; no other route does", () => {
     const landing = fs.readFileSync(path.resolve(__dirname, "../pages/Landing.tsx"), "utf8");
     expect(landing).toMatch(/BugaputaWidget/);
-    expect(landing).toMatch(/Try the live bug-report widget/);
+    expect(landing).toMatch(/Try it \u2014 report a bug with the button in the corner/);
     for (const f of ["Dashboard.tsx", "Login.tsx", "Register.tsx", "ProjectReports.tsx", "ReportDetail.tsx"]) {
       const fp = path.resolve(__dirname, "../pages", f);
       if (!fs.existsSync(fp)) continue;
