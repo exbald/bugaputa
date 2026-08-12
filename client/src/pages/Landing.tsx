@@ -1,5 +1,6 @@
 import {Link} from "react-router-dom";
 import {TopNav} from "../components/Layout";
+import BugaputaWidget from "../components/BugaputaWidget";
 export default function Landing(){
   const snippet = '<scr'+'ipt src="https://bugaputa.no-code.gdn/widget.js" data-project="pk_..."></scr'+'ipt>';
   return (
@@ -51,6 +52,13 @@ export default function Landing(){
             <Link to="/register" className="px-5 py-2.5 rounded-xl bg-lime-500 text-slate-900 font-bold whitespace-nowrap">Create your project</Link>
           </div>
         </section>
+        <section className="max-w-6xl mx-auto px-4 pb-8" aria-label="Try the live widget">
+          <div className="rounded-2xl border border-lime-200 bg-lime-50 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div><h3 className="font-bold text-slate-900">Try the live bug-report widget on this page</h3><p className="mt-1 text-sm text-slate-600">Look for the floating <span aria-hidden>🐛</span> button in the corner — click it to report a bug, just like your users will. Keyboard: press Tab to reach it, Enter to open.</p></div>
+            <span className="shrink-0 inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Live widget active</span>
+          </div>
+        </section>
+        <BugaputaWidget />
         <footer className="border-t mt-8">
           <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-slate-500">
             <span className="flex items-center gap-2"><img src="/bugaputa-logo.svg" alt="" className="w-5 h-5"/> Bugaputa — original bug-reporting toolkit</span>
