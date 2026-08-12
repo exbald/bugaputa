@@ -96,6 +96,11 @@ router.post(
 
     // Honeypot
     if (data.website && data.website.trim() !== "") {
+      // Clean up uploaded file if present (prevent disk leak on bot submissions)
+      const file = (req as any).file;
+      if (file?.path) {
+        try { fs.unlinkSync(file.path); } catch {}
+      }
       // Pretend success to not tip off bots
       res.status(201).json({ id: generateId() });
       return;

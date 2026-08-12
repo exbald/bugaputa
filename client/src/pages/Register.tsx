@@ -11,7 +11,7 @@ export default function Register(){
   const [loading,setLoading]=useState(false);
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault(); setErr("");
-    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return setErr("Enter a valid email.");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setErr("Enter a valid email.");
     if(password.length<8) return setErr("Password must be at least 8 characters.");
     setLoading(true);
     try{ await register(email,password); nav("/dashboard"); } catch(ex:any){ setErr(ex.message||"Registration failed"); } finally{ setLoading(false); }
