@@ -239,6 +239,8 @@
         try{
           var hc=window.html2canvas;
           if(!hc){ throw new Error('html2canvas not loaded'); }
+          var sx=window.scrollX||window.pageXOffset||0, sy=window.scrollY||window.pageYOffset||0;
+          var vw=window.innerWidth, vh=window.innerHeight;
           var opts={
             useCORS:true,
             allowTaint:false,
@@ -246,10 +248,14 @@
             scale: Math.min(window.devicePixelRatio||1, 2),
             logging:false,
             ignoreElements: function(el){ return el.hasAttribute && el.hasAttribute('data-html2canvas-ignore'); },
-            windowWidth: document.documentElement.clientWidth,
-            windowHeight: document.documentElement.clientHeight,
-            scrollX: window.scrollX,
-            scrollY: window.scrollY
+            x: sx,
+            y: sy,
+            width: vw,
+            height: vh,
+            windowWidth: vw,
+            windowHeight: vh,
+            scrollX: sx,
+            scrollY: sy
           };
           hc(document.body, opts).then(function(canvas){
             // validate not blank: check canvas size
@@ -265,7 +271,7 @@
             // success: hide capture pane, show annotate editor
             statusEl.style.display='none';
             capturedDataUrl=dataUrl;
-            capturedDims={w:canvas.width, h:canvas.height, cssW: document.documentElement.clientWidth, cssH: document.documentElement.clientHeight, dpr: opts.scale};
+            capturedDims={w:canvas.width, h:canvas.height, cssW: vw, cssH: vh, dpr: opts.scale};
             // converter to blobUrl for editor img src
             canvas.toBlob(function(blob){
               if(!blob){ throw new Error('toBlob failed'); }
@@ -387,9 +393,9 @@
     var canvasWrap=h('div',{id:'bugaputa-ann-canvas-wrap'});
     var cvs=document.createElement('canvas');
     cvs.id='bugaputa-ann-canvas';
-    cvs.width=Math.min(window.innerWidth, capturedDims.cssW);
-    cvs.height=Math.min(window.innerHeight, capturedDims.cssH);
-    // For DPR export we track scale separately; canvas CSS size = viewport
+    // Viewport-sized capture: editor matches visible viewport 1:1
+    cvs.width=capturedDims.cssW;
+    cvs.height=capturedDims.cssH;
     cvs.style.width=cvs.width+'px';
     cvs.style.height=cvs.height+'px';
     canvasWrap.appendChild(bgImg);
