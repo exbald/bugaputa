@@ -278,20 +278,103 @@
         // restore chrome hidden for html2canvas path (doCapture will hide again)
         onFallback(reason);
       }
+      // t_a602a2ed: do not mark settled synchronously — keep native capture recoverable
+      // until async blob + editor truly succeed; toBlob null / editor throws must fallback.
+      var pendingSuccess=false;
       function successCanvas(canvas, useDpr, dataUrl){
-        if(settled) return; settled=true;
-        // keep stream until drawn? stop after capture
-        try{ stream.getTracks().forEach(function(t){ try{t.stop();}catch(_){}}); }catch(_){}
-        try{ video.remove(); }catch(_){}
-        capturedDataUrl=dataUrl;
-        capturedDims={w:canvas.width, h:canvas.height, cssW:vw, cssH:vh, dpr:useDpr, native:true};
-        canvas.toBlob(function(blob){
-          if(!blob){ fallback('native-toBlob-null'); return; }
-          if(capturedBlobUrl) URL.revokeObjectURL(capturedBlobUrl);
-          capturedBlobUrl=URL.createObjectURL(blob);
-          statusEl.style.display='none';
-          openAnnotateEditor(capturedBlobUrl, dataUrl, canvas, formWrap, chooser, capturePane);
-        }, 'image/png');
+        if(settled || pendingSuccess) return; pendingSuccess=true;
+        // do not clear settled here; hold video/stream until blob+editor confirmed
+        // capture dims are provisional until blob succeeds
+        try{
+          canvas.toBlob(function(blob){
+            if(settled){ pendingSuccess=false; return; }
+            if(!blob){
+              pendingSuccess=false;
+              // keep video/stream for diagnostic; fallback will clean them
+              fallback('native-toBlob-null');
+              return;
+            }
+            if(capturedBlobUrl) try{ URL.revokeObjectURL(capturedBlobUrl); }catch(_){}
+            var newBlobUrl=null;
+            try{ newBlobUrl=URL.createObjectURL(blob); }catch(e){
+              pendingSuccess=false;
+              fallback('native-createObjectURL '+ (e&&e.message||e));
+              return;
+            }
+            // blob ok — commit state, now stop stream and open editor
+            capturedDataUrl=dataUrl;
+            capturedDims={w:canvas.width, h:canvas.height, cssW:vw, cssH:vh, dpr:useDpr, native:true};
+            capturedBlobUrl=newBlobUrl;
+            // prepare to mark settled only after editor is mounted; allow editor errors to fallback first
+            var editorMounted=false;
+            try{
+              // successCanvas will clean video/stream; keep it until we know editor did not throw
+              statusEl.style.display='none';
+              openAnnotateEditor(capturedBlobUrl, dataUrl, canvas, formWrap, chooser, capturePane);
+              editorMounted=true;
+            }catch(e){
+              // editor threw — revoke blobUrl and fallback with chrome restored
+              try{ if(capturedBlobUrl){ URL.revokeObjectURL(capturedBlobUrl); capturedBlobUrl=null; } }catch(_){}
+              capturedDataUrl=null; capturedDims=null;
+              pendingSuccess=false;
+              fallback('native-editor '+ (e&&e.message||e));
+              return;
+            }
+            if(editorMounted){
+              // now truly settled: stop stream/video and prevent any later fallback from overwriting editor
+              pendingSuccess=false; settled=true;
+              try{ stream.getTracks().forEach(function(t){ try{t.stop();}catch(_){}}); }catch(_){}
+              try{ video.pause(); video.srcObject=null; }catch(_){}
+              try{ video.remove(); }catch(_){}
+              // guard async editor bg image load errors -> surface choice if image fails shortly after mount
+              try{
+                var bg=document.getElementById('bugaputa-ann-bg');
+                if(bg){
+                  var bgTimer=setTimeout(function(){
+                    // if editor still present but bg failed to load (naturalWidth 0), surface choice
+                    // do not fallback if already settled and editor visible; only if image clearly broken
+                    try{
+                      var ed=document.getElementById('bugaputa-annotate');
+                      if(ed && bg && (bg.naturalWidth===0 || bg.complete===false)){
+                        // keep editor but also warn — do not auto-close; user can still cancel
+                        // Add a visible warning banner instead of silently vanishing
+                        if(!document.getElementById('bugaputa-bg-warn')){
+                          var warn=document.createElement('div');
+                          warn.id='bugaputa-bg-warn';
+                          warn.textContent='Preview image failed to load — you can still annotate (try again or use Upload image).';
+                          warn.style.cssText='background:#fef3c7;color:#92400e;padding:8px 12px;font-size:12px;border-bottom:1px solid #fbbf24';
+                          ed.insertBefore(warn, ed.firstChild);
+                        }
+                      }
+                    }catch(_){}
+                  }, 1500);
+                  var clearBgTimer=function(){ try{ clearTimeout(bgTimer); }catch(_){} try{ bg.removeEventListener('load', clearBgTimer);}catch(_){} try{ bg.removeEventListener('error', onBgError);}catch(_){} };
+                  var onBgError=function(){
+                    clearBgTimer();
+                    // annotate editor is up but image broken — offer explicit choice via status row in chooser
+                    // keep editor open but surface warning; if user cancels they return to chooser with choice
+                    try{
+                      if(!document.getElementById('bugaputa-bg-warn')){
+                        var w2=document.createElement('div');
+                        w2.id='bugaputa-bg-warn';
+                        w2.textContent='Screenshot preview failed to load — use Retry or Upload image from the chooser after closing this editor.';
+                        w2.style.cssText='background:#fee2e2;color:#991b1b;padding:8px 12px;font-size:12px;border-bottom:1px solid #fecaca';
+                        var ed2=document.getElementById('bugaputa-annotate');
+                        if(ed2) ed2.insertBefore(w2, ed2.firstChild);
+                      }
+                    }catch(_){}
+                  };
+                  bg.addEventListener('load', clearBgTimer, {once:true});
+                  bg.addEventListener('error', onBgError, {once:true});
+                }
+              }catch(_){}
+            }
+          }, 'image/png');
+        }catch(e){
+          pendingSuccess=false;
+          fallback('native-toBlob-throw '+ (e&&e.message||e));
+          return;
+        }
       }
       function tryCaptureFrame(){
         if(settled) return;
@@ -328,10 +411,20 @@
         // also try after play
         video.play().then(function(){ setTimeout(tryCaptureFrame, 80); }).catch(function(e){ fallback('native-play '+ (e&&e.message||e)); });
       }, {once:true});
+      // t_a602a2ed: loadedmetadata may have already fired before we attached, or play resolves first
+      // Guard the race: if metadata already available, schedule a capture attempt as well.
+      // Also poll videoWidth once shortly after stream attached in case loadedmetadata stalls
+      // (some Chrome current-tab paths fire play before loadedmetadata).
+      try{
+        if(video.readyState >= 1 || (video.videoWidth && video.videoHeight)){
+          setTimeout(tryCaptureFrame, 80);
+        }
+      }catch(_){}
+      setTimeout(function(){ if(!settled && !pendingSuccess) tryCaptureFrame(); }, 450);
       // play may already resolve
-      video.play().catch(function(){});
+      video.play().then(function(){ setTimeout(tryCaptureFrame, 80); }).catch(function(){});
       // timeout fallback after 12s if user never picks or video never loads
-      setTimeout(function(){ if(!settled) fallback('native-timeout'); }, 12000);
+      setTimeout(function(){ if(!settled && !pendingSuccess) fallback('native-timeout'); }, 12000);
       if(track){
         track.addEventListener('ended', function(){ if(!settled) fallback('native-track-ended'); });
       }
