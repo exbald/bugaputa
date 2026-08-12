@@ -524,6 +524,21 @@
       if(statusEl.parentNode) statusEl.parentNode.insertBefore(row, statusEl.nextSibling);
       btnRetry.focus();
     }
+    // helper: show helper text about native vs approximate on mobile (t_74ebd39e)
+    function isLikelyMobile(){
+      try{ return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.innerWidth<=480 && !isNativeCaptureSupported()); }catch(_){ return false; }
+    }
+    function setMobileApproxNotice(){
+      try{
+        if(isLikelyMobile()){
+          var note=document.getElementById('bugaputa-mobile-approx-note');
+          if(!note){
+            note=h('div',{id:'bugaputa-mobile-approx-note',text:'Native current-tab capture isn\u2019t supported in this browser \u2014 approximate capture or upload',style:'margin-top:8px;padding:8px 10px;border-radius:8px;background:#fef9c3;border:1px solid #fde68a;color:#78350f;font-size:12px;line-height:1.4'});
+            if(statusEl && statusEl.parentNode) statusEl.parentNode.insertBefore(note, statusEl.nextSibling);
+          }
+        }
+      }catch(_){}
+    }
     // decision: try native first when supported and in secure context; else use approximate directly (no native prompt available)
     if(isNativeCaptureSupported()){
       doNativeCapture(statusEl, formWrap, chooser, capturePane, btn, prevBtnDisplay, prevOverlayDisplay, function(reason){
@@ -531,6 +546,7 @@
         showNativeChoice(statusEl, formWrap, chooser, capturePane, btn, prevBtnDisplay, prevOverlayDisplay, reason);
       });
     } else {
+      setMobileApproxNotice();
       statusEl.textContent='Creating approximate capture\u2026';
       statusEl.style.color='#475569';
       ensureHtml2Canvas(function(){ runCaptureFallback(true); });
@@ -600,26 +616,28 @@
       renderAll();
       updateUndoRedo();
     }
-    // header
+    // header (t_74ebd39e: compact 2-row grid at <=480px via CSS; JS stays minimal, uses ids for grid areas)
     var header=h('div',{id:'bugaputa-ann-header'});
     var isApprox = capturedDims && capturedDims.approximate;
-    var hTitle=h('div',{text: isApprox ? 'Approximate capture \u2014 may differ from screen pixels' : 'Annotate screenshot',style:'font-weight:700;font-size:14px;'+(isApprox?'color:#fbbf24':'')});
+    var hTitle=h('div',{id:'bugaputa-ann-title',text: isApprox ? 'Approximate capture \u2014 may differ from screen pixels' : 'Annotate screenshot'});
+    if(isApprox) hTitle.classList.add('is-approx');
     var paletteWrap=h('div',{id:'bugaputa-palette'});
     PALETTE.forEach(function(c){
       var b=h('button',{type:'button','aria-label':'Color '+c, title:'Color '+c});
-      b.style.background=c; b.style.width='44px'; b.style.height='44px'; b.style.borderRadius='999px'; b.style.border='2px solid transparent';
-      b.style.cursor='pointer';
+      // JS sets color; layout/sizing is CSS-driven (44px hit via CSS, 36px visible via padding+content-box at mobile)
+      b.style.background=c; b.style.backgroundClip='padding-box'; b.style.width='44px'; b.style.height='44px'; b.style.borderRadius='999px'; b.style.border='2px solid transparent';
+      b.style.cursor='pointer'; b.style.boxSizing='border-box';
       if(c===state.color) b.style.borderColor='#0f172a';
       b.addEventListener('click', function(){ state.color=c; Array.from(paletteWrap.children).forEach(function(ch){ ch.style.borderColor='transparent'; }); b.style.borderColor='#0f172a'; });
       paletteWrap.appendChild(b);
     });
-    var hdrActions=h('div',{style:'display:flex;gap:8px;align-items:center'});
+    var hdrActions=h('div',{id:'bugaputa-ann-actions'});
     var btnCancel=h('button',{id:'bugaputa-ann-cancel',type:'button',text:'Cancel'});
     btnCancel.setAttribute('aria-label','Cancel annotation');
     var btnDone=h('button',{id:'bugaputa-ann-done',type:'button',text:'Done'});
     btnDone.setAttribute('aria-label','Done and continue to form');
     hdrActions.appendChild(btnCancel); hdrActions.appendChild(btnDone);
-    header.appendChild(hTitle); header.appendChild(paletteWrap); header.appendChild(hdrActions);
+    header.appendChild(hTitle); header.appendChild(hdrActions); header.appendChild(paletteWrap);
     // canvas area
     var stage=h('div',{id:'bugaputa-ann-stage'});
     // capture image as background
