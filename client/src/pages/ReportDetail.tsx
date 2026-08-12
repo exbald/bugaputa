@@ -37,7 +37,7 @@ export default function ReportDetail(){
     catch(e:any){ setErr(e.message); setDeleting(false); }
   };
   if(loading) return <div className="min-h-screen bg-slate-50"><TopNav/><div className="max-w-4xl mx-auto px-4 py-8 text-sm text-slate-500">Loading...</div></div>
-  if(err && !report) return <div className="min-h-screen bg-slate-50"><TopNav/><div className="max-w-4xl mx-auto px-4 py-8"><div role="alert" className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{err}</div><Link to="/dashboard" className="text-sm text-lime-600 hover:underline mt-3 inline-block">\u2190 Back</Link></div></div>
+  if(err && !report) return <div className="min-h-screen bg-slate-50"><TopNav/><div className="max-w-4xl mx-auto px-4 py-8"><div role="alert" className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{err}</div><Link to="/dashboard" className="text-sm text-lime-600 hover:underline mt-3 inline-block">← Back</Link></div></div>
   if(!report) return null;
   const screenshot=report.screenshotPath||report.screenshotUrl||report.screenshot||null;
   const imgSrc=screenshot ? (screenshot.startsWith("http")||screenshot.startsWith("/") ? screenshot : "/uploads/"+screenshot) : null;
@@ -45,18 +45,18 @@ export default function ReportDetail(){
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <TopNav/>
       <main className="max-w-4xl mx-auto w-full px-4 py-6 flex-1">
-        <Link to={report.projectId ? "/p/"+report.projectId : "/dashboard"} className="text-sm text-slate-500 hover:text-slate-700">\u2190 Back to reports</Link>
+        <Link to={report.projectId ? "/p/"+report.projectId : "/dashboard"} className="text-sm text-slate-500 hover:text-slate-700">← Back to reports</Link>
         {err && <div role="alert" aria-live="polite" className="mt-3 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{err}</div>}
         <div className="mt-4 grid md:grid-cols-5 gap-6">
           <div className="md:col-span-3 bg-white border rounded-2xl p-5">
             <h1 className="font-semibold">Report</h1>
             <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap bg-slate-50 border rounded-xl p-3">{report.message}</p>
             <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Contact</dt><dd className="font-medium">{report.contactEmail||"\u2014"}</dd></div>
-              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Page URL</dt><dd className="break-all text-slate-700">{report.pageUrl||"\u2014"}</dd></div>
-              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">UserAgent</dt><dd className="break-all text-xs text-slate-600">{report.userAgent||"\u2014"}</dd></div>
-              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Viewport</dt><dd>{report.viewport||"\u2014"}</dd></div>
-              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Language</dt><dd>{report.language||"\u2014"}</dd></div>
+              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Contact</dt><dd className="font-medium">{report.contactEmail||"—"}</dd></div>
+              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Page URL</dt><dd className="break-all text-slate-700">{report.pageUrl||"—"}</dd></div>
+              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">UserAgent</dt><dd className="break-all text-xs text-slate-600">{report.userAgent||"—"}</dd></div>
+              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Viewport</dt><dd>{report.viewport||"—"}</dd></div>
+              <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Language</dt><dd>{report.language||"—"}</dd></div>
               <div className="flex gap-2"><dt className="text-slate-500 w-24 flex-shrink-0">Date</dt><dd>{new Date(report.createdAt||report.created_at).toLocaleString()}</dd></div>
             </dl>
             <div className="mt-6 flex flex-wrap gap-3">

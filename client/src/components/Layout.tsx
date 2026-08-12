@@ -17,14 +17,14 @@ export function TopNav(){
         <div className="flex items-center gap-3">
           {user ? <>
             <div className="relative">
-              <button onClick={()=> setOpen(v=>!v)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm flex items-center gap-2">Projects <span className="opacity-60">\u25BE</span></button>
+              <button onClick={()=> setOpen(v=>!v)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm flex items-center gap-2">Projects <span className="opacity-60">▾</span></button>
               {open && (
                 <div className="absolute right-0 mt-2 w-64 bg-white text-slate-900 rounded-xl shadow-xl border overflow-hidden">
                   <div className="max-h-64 overflow-auto">
                     {projects.length===0 && <div className="p-3 text-sm text-slate-500">No projects yet</div>}
                     {projects.map((p:any)=> <Link key={p.id} to={"/p/"+p.id} onClick={()=>setOpen(false)} className="block px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-0 truncate">{p.name}</Link>)}
                   </div>
-                  <Link to="/dashboard" onClick={()=>setOpen(false)} className="block px-3 py-2 text-sm font-medium text-lime-600 hover:bg-lime-50">View all \u2192</Link>
+                  <Link to="/dashboard" onClick={()=>setOpen(false)} className="block px-3 py-2 text-sm font-medium text-lime-600 hover:bg-lime-50">View all →</Link>
                 </div>
               )}
             </div>
