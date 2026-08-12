@@ -91,7 +91,8 @@
       }
     });
   }
-  var btn=h('button',{id:'bugaputa-btn','aria-label':'Report a bug',title:'Report a bug',text:'\uD83D\uDC1B'});
+  var BUG_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h1l1 3h8l1-3h1a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2h-2V7a4 4 0 0 0-4-4Z"/><path d="M6 11H3"/><path d="M21 11h-3"/><path d="M6 15H4"/><path d="M20 15h-2"/><path d="M9 17h6"/></svg>';
+  var btn=h('button',{id:'bugaputa-btn','aria-label':'Report a bug',title:'Report a bug',html:BUG_SVG});
   btn.addEventListener('click', open);
   function mount(){ if(document.body) document.body.appendChild(btn); else setTimeout(mount, 100); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
