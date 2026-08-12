@@ -74,7 +74,7 @@
       var msg=textarea.value.trim(); var email=emailInput.value.trim(); var hasError=false;
       if(msg.length<10){ msgErr.textContent='Please describe the bug (at least 10 characters).'; msgErr.style.display='block'; hasError=true; }
       else if(msg.length>2000){ msgErr.textContent='Message too long (max 2000 characters).'; msgErr.style.display='block'; hasError=true; }
-      if(email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){ emailErr.textContent='Enter a valid email or leave empty.'; emailErr.style.display='block'; hasError=true; }
+      if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ emailErr.textContent='Enter a valid email or leave empty.'; emailErr.style.display='block'; hasError=true; }
       if(hpInput.value){ close(); return; }
       if(hasError) return;
       submitBtn.disabled=true; submitBtn.textContent='Sending...';

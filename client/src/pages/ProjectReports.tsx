@@ -45,7 +45,7 @@ export default function ProjectReports(){
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <TopNav/>
       <main className="max-w-6xl mx-auto w-full px-4 py-6 flex-1">
-        <Link to="/dashboard" className="text-sm text-slate-500 hover:text-slate-700">\u2190 All projects</Link>
+        <Link to="/dashboard" className="text-sm text-slate-500 hover:text-slate-700">← All projects</Link>
         {project && (
           <div className="mt-3 bg-white border rounded-2xl p-5">
             <h1 className="text-xl font-bold">{project.name}</h1>
@@ -75,7 +75,7 @@ export default function ProjectReports(){
           <div className="mt-6 border-2 border-dashed rounded-2xl p-10 text-center bg-white">
             <div className="text-2xl">+</div>
             <h3 className="mt-2 font-semibold">No reports yet</h3>
-            <p className="text-sm text-slate-500 mt-1">Install the snippet and submit a test report \u2014 it will appear here within seconds.</p>
+            <p className="text-sm text-slate-500 mt-1">Install the snippet and submit a test report — it will appear here within seconds.</p>
           </div>
         ) : (
           <>
@@ -96,7 +96,7 @@ export default function ProjectReports(){
               ))}
             </div>
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs text-slate-500">{total} report{total!==1?"s":""} \u00B7 page {page} of {totalPages}</span>
+              <span className="text-xs text-slate-500">{total} report{total!==1?"s":""} · page {page} of {totalPages}</span>
               <div className="flex gap-2">
                 <button disabled={page<=1} onClick={()=> setPage(p=>p-1)} className="px-3 py-1.5 rounded-lg border bg-white text-sm disabled:opacity-40 min-h-[36px]">Prev</button>
                 <button disabled={page>=totalPages} onClick={()=> setPage(p=>p+1)} className="px-3 py-1.5 rounded-lg border bg-white text-sm disabled:opacity-40 min-h-[36px]">Next</button>
