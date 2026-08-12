@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 export interface AuthUser {
   id: string;
@@ -19,11 +19,11 @@ function getSecret(): string {
 }
 
 export function signToken(user: AuthUser): string {
-  return (jwt as any).sign(user, getSecret(), { expiresIn: "7d" });
+  return jwt.sign(user, getSecret(), { expiresIn: "7d" });
 }
 
 export function verifyToken(token: string): AuthUser {
-  return (jwt as any).verify(token, getSecret()) as AuthUser;
+  return jwt.verify(token, getSecret()) as AuthUser;
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
