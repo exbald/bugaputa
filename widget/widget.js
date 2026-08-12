@@ -222,6 +222,8 @@
   }
   function isNativeCaptureSupported(){
     try{
+      var opt=script && script.getAttribute && script.getAttribute('data-native-capture')==='true';
+      if(!opt) return false;
       return !!(window.isSecureContext && navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia==='function');
     }catch(_){ return false; }
   }
@@ -326,48 +328,6 @@
               try{ stream.getTracks().forEach(function(t){ try{t.stop();}catch(_){}}); }catch(_){}
               try{ video.pause(); video.srcObject=null; }catch(_){}
               try{ video.remove(); }catch(_){}
-              // guard async editor bg image load errors -> surface choice if image fails shortly after mount
-              try{
-                var bg=document.getElementById('bugaputa-ann-bg');
-                if(bg){
-                  var bgTimer=setTimeout(function(){
-                    // if editor still present but bg failed to load (naturalWidth 0), surface choice
-                    // do not fallback if already settled and editor visible; only if image clearly broken
-                    try{
-                      var ed=document.getElementById('bugaputa-annotate');
-                      if(ed && bg && (bg.naturalWidth===0 || bg.complete===false)){
-                        // keep editor but also warn — do not auto-close; user can still cancel
-                        // Add a visible warning banner instead of silently vanishing
-                        if(!document.getElementById('bugaputa-bg-warn')){
-                          var warn=document.createElement('div');
-                          warn.id='bugaputa-bg-warn';
-                          warn.textContent='Preview image failed to load — you can still annotate (try again or use Upload image).';
-                          warn.style.cssText='background:#fef3c7;color:#92400e;padding:8px 12px;font-size:12px;border-bottom:1px solid #fbbf24';
-                          ed.insertBefore(warn, ed.firstChild);
-                        }
-                      }
-                    }catch(_){}
-                  }, 1500);
-                  var clearBgTimer=function(){ try{ clearTimeout(bgTimer); }catch(_){} try{ bg.removeEventListener('load', clearBgTimer);}catch(_){} try{ bg.removeEventListener('error', onBgError);}catch(_){} };
-                  var onBgError=function(){
-                    clearBgTimer();
-                    // annotate editor is up but image broken — offer explicit choice via status row in chooser
-                    // keep editor open but surface warning; if user cancels they return to chooser with choice
-                    try{
-                      if(!document.getElementById('bugaputa-bg-warn')){
-                        var w2=document.createElement('div');
-                        w2.id='bugaputa-bg-warn';
-                        w2.textContent='Screenshot preview failed to load — use Retry or Upload image from the chooser after closing this editor.';
-                        w2.style.cssText='background:#fee2e2;color:#991b1b;padding:8px 12px;font-size:12px;border-bottom:1px solid #fecaca';
-                        var ed2=document.getElementById('bugaputa-annotate');
-                        if(ed2) ed2.insertBefore(w2, ed2.firstChild);
-                      }
-                    }catch(_){}
-                  };
-                  bg.addEventListener('load', clearBgTimer, {once:true});
-                  bg.addEventListener('error', onBgError, {once:true});
-                }
-              }catch(_){}
             }
           }, 'image/png');
         }catch(e){
