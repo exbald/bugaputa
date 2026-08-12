@@ -53,10 +53,10 @@
 #bugaputa-ann-canvas-wrap{position:relative;flex-shrink:0;box-shadow:0 8px 32px rgba(0,0,0,0.4);background:#fff}
 #bugaputa-ann-bg{display:block;max-width:100%;height:auto;pointer-events:none;user-select:none}
 #bugaputa-ann-canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
-#bugaputa-ann-toolbar{position:fixed;left:50%;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px;background:#fff;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,0.25);border:1px solid #e2e8f0;z-index:2;max-width:calc(100vw - 16px);overflow-x:auto;scrollbar-width:none}
+#bugaputa-ann-toolbar{position:fixed;left:50%;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px;background:#fff;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,0.25);border:1px solid #e2e8f0;z-index:2;max-width:calc(100vw - 16px);overflow-x:auto;scrollbar-width:none;scroll-padding-inline:8px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 #bugaputa-ann-toolbar::-webkit-scrollbar{display:none}
 #bugaputa-ann-toolbar button{border:1px solid #e2e8f0;background:#fff;color:#0f172a;border-radius:999px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #bugaputa-ann-toolbar button[aria-pressed="true"]{background:#a3e635;border-color:#a3e635;color:#0f172a;box-shadow:0 2px 8px rgba(163,230,53,0.4)}
 #bugaputa-ann-toolbar button:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
 #bugaputa-ann-toolbar button:disabled{opacity:0.4;cursor:not-allowed}
-@media(max-width:480px){#bugaputa-ann-header{padding:8px 10px} #bugaputa-palette button{width:40px !important;height:40px !important} #bugaputa-ann-toolbar{bottom:calc(8px + env(safe-area-inset-bottom,0px));padding:6px;gap:4px} #bugaputa-ann-toolbar button{min-width:42px !important;min-height:42px !important}}
+@media(max-width:480px){#bugaputa-ann-header{padding:8px 10px} #bugaputa-palette button{width:44px !important;height:44px !important;min-width:44px;min-height:44px} #bugaputa-ann-toolbar{bottom:calc(8px + env(safe-area-inset-bottom,0px));padding:6px 8px;gap:4px;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent} #bugaputa-ann-toolbar::-webkit-scrollbar{display:block;height:4px} #bugaputa-ann-toolbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px} #bugaputa-ann-toolbar button{min-width:44px !important;min-height:44px !important}}
