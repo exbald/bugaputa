@@ -1,0 +1,25 @@
+#bugaputa-root{all:initial;position:fixed;z-index:2147483647;font-family:Inter,system-ui,sans-serif}
+#bugaputa-btn{position:fixed;right:16px;bottom:16px;width:56px;height:56px;border-radius:999px;background:#0f172a;color:#fff;border:none;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:22px;z-index:2147483647}
+#bugaputa-btn:hover{background:#1e293b}
+#bugaputa-btn:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2147483647}
+#bugaputa-modal{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:20px;position:relative}
+#bugaputa-modal h2{margin:0 0 4px;font-size:18px;font-weight:700;color:#0f172a}
+#bugaputa-modal label{display:block;margin-top:12px;font-size:13px;font-weight:600;color:#334155}
+#bugaputa-modal textarea,#bugaputa-modal input[type=email],#bugaputa-modal input[type=text]{width:100%;margin-top:4px;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;box-sizing:border-box;font-family:inherit}
+#bugaputa-modal textarea:focus,#bugaputa-modal input:focus{outline:2px solid #a3e635;outline-offset:0;border-color:#a3e635}
+#bugaputa-error{color:#dc2626;font-size:12px;margin-top:4px}
+#bugaputa-preview{margin-top:8px}
+#bugaputa-preview img{max-width:100%;max-height:160px;border-radius:8px;border:1px solid #e2e8f0}
+#bugaputa-context{margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px;color:#475569;line-height:1.5}
+#bugaputa-consent{margin-top:10px;font-size:11px;color:#64748b;line-height:1.4}
+#bugaputa-actions{display:flex;gap:8px;margin-top:16px}
+#bugaputa-actions button{flex:1;min-height:44px;border-radius:10px;border:none;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
+#bugaputa-submit{background:#0f172a;color:#fff}
+#bugaputa-submit:hover{background:#1e293b}
+#bugaputa-submit:disabled{opacity:.5;cursor:not-allowed}
+#bugaputa-cancel{background:#f1f5f9;color:#334155;border:1px solid #e2e8f0 !important}
+#bugaputa-success{text-align:center;padding:24px 0}
+#bugaputa-success p{color:#16a34a;font-weight:600}
+#bugaputa-hp{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
+@media(max-width:360px){#bugaputa-modal{padding:16px}#bugaputa-btn{right:12px;bottom:12px;width:52px;height:52px}}
