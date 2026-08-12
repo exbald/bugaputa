@@ -52,7 +52,7 @@ export default function Landing(){
             <Link to="/register" className="px-5 py-2.5 rounded-xl bg-lime-500 text-slate-900 font-bold whitespace-nowrap">Create your project</Link>
           </div>
         </section>
-        <section className="max-w-6xl mx-auto px-4 pb-8" aria-label="Try the live widget">
+        <section className="max-w-6xl mx-auto px-4 pb-28 sm:pb-8" aria-label="Try the live widget">
           <div className="rounded-2xl border border-lime-200 bg-lime-50 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <div><h3 className="font-bold text-slate-900">Try it — report a bug with the button in the corner</h3><p className="mt-1 text-sm text-slate-600">Look for the floating <span aria-hidden>🐛</span> button in the corner — click it to report a bug, just like your users will. This is the real Bugaputa widget running on this page. Keyboard: press Tab to reach it, Enter to open.</p></div>
             <span className="shrink-0 inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Live widget active</span>
