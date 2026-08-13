@@ -61,6 +61,20 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
     }
     res.type("text/css").send("/* Bugaputa widget.css not built yet */");
   });
+  // Capture engines, lazy-loaded by the widget after capture consent
+  for (const engine of ["modern-screenshot.min.js", "html2canvas.min.js"]) {
+    const candidates = [
+      path.resolve(`widget/${engine}`),
+      path.resolve(`client/public/${engine}`),
+      path.resolve(`dist/${engine}`),
+    ];
+    app.get(`/${engine}`, (_req, res) => {
+      for (const p of candidates) {
+        if (fs.existsSync(p)) return res.type("application/javascript").sendFile(path.resolve(p));
+      }
+      res.status(404).type("application/javascript").send("/* capture engine not available */");
+    });
+  }
 
   // CORS for widget/report public routes is handled inside reports router
   // General CORS for API — allow same-origin by default; public routes handle their own
