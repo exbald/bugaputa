@@ -8,7 +8,7 @@ type Db = BetterSqlite3.Database;
 let db: Db | null = null;
 
 export function getDb(): Db {
-  if (!db) throw new Error("DB not initialized — call initDb() first");
+  if (!db) throw new Error("DB not initialized \u2014 call initDb() first");
   return db;
 }
 
@@ -23,6 +23,14 @@ export function initDb(dbPath: string): Db {
   migrate(db);
   return db;
 }
+
+export const WIDGET_DEFAULTS = {
+  label: "Feedback",
+  color: "#4f46e5",
+  position: "right" as const,
+};
+
+export type WidgetPosition = "left" | "right" | "bottom-left" | "bottom-right";
 
 function migrate(database: Db) {
   database.exec(`
@@ -68,10 +76,24 @@ function migrate(database: Db) {
   // CREATE TABLE IF NOT EXISTS is a no-op on existing databases, so columns added
   // after first deploy need an explicit ALTER. ADD COLUMN is a metadata-only change
   // in SQLite (no table rewrite), and the PRAGMA check keeps this idempotent.
-  const reportColumns = (database.prepare("PRAGMA table_info(reports)").all() as any[]).map((c) => c.name);
+  const reportCols = (database.prepare("PRAGMA table_info(reports)").all() as any[]).map((c) => c.name);
   for (const column of ["snapshotPath", "annotationsPath"]) {
-    if (!reportColumns.includes(column)) {
+    if (!reportCols.includes(column)) {
       database.exec(`ALTER TABLE reports ADD COLUMN ${column} TEXT`);
+    }
+  }
+  // Widget customization columns (idempotent for existing DBs)
+  {
+    const cols = database.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
+    const colNames = new Set(cols.map((c) => c.name));
+    if (!colNames.has("widget_label")) {
+      database.exec("ALTER TABLE projects ADD COLUMN widget_label TEXT DEFAULT 'Feedback'");
+    }
+    if (!colNames.has("widget_color")) {
+      database.exec("ALTER TABLE projects ADD COLUMN widget_color TEXT DEFAULT '#4f46e5'");
+    }
+    if (!colNames.has("widget_position")) {
+      database.exec("ALTER TABLE projects ADD COLUMN widget_position TEXT DEFAULT 'right'");
     }
   }
 }

@@ -30,6 +30,16 @@ export const reportStatusSchema = z.object({
   status: z.enum(["open", "in_progress", "resolved", "archived"]),
 });
 
+export const widgetSettingsSchema = z.object({
+  widget_label: z.string().trim().min(1).max(30).optional(),
+  widget_color: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).optional(),
+  widget_position: z.enum(["left", "right", "bottom-left", "bottom-right"]).optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: "At least one widget field required" });
+
+export const widgetConfigQuerySchema = z.object({
+  project: z.string().min(1),
+});
+
 export const paginationSchema = z.object({
   status: z.enum(["open", "in_progress", "resolved", "archived"]).optional(),
   q: z.string().optional(),
