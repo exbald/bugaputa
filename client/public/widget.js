@@ -31,6 +31,8 @@
   var overlay=null, lastFocus=null;
   var capturedBlobUrl=null, capturedDataUrl=null, capturedDims=null;
   var pendingAnnotatedFile=null; // File from annotation export, to submit with form
+  var capturedSnapshotHtml=null; // serialized DOM snapshot of the captured viewport
+  var pendingSnapshotFile=null, pendingAnnotationsFile=null;
   function trapFocus(e){
     if(!overlay) return;
     if(e.key==='Escape'){ onOverlayEsc(); return; }
@@ -50,6 +52,7 @@
   function close(){
     if(capturedBlobUrl){ URL.revokeObjectURL(capturedBlobUrl); capturedBlobUrl=null; }
     capturedDataUrl=null; capturedDims=null;
+    capturedSnapshotHtml=null; pendingSnapshotFile=null; pendingAnnotationsFile=null;
     // cleanup annotate listeners if any
     cleanupAnnotate();
     var ed2=document.getElementById('bugaputa-annotate');
@@ -75,6 +78,7 @@
     // return to chooser
     if(capturedBlobUrl){ URL.revokeObjectURL(capturedBlobUrl); capturedBlobUrl=null; }
     capturedDataUrl=null; capturedDims=null; pendingAnnotatedFile=null;
+    capturedSnapshotHtml=null; pendingSnapshotFile=null; pendingAnnotationsFile=null;
     cleanupAnnotate();
     ed.remove();
     document.body.style.overflow='';
@@ -166,6 +170,10 @@
       // revoke on next file change or close; store for revoke
       preview._blobUrl=blobUrl;
       fileLabel.firstChild && (fileLabel.firstChild.textContent='Replace screenshot (optional)');
+    } else if(pendingSnapshotFile){
+      // snapshot-only (rasterizer unavailable): nothing to preview, but the report
+      // still carries the pixel-exact page capture
+      preview.appendChild(h('div',{text:'Pixel-perfect page snapshot attached.',style:'font-size:11px;color:#64748b'}));
     }
     fileInput.addEventListener('change', function(){
       // revoke previous annotated preview blob
@@ -212,8 +220,8 @@
       var url=apiUrl; if(url.startsWith('/') && script && script.src){ try{ var u=new URL(script.src); url=u.origin+url; }catch(_){} }
       function onSuccess(){ form.style.display='none'; success.style.display='block'; setTimeout(close, 2200); }
       function onError(msg){ errBox.textContent=msg || 'Failed to send. Please try again.'; errBox.style.display='block'; submitBtn.disabled=false; submitBtn.textContent='Send report'; }
-      if(hasFile){
-        var fd=new FormData(); fd.append('message', msg); if(email) fd.append('contactEmail', email); fd.append('pageUrl', location.href); fd.append('userAgent', navigator.userAgent); fd.append('viewport', window.innerWidth+'x'+window.innerHeight); fd.append('language', navigator.language||''); fd.append('website', hpInput.value); fd.append('screenshot', hasFile); if(projectKey) fd.append('projectKey', projectKey);
+      if(hasFile || pendingSnapshotFile || pendingAnnotationsFile){
+        var fd=new FormData(); fd.append('message', msg); if(email) fd.append('contactEmail', email); fd.append('pageUrl', location.href); fd.append('userAgent', navigator.userAgent); fd.append('viewport', window.innerWidth+'x'+window.innerHeight); fd.append('language', navigator.language||''); fd.append('website', hpInput.value); if(hasFile) fd.append('screenshot', hasFile); if(pendingSnapshotFile) fd.append('domSnapshot', pendingSnapshotFile); if(pendingAnnotationsFile) fd.append('annotations', pendingAnnotationsFile); if(projectKey) fd.append('projectKey', projectKey);
         fetch(url, {method:'POST', headers:{'x-project-key':projectKey}, body:fd}).then(function(r){ return r.text().then(function(t){ var d; try{d=JSON.parse(t)}catch{d=t}; return {ok:r.ok,status:r.status,data:d}; }); }).then(function(res){ if(res.ok) onSuccess(); else onError((res.data&&res.data.error)||'Failed to send ('+res.status+')'); }).catch(function(){ onError('Network error. Check connection and retry.'); });
       } else {
         var body=JSON.stringify({message:msg, contactEmail:email||undefined, pageUrl:location.href, userAgent:navigator.userAgent, viewport:window.innerWidth+'x'+window.innerHeight, language:navigator.language||'', website:hpInput.value, projectKey:projectKey});
@@ -330,6 +338,237 @@
       }
     }
     clone.removeAttribute('data-bugaputa-fix');
+  }
+  // ---------- DOM snapshot (primary capture) ----------
+  // Rasterizing the page re-renders it outside the real document context, which is
+  // why captures drift: generic font keywords (system-ui, ui-sans-serif) don't
+  // resolve there, and platform UI fonts like macOS San Francisco aren't
+  // addressable by any CSS name, so text re-wraps and layouts look "smushed".
+  // Instead we serialize a sanitized clone of the DOM; a real browser engine
+  // renders it back (sandboxed iframe here and in the dashboard), which is
+  // pixel-exact by construction on every OS and browser. The raster image is kept
+  // as a best-effort flattened artifact only.
+  var SNAPSHOT_MAX_HTML=8*1024*1024, SNAPSHOT_MAX_GZ=2*1024*1024;
+  var REDACT_NAME_RE=/pass|secret|token|card|cvc|ssn/i;
+  function snapshotRedact(el){
+    try{
+      if((el.type||'').toLowerCase()==='password') return true;
+      var ac=(el.getAttribute('autocomplete')||'').toLowerCase();
+      if(ac.indexOf('cc-')===0 || ac==='current-password' || ac==='new-password') return true;
+      return REDACT_NAME_RE.test((el.getAttribute('name')||'')+' '+(el.getAttribute('id')||''));
+    }catch(_){ return true; }
+  }
+  function snapshotPlaceholderBox(live, doc, dashed){
+    var r={width:0,height:0};
+    try{ r=live.getBoundingClientRect(); }catch(_){}
+    var div=doc.createElement('div');
+    div.style.cssText='width:'+Math.round(r.width)+'px;height:'+Math.round(r.height)+'px;background:#f1f5f9;'+(dashed?'border:1px dashed #cbd5e1;':'');
+    return div;
+  }
+  // Walk live and cloned trees in lockstep (they are structurally identical until
+  // we start mutating) so each clone can be given the live node's runtime state:
+  // form values, canvas pixels, masked text. Serialization alone would lose all of it.
+  function snapshotCopyState(live, cloned, doc){
+    var lc=live.children, cc=cloned.children;
+    for(var i=lc.length-1;i>=0;i--){
+      var l=lc[i], c=cc[i];
+      if(!c) continue;
+      if(l.hasAttribute && l.hasAttribute('data-html2canvas-ignore')){ cloned.removeChild(c); continue; }
+      var tag=l.tagName;
+      if(tag==='IFRAME' || tag==='FRAME' || tag==='OBJECT' || tag==='EMBED'){
+        cloned.replaceChild(snapshotPlaceholderBox(l, doc, true), c);
+        continue;
+      }
+      if(tag==='CANVAS'){
+        var replacement=null;
+        try{
+          var data=l.toDataURL('image/png');
+          var img=doc.createElement('img');
+          img.setAttribute('src', data);
+          if(l.className) img.className=l.className;
+          if(l.getAttribute('style')) img.setAttribute('style', l.getAttribute('style'));
+          var cr=l.getBoundingClientRect();
+          img.style.width=Math.round(cr.width)+'px'; img.style.height=Math.round(cr.height)+'px';
+          replacement=img;
+        }catch(_){ replacement=snapshotPlaceholderBox(l, doc, false); }
+        cloned.replaceChild(replacement, c);
+        continue;
+      }
+      if(l.hasAttribute && l.hasAttribute('data-bugaputa-mask')){
+        c.textContent='XXXXX';
+        continue;
+      }
+      if(tag==='INPUT'){
+        var redacted=snapshotRedact(l);
+        var type=(l.type||'').toLowerCase();
+        if(type==='checkbox' || type==='radio'){
+          if(l.checked) c.setAttribute('checked','');
+          else c.removeAttribute('checked');
+        } else {
+          c.setAttribute('value', redacted ? 'XXXXX' : (l.value||''));
+        }
+        continue;
+      }
+      if(tag==='TEXTAREA'){
+        c.textContent=snapshotRedact(l) ? 'XXXXX' : (l.value||'');
+        continue;
+      }
+      if(tag==='SELECT'){
+        for(var o=0;o<l.options.length;o++){
+          var co=c.options && c.options[o];
+          if(!co) continue;
+          if(l.options[o].selected) co.setAttribute('selected','');
+          else co.removeAttribute('selected');
+        }
+        continue;
+      }
+      if(l.scrollTop || l.scrollLeft){
+        // Recorded for future use: the viewer iframe runs without scripts, and CSS
+        // cannot restore scroll offsets, so inner scroll positions aren't replayed.
+        if(l.scrollTop) c.setAttribute('data-bugaputa-scroll-top', String(Math.round(l.scrollTop)));
+        if(l.scrollLeft) c.setAttribute('data-bugaputa-scroll-left', String(Math.round(l.scrollLeft)));
+      }
+      snapshotCopyState(l, c, doc);
+    }
+  }
+  function sanitizeSnapshot(root){
+    var drop=root.querySelectorAll('script, noscript, template, base, link[rel~="preload" i], link[rel~="modulepreload" i], link[rel~="prefetch" i], link[rel~="preconnect" i], link[rel~="dns-prefetch" i], meta[http-equiv="refresh" i]');
+    for(var i=0;i<drop.length;i++){ if(drop[i].parentNode) drop[i].parentNode.removeChild(drop[i]); }
+    var all=root.querySelectorAll('*');
+    var URL_ATTRS=['href','src','action','formaction','xlink:href'];
+    for(var j=-1;j<all.length;j++){
+      var el=(j<0)?root:all[j];
+      var names=el.getAttributeNames?el.getAttributeNames():[];
+      for(var k=0;k<names.length;k++){
+        var n=names[k];
+        if(n.toLowerCase().indexOf('on')===0){ el.removeAttribute(n); continue; }
+        if(URL_ATTRS.indexOf(n.toLowerCase())!==-1){
+          var v=el.getAttribute(n)||'';
+          if(/^\s*javascript:/i.test(v)) el.setAttribute(n, '#');
+        }
+      }
+    }
+  }
+  function absolutizeUrl(v){
+    if(!v) return v;
+    if(/^(data:|blob:|about:|#)/i.test(v)) return v;
+    try{ return new URL(v, location.href).href; }catch(_){ return v; }
+  }
+  function absolutizeSnapshotUrls(root){
+    var els=root.querySelectorAll('img, source, video, audio, track, link, a, area, form, input[type="image" i]');
+    for(var i=0;i<els.length;i++){
+      var el=els[i];
+      var attrs=['src','href','poster','action'];
+      for(var a=0;a<attrs.length;a++){
+        if(el.hasAttribute(attrs[a])) el.setAttribute(attrs[a], absolutizeUrl(el.getAttribute(attrs[a])));
+      }
+      if(el.hasAttribute('srcset')){
+        var parts=(el.getAttribute('srcset')||'').split(',');
+        for(var p=0;p<parts.length;p++){
+          var seg=parts[p].trim().split(/\s+/);
+          if(seg[0]) seg[0]=absolutizeUrl(seg[0]);
+          parts[p]=seg.join(' ');
+        }
+        el.setAttribute('srcset', parts.join(', '));
+      }
+    }
+  }
+  // Inline every stylesheet we can read. This also captures CSSOM-only rules
+  // (styled-components, insertRule) that outerHTML would serialize as empty.
+  function inlineSameOriginSheets(root){
+    var sheets=document.styleSheets;
+    var clonedLinks=root.querySelectorAll('link[rel~="stylesheet" i]');
+    var clonedStyles=root.querySelectorAll('style');
+    var styleIndex=0;
+    for(var i=0;i<sheets.length;i++){
+      var sheet=sheets[i], rules=null;
+      try{ rules=sheet.cssRules; }catch(_){ rules=null; }
+      if(sheet.ownerNode && sheet.ownerNode.tagName==='STYLE'){
+        var target=clonedStyles[styleIndex++];
+        if(target && rules){
+          var text='';
+          for(var r=0;r<rules.length;r++) text+=rules[r].cssText+'\n';
+          target.textContent=text;
+        }
+        continue;
+      }
+      if(!rules) continue; // cross-origin: leave the (absolutized) <link> in place
+      var href=sheet.href||'';
+      for(var c=0;c<clonedLinks.length;c++){
+        var link=clonedLinks[c];
+        if(!link.parentNode) continue;
+        var lh='';
+        try{ lh=new URL(link.getAttribute('href')||'', location.href).href; }catch(_){ lh=link.getAttribute('href')||''; }
+        if(lh!==href) continue;
+        var styleEl=root.ownerDocument.createElement('style');
+        styleEl.setAttribute('data-bugaputa-inlined','');
+        var css='';
+        for(var rr=0;rr<rules.length;rr++) css+=rules[rr].cssText+'\n';
+        styleEl.textContent=css;
+        link.parentNode.replaceChild(styleEl, link);
+        break;
+      }
+    }
+  }
+  // Pin the clone to the captured viewport: same translate trick the raster path
+  // uses, so a vw x vh frame shows exactly what the user saw — no scripts needed.
+  function anchorSnapshotViewport(root, sx, sy, vw, vh, scale){
+    var head=root.querySelector('head');
+    if(!head){ head=root.ownerDocument.createElement('head'); root.insertBefore(head, root.firstChild); }
+    var style=root.ownerDocument.createElement('style');
+    style.setAttribute('data-bugaputa-anchor','');
+    style.textContent='html,body{overflow:hidden !important;margin:0 !important;padding:0 !important}'+
+      'html{width:'+vw+'px !important;height:'+vh+'px !important}'+
+      'body{transform:translate('+(-sx)+'px,'+(-sy)+'px);transform-origin:0 0}';
+    head.insertBefore(style, head.firstChild);
+    root.setAttribute('data-bugaputa-viewport', vw+'x'+vh);
+    root.setAttribute('data-bugaputa-dpr', String(scale||1));
+    root.setAttribute('data-bugaputa-url', location.href);
+    try{ root.setAttribute('data-bugaputa-ts', new Date().toISOString()); }catch(_){}
+  }
+  function serializeSnapshot(root){
+    var doctype='<!DOCTYPE html>\n';
+    try{ if(document.doctype) doctype=new XMLSerializer().serializeToString(document.doctype)+'\n'; }catch(_){}
+    var html=doctype+root.outerHTML;
+    if(html.length>SNAPSHOT_MAX_HTML) return null;
+    return html;
+  }
+  function buildSnapshotHtml(sx, sy, vw, vh, scale){
+    var untag=null;
+    try{
+      untag=prepareCaptureFixups(sx, sy);
+      var clone=document.documentElement.cloneNode(true);
+      snapshotCopyState(document.documentElement, clone, document);
+      untag(); untag=null;
+      sanitizeSnapshot(clone);
+      absolutizeSnapshotUrls(clone);
+      inlineSameOriginSheets(clone);
+      // same fixed/sticky re-anchoring the raster path applies to its clone
+      applyCloneFixup(clone);
+      var marked=clone.querySelectorAll('[data-bugaputa-fix]');
+      for(var i=0;i<marked.length;i++) applyCloneFixup(marked[i]);
+      anchorSnapshotViewport(clone, sx, sy, vw, vh, scale);
+      return serializeSnapshot(clone);
+    }catch(err){
+      console.warn('[Bugaputa] snapshot build failed', err);
+      return null;
+    }finally{
+      if(untag) try{ untag(); }catch(_){}
+    }
+  }
+  function gzipSnapshotFile(html, cb){
+    if(!html){ cb(null); return; }
+    try{
+      if(typeof CompressionStream!=='undefined' && typeof Response!=='undefined'){
+        var stream=new Blob([html]).stream().pipeThrough(new CompressionStream('gzip'));
+        new Response(stream).blob().then(function(blob){
+          if(blob.size>SNAPSHOT_MAX_GZ){ cb(null); return; }
+          cb(new File([blob], 'snapshot.html.gz', {type:'application/gzip'}));
+        }).catch(function(){ cb(null); });
+        return;
+      }
+      cb(new File([html], 'snapshot.html', {type:'text/html'}));
+    }catch(_){ cb(null); }
   }
   // Chrome quirk: inside the SVG image used for rasterization, generic font
   // keywords (system-ui, ui-sans-serif, -apple-system, BlinkMacSystemFont,
@@ -458,6 +697,10 @@
       if(!blob){ onErr(new Error('toBlob failed')); return; }
       if(capturedBlobUrl) URL.revokeObjectURL(capturedBlobUrl);
       capturedBlobUrl=URL.createObjectURL(blob);
+      // Snapshot mode already opened the editor; the raster is only the flattened
+      // export artifact, so hand it over instead of opening a second editor.
+      var ed=document.getElementById('bugaputa-annotate');
+      if(ed && ed._onRaster){ ed._onRaster(canvas, capturedBlobUrl); return; }
       openAnnotateEditor(capturedBlobUrl, dataUrl, canvas, formWrap, chooser, capturePane);
     }, 'image/png');
   }
@@ -472,6 +715,9 @@
     if(btn) btn.style.display='none';
     if(overlay) overlay.style.display='none';
     function fail(err){
+      // With a snapshot in hand the editor is already open and usable; a raster
+      // failure only costs the flattened PNG, so don't derail the user with it.
+      if(capturedSnapshotHtml){ console.warn('[Bugaputa] raster capture unavailable, snapshot only', err); return; }
       handleCaptureError(err, statusEl, formWrap, chooser, capturePane, btn, prevBtnDisplay, prevOverlayDisplay);
     }
     function ignoreFilter(el){
@@ -569,8 +815,22 @@
         });
       }, 160);
     }
+    // Snapshot first: it is the pixel-exact artifact and needs the page untouched.
+    // When it succeeds the editor opens immediately over a live-rendered iframe and
+    // the raster runs behind it, so a slow or failing rasterizer can no longer
+    // block (or distort) the report.
+    statusEl.textContent='Capturing…';
+    var snapSx=Math.round(window.scrollX||window.pageXOffset||0), snapSy=Math.round(window.scrollY||window.pageYOffset||0);
+    var snapVw=window.innerWidth, snapVh=window.innerHeight;
+    var snapScale=captureScale(snapVw, snapVh);
+    capturedSnapshotHtml=buildSnapshotHtml(snapSx, snapSy, snapVw, snapVh, snapScale);
+    if(capturedSnapshotHtml){
+      statusEl.style.display='none';
+      capturedDims={w:Math.round(snapVw*snapScale), h:Math.round(snapVh*snapScale), cssW:snapVw, cssH:snapVh, dpr:snapScale};
+      openAnnotateEditor(null, null, null, formWrap, chooser, capturePane);
+    }
     if(window.modernScreenshot){ captureModern(); return; }
-    statusEl.textContent='Loading capture engine…';
+    if(!capturedSnapshotHtml) statusEl.textContent='Loading capture engine…';
     loadScript(scriptBase()+'/modern-screenshot.min.js', captureModern, function(){
       // modern-screenshot unavailable (blocked/missing) — go straight to fallback
       captureLegacy();
@@ -662,7 +922,7 @@
     // canvas area
     var stage=h('div',{id:'bugaputa-ann-stage'});
     // capture image as background
-    var bgImg=h('img',{id:'bugaputa-ann-bg',alt:'Captured page',src:blobUrl});
+    var bgImg=h('img',{id:'bugaputa-ann-bg',alt:'Captured page',src:blobUrl||''});
     var canvasWrap=h('div',{id:'bugaputa-ann-canvas-wrap'});
     var cvs=document.createElement('canvas');
     cvs.id='bugaputa-ann-canvas';
@@ -674,6 +934,25 @@
     cvs.style.height='100%';
     bgImg.style.width='100%';
     bgImg.style.height='100%';
+    // Snapshot mode: the background is the page itself, re-rendered natively by the
+    // browser inside a locked-down iframe (no scripts, opaque origin) at the exact
+    // captured viewport size, then CSS-scaled to fit. This is what makes the
+    // annotated view pixel-identical to what the reporter saw.
+    var frame=null;
+    if(capturedSnapshotHtml){
+      frame=document.createElement('iframe');
+      frame.id='bugaputa-ann-frame';
+      frame.setAttribute('sandbox','');
+      frame.setAttribute('referrerpolicy','no-referrer');
+      frame.setAttribute('aria-hidden','true');
+      frame.setAttribute('width', String(capturedDims.cssW));
+      frame.setAttribute('height', String(capturedDims.cssH));
+      frame.style.cssText='position:absolute;left:0;top:0;border:0;pointer-events:none;transform-origin:0 0;background:#fff';
+      frame.srcdoc=capturedSnapshotHtml;
+      canvasWrap.appendChild(frame);
+      bgImg.style.display='none';
+    }
+    canvasWrap.style.overflow='hidden';
     canvasWrap.appendChild(bgImg);
     canvasWrap.appendChild(cvs);
     stage.appendChild(canvasWrap);
@@ -763,6 +1042,9 @@
       var h=Math.max(1, Math.floor(capturedDims.cssH * scale));
       canvasWrap.style.width=w+'px';
       canvasWrap.style.height=h+'px';
+      // The iframe renders at true captured size and is scaled down to the fitted
+      // box, so its layout never re-flows (that is the whole point of the snapshot).
+      if(frame) frame.style.transform='scale('+(w/capturedDims.cssW)+')';
     }
     // initial fit next frame (after layout) and on resize
     requestAnimationFrame(function(){ applyFit(); requestAnimationFrame(applyFit); });
@@ -780,6 +1062,12 @@
     };
     // expose count for discard confirm
     ed._annCount=function(){ return state.annotations.length; };
+    // Background raster arriving after the editor opened (snapshot mode): keep it
+    // for the flattened export only — the iframe stays the visual background.
+    ed._onRaster=function(canvas, blobUrl2){
+      capCanvas=canvas;
+      if(blobUrl2 && !frame){ bgImg.src=blobUrl2; bgImg.style.display=''; }
+    };
     // focus trap for editor
     function edTrap(e){
       if(e.key==='Escape'){ e.preventDefault(); requestDiscard(); return; }
@@ -1038,31 +1326,9 @@
     // Done/Cancel handled below; drawing undo is pushed at pointerdown (before mutation)
     // Done/Cancel handlers
     btnCancel.addEventListener('click', function(){ requestDiscard(); });
-    btnDone.addEventListener('click', function(){
-      // flatten to PNG via export canvas at DPR
-      var exportScale=capturedDims.dpr|| (window.devicePixelRatio||1);
-      var cssW=cvs.width, cssH=cvs.height;
-      var out=document.createElement('canvas');
-      out.width=Math.round(cssW*exportScale);
-      out.height=Math.round(cssH*exportScale);
-      var octx=out.getContext('2d');
-      octx.scale(exportScale, exportScale);
-      // draw captured image scaled to css size
-      // bgImg is blobUrl of captured canvas at capturedDims.w/h but scaled. We can draw the original capCanvas if available, else bgImg
-      // Use capCanvas as source if same size
-      if(capCanvas && capCanvas.width){
-        octx.drawImage(capCanvas, 0,0, cssW, cssH);
-      } else {
-        // fallback: draw bgImg
-        // Need to wait for image load; but bgImg already loaded
-        octx.drawImage(bgImg, 0,0, cssW, cssH);
-      }
-      // draw annotations scaled (they are in CSS coords, we already scaled context, so just draw again with same coords but need to replay)
-      // Reuse render logic but on out canvas: we can temporarily swap ctx
-      var prevCtx=ctx;
-      // create a function to draw on octx
-      // Instead of swapping, just redraw using same code but with octx
-      // We will inline draw
+    // Replay annotations onto any 2D context already scaled to CSS coordinates.
+    // Used twice: once for the transparent overlay, once for the flattened export.
+    function drawAnnotationsTo(octx, cssW){
       state.annotations.forEach(function(a){
         octx.save();
         octx.strokeStyle=a.color; octx.fillStyle=a.color; octx.lineWidth=2.5; octx.lineCap='round'; octx.lineJoin='round';
@@ -1073,23 +1339,55 @@
         else if(a.type==='pin'){ octx.beginPath(); octx.arc(a.x,a.y,14,0,Math.PI*2); octx.fillStyle=a.color; octx.fill(); octx.strokeStyle='#fff'; octx.lineWidth=2; octx.stroke(); octx.fillStyle='#fff'; octx.font='bold 12px Inter, system-ui'; octx.textAlign='center'; octx.textBaseline='middle'; octx.fillText(String(a.n), a.x, a.y); octx.textAlign='left'; octx.textBaseline='alphabetic'; if(a.text){ var pad=6, tw=octx.measureText(a.text).width+pad*2, th=18; var bx=a.x+18, by=a.y-14; if(bx+tw>cssW) bx=a.x - tw - 10; if(by<0) by=a.y+10; octx.fillStyle='rgba(15,23,42,0.96)'; octx.strokeStyle='rgba(255,255,255,0.9)'; octx.beginPath(); var r=8; octx.moveTo(bx+r,by); octx.lineTo(bx+tw-r,by); octx.quadraticCurveTo(bx+tw,by,bx+tw,by+r); octx.lineTo(bx+tw,by+th-r); octx.quadraticCurveTo(bx+tw,by+th,bx+tw-r,by+th); octx.lineTo(bx+r,by+th); octx.quadraticCurveTo(bx,by+th,bx,by+th-r); octx.lineTo(bx,by+r); octx.quadraticCurveTo(bx,by,bx+r,by); octx.closePath(); octx.fill(); octx.lineWidth=1; octx.stroke(); octx.fillStyle='#fff'; octx.font='12px Inter, system-ui'; octx.fillText(a.text, bx+pad, by+13); } }
         octx.restore();
       });
-      out.toBlob(function(blob){
-        if(!blob){ alert('Failed to export image'); return; }
-        if(blob.size>5*1024*1024){ alert('Annotated image too large (max 5MB). Try fewer annotations or smaller capture.'); return; }
-        // store as pending file for form
-        pendingAnnotatedFile=new File([blob], 'annotated.png', {type:'image/png'});
-        // cleanup editor
+    }
+    btnDone.addEventListener('click', function(){
+      var exportScale=capturedDims.dpr|| (window.devicePixelRatio||1);
+      var cssW=cvs.width, cssH=cvs.height;
+      // 1) annotations-only overlay, transparent, drawn at device resolution so it
+      //    composites cleanly over the natively-rendered snapshot in the dashboard
+      var layer=document.createElement('canvas');
+      layer.width=Math.round(cssW*exportScale);
+      layer.height=Math.round(cssH*exportScale);
+      var lctx=layer.getContext('2d');
+      lctx.scale(exportScale, exportScale);
+      drawAnnotationsTo(lctx, cssW);
+      function finish(){
         cleanupAnnotate();
         ed.remove();
         document.body.style.overflow='';
         if(overlay) overlay.style.display='flex';
-        // show form with preview
         chooser.style.display='none'; capturePane.style.display='none';
         showForm(null);
-        // revoke blobUrl of capture? keep for preview? we already revoked? keep pendingAnnotatedFile blob
-        // also revoke capturedBlobUrl? No, annotate done, we can revoke capture blobUrl now and keep pendingAnnotatedFile
         if(capturedBlobUrl){ URL.revokeObjectURL(capturedBlobUrl); capturedBlobUrl=null; }
-        // restore button? keep hidden until form closed? Actually overlay is visible, button should be hidden while overlay open? Keep hidden.
+      }
+      function withFlattened(next){
+        // 2) flattened PNG — best effort; only possible when the raster succeeded
+        var background=(capCanvas && capCanvas.width) ? capCanvas : (frame ? null : bgImg);
+        if(!background){ next(); return; }
+        var out=document.createElement('canvas');
+        out.width=Math.round(cssW*exportScale);
+        out.height=Math.round(cssH*exportScale);
+        var octx=out.getContext('2d');
+        octx.scale(exportScale, exportScale);
+        try{ octx.drawImage(background, 0,0, cssW, cssH); }catch(_){ next(); return; }
+        octx.drawImage(layer, 0,0, cssW, cssH);
+        out.toBlob(function(blob){
+          if(blob && blob.size<=5*1024*1024) pendingAnnotatedFile=new File([blob], 'annotated.png', {type:'image/png'});
+          next();
+        }, 'image/png');
+      }
+      layer.toBlob(function(layerBlob){
+        if(layerBlob && layerBlob.size<=5*1024*1024 && state.annotations.length){
+          pendingAnnotationsFile=new File([layerBlob], 'annotations.png', {type:'image/png'});
+        }
+        withFlattened(function(){
+          // 3) the pixel-exact artifact
+          gzipSnapshotFile(capturedSnapshotHtml, function(file){
+            pendingSnapshotFile=file;
+            if(!pendingAnnotatedFile && !pendingSnapshotFile){ alert('Failed to export image'); return; }
+            finish();
+          });
+        });
       }, 'image/png');
     });
     // double-click to edit text/pin

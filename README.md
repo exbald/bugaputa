@@ -49,7 +49,7 @@ See `.env.example`.
 | GET | /api/reports/:id | yes | own |
 | PATCH | /api/reports/:id | yes | {status: open|in_progress|resolved|archived} |
 | DELETE | /api/reports/:id | yes | own |
-| POST | /api/reports | public | projectKey via x-project-key header or body; honeypot website must be empty; rate-limited; multipart screenshot (png/jpeg/webp/gif, <=5MB) or JSON |
+| POST | /api/reports | public | projectKey via x-project-key header or body; honeypot website must be empty; rate-limited; JSON, or multipart with any of: `screenshot` (flattened png/jpeg/webp/gif, <=5MB), `domSnapshot` (text/html or application/gzip, <=8MB), `annotations` (transparent PNG overlay, <=5MB) |
 | GET | /widget.js | no | widget JS (CORS *) |
 | GET | /widget.css | no | widget CSS |
 | GET | /health, /api/health | no | {ok:true} |
@@ -64,6 +64,30 @@ Sequence: register -> POST /api/projects -> note publicKey -> POST /api/reports 
 ```
 
 Optional `data-api="https://bugaputa.no-code.gdn"` to override API base. The widget injects a floating button, opens an accessible modal (focus trap, ESC, 44px targets), shows what will be sent (URL, browser, viewport, language), and posts to POST /api/reports.
+
+### Capture: DOM snapshot, not a rasterized image
+
+Rasterizing a page re-renders it outside the real document context, which shifts text
+and re-wraps layouts (generic font keywords like `system-ui` don't resolve there, and
+platform UI fonts such as macOS San Francisco aren't addressable by any CSS name).
+So capture serializes a sanitized **DOM snapshot** instead, and real browser engines
+render it back — in the annotation editor and in the dashboard — which is pixel-exact
+by construction on every OS and browser.
+
+What the snapshot contains: the cloned document with form values, canvas pixels
+(`toDataURL`) and same-origin stylesheets inlined (including CSSOM-only rules), URLs
+absolutized, and fixed/stuck-sticky elements re-anchored to the captured viewport.
+
+What is stripped or masked: `script`/`noscript`/`template`, preload/prefetch links,
+meta refresh, all `on*` handlers and `javascript:` URLs; cross-origin frames become
+placeholders; password fields, `autocomplete="cc-*"`, and any field whose name/id
+matches `pass|secret|token|card|cvc|ssn` become `XXXXX`. Add `data-bugaputa-mask` to
+any element to force-mask its text.
+
+Degradation: snapshot fails → flattened raster only; raster fails → snapshot only;
+both fail → manual image upload. Inner scroll positions of nested containers are
+recorded (`data-bugaputa-scroll-*`) but not replayed, since the viewer runs without
+scripts.
 
 ## Docker
 
@@ -111,7 +135,8 @@ Dockerfile     multi-stage build
 
 ## Security
 
-- zod validation on every input; message 10-2000 chars; file MIME + 5MB check; honeypot website; rate limit 20/min/IP/project; helmet; CORS allow-all only on public POST; IP hashed, never plain.
+- zod validation on every input; message 10-2000 chars; file MIME + size checks (5MB images, 8MB snapshots); honeypot website; rate limit 20/min/IP/project; helmet; CORS allow-all only on public POST; IP hashed, never plain. Every early exit (honeypot, validation, bad key, rate limit, multer error) deletes all uploaded artifacts.
+- DOM snapshots are captured-page markup, so they are treated as untrusted: rendered only inside `sandbox=""` iframes (no scripts, opaque origin) in the editor and dashboard, and `/uploads` serves `.html`/`.gz` as `application/octet-stream` + `Content-Disposition: attachment` + `nosniff` so they can never render on the app origin. Secrets are redacted at capture time (see widget section). The dashboard's CSP allows `img-src https:` so snapshot images render — note this means viewing a report can request images from the reporter's origin.
 - Auth: bcrypt 10, JWT httpOnly Secure SameSite=Lax (Secure in prod).
 
 <!-- coolify auto-deploy verification: 2026-08-13T03:20:02Z -->

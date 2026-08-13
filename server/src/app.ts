@@ -28,7 +28,11 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
         formAction: ["'self'"],
         frameAncestors: ["'self'"],
         connectSrc: ["'self'", "https://bugaputa.no-code.gdn"],
-        imgSrc: ["'self'", "data:", "blob:"],
+        // https: lets DOM-snapshot viewers load the reporter's remote images. A
+        // srcdoc iframe inherits this policy; the frame is sandboxed and sends no
+        // credentials, but note remote images do reach the customer's servers.
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        frameSrc: ["'self'"],
         objectSrc: ["'none'"],
         scriptSrc: ["'self'", "https://bugaputa.no-code.gdn"],
         scriptSrcAttr: ["'none'"],
@@ -59,6 +63,17 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
     const filePath = path.join(uploadDir, filename);
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: "Not found" });
+      return;
+    }
+    // DOM snapshots are attacker-influenced HTML. Never let them render on this
+    // origin — force a download content-type so they can only be read via fetch()
+    // (the dashboard) or saved, never executed as same-origin script.
+    const lower = filename.toLowerCase();
+    if (lower.endsWith(".html") || lower.endsWith(".gz")) {
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      // sendFile derives Content-Type from the extension unless overridden here
+      res.sendFile(path.resolve(filePath), { headers: { "Content-Type": "application/octet-stream" } });
       return;
     }
     res.sendFile(path.resolve(filePath));
@@ -129,7 +144,7 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
   // Global error handler for multer etc
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err.code === "LIMIT_FILE_SIZE") {
-      res.status(400).json({ error: "File too large (max 5MB)" });
+      res.status(400).json({ error: "File too large" });
       return;
     }
     if (err.message?.includes("Invalid file type")) {

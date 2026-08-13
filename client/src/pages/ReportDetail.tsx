@@ -1,7 +1,81 @@
-import {useEffect,useState} from "react";
+import {useEffect,useRef,useState} from "react";
 import {useParams,Link,useNavigate} from "react-router-dom";
 import {api} from "../lib/api";
 import {TopNav} from "../components/Layout";
+
+/**
+ * Renders a report's DOM snapshot by letting the browser lay it out natively inside
+ * a locked-down iframe — that is what makes it pixel-identical to what the reporter
+ * saw, unlike a rasterized screenshot. The frame renders at the captured viewport
+ * size and is CSS-scaled to fit the card, so nothing ever re-flows. The annotations
+ * overlay is composited on top at the same scale.
+ *
+ * sandbox="" disables scripts, forms, popups and gives the frame an opaque origin,
+ * so untrusted captured markup cannot touch the dashboard.
+ */
+function SnapshotViewer({src, annotationsSrc}:{src:string; annotationsSrc:string|null}){
+  const [html,setHtml]=useState<string|null>(null);
+  const [dims,setDims]=useState<{w:number;h:number}|null>(null);
+  const [scale,setScale]=useState(0);
+  const [err,setErr]=useState("");
+  const wrapRef=useRef<HTMLDivElement|null>(null);
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        const res=await fetch(src);
+        if(!res.ok) throw new Error("Snapshot unavailable ("+res.status+")");
+        const blob=await res.blob();
+        let text:string;
+        if(/\.gz$/i.test(src)){
+          if(typeof (window as any).DecompressionStream==="undefined") throw new Error("This browser cannot decompress the snapshot.");
+          const stream=blob.stream().pipeThrough(new (window as any).DecompressionStream("gzip"));
+          text=await new Response(stream).text();
+        } else {
+          text=await blob.text();
+        }
+        if(cancelled) return;
+        const m=text.match(/data-bugaputa-viewport="(\d+)x(\d+)"/);
+        setDims(m ? {w:parseInt(m[1],10), h:parseInt(m[2],10)} : {w:1280,h:800});
+        setHtml(text);
+      }catch(e:any){ if(!cancelled) setErr(e.message||"Failed to load snapshot"); }
+    })();
+    return ()=>{ cancelled=true; };
+  },[src]);
+  useEffect(()=>{
+    if(!dims || !wrapRef.current) return;
+    const el=wrapRef.current;
+    const fit=()=> setScale(el.clientWidth ? el.clientWidth/dims.w : 0);
+    fit();
+    if(typeof ResizeObserver==="undefined") return;
+    const ro=new ResizeObserver(fit);
+    ro.observe(el);
+    return ()=> ro.disconnect();
+  },[dims]);
+  if(err) return (
+    <div className="mt-3 border-2 border-dashed rounded-xl p-6 text-center text-sm text-slate-500">
+      {err}
+      <a href={src} download className="block mt-2 text-lime-600 hover:underline">Download snapshot</a>
+    </div>
+  );
+  if(!html || !dims) return <div className="mt-3 border rounded-xl p-6 text-center text-sm text-slate-400">Loading snapshot…</div>;
+  return (
+    <div ref={wrapRef} className="mt-3 relative overflow-hidden rounded-xl border bg-white" style={{height: scale ? dims.h*scale : 200}}>
+      <iframe
+        title="Pixel-perfect page snapshot"
+        sandbox=""
+        referrerPolicy="no-referrer"
+        srcDoc={html}
+        width={dims.w}
+        height={dims.h}
+        style={{position:"absolute",left:0,top:0,border:0,pointerEvents:"none",transformOrigin:"0 0",transform:`scale(${scale})`}}
+      />
+      {annotationsSrc && scale>0 && (
+        <img src={annotationsSrc} alt="Annotations overlay" className="absolute left-0 top-0 pointer-events-none" style={{width:dims.w*scale, height:dims.h*scale}} />
+      )}
+    </div>
+  );
+}
 export default function ReportDetail(){
   const {id}=useParams();
   const nav=useNavigate();
@@ -41,7 +115,10 @@ export default function ReportDetail(){
   if(err && !report) return <div className="min-h-screen bg-slate-50"><TopNav/><div className="max-w-4xl mx-auto px-4 py-8"><div role="alert" className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{err}</div><Link to="/dashboard" className="text-sm text-lime-600 hover:underline mt-3 inline-block">← Back</Link></div></div>
   if(!report) return null;
   const screenshot=report.screenshotPath||report.screenshotUrl||report.screenshot||null;
-  const imgSrc=screenshot ? (screenshot.startsWith("http")||screenshot.startsWith("/") ? screenshot : "/uploads/"+screenshot) : null;
+  const toSrc=(p:string|null)=> p ? (p.startsWith("http")||p.startsWith("/") ? p : "/uploads/"+p) : null;
+  const imgSrc=toSrc(screenshot);
+  const snapSrc=toSrc(report.snapshotPath||null);
+  const annSrc=toSrc(report.annotationsPath||null);
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <TopNav/>
@@ -72,9 +149,16 @@ export default function ReportDetail(){
               <button onClick={del} disabled={deleting} className="px-3 py-1.5 rounded-lg border text-sm hover:bg-red-50 hover:text-red-600 hover:border-red-200 disabled:opacity-50 min-h-[36px]">{deleting?"Deleting...":"Delete report"}</button>
             </div>
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 space-y-4">
+            {snapSrc && (
+              <div className="bg-white border rounded-2xl p-5">
+                <h2 className="font-semibold text-sm">Pixel-perfect snapshot</h2>
+                <SnapshotViewer src={snapSrc} annotationsSrc={annSrc}/>
+                <p className="mt-2 text-xs text-slate-400">Rendered natively from a sanitized DOM capture — scripts disabled.</p>
+              </div>
+            )}
             <div className="bg-white border rounded-2xl p-5">
-              <h2 className="font-semibold text-sm">Screenshot</h2>
+              <h2 className="font-semibold text-sm">{snapSrc ? "Flattened image" : "Screenshot"}</h2>
               {imgSrc ? (
                 <div>
                   <button onClick={()=> setLightbox(true)} className="mt-3 block w-full text-left rounded-xl overflow-hidden border hover:opacity-90 transition" aria-label="Open screenshot full size">

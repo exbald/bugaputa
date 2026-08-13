@@ -10,7 +10,13 @@ import { hashIp, getClientIp } from "../lib/ip.js";
 import { rateLimitCheck } from "../lib/rateLimit.js";
 
 const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+// DOM snapshots are HTML, gzipped by the widget when the browser supports it.
+// octet-stream is accepted because some browsers send it for Blob-backed gzip files.
+const SNAPSHOT_MIME = new Set(["text/html", "application/gzip", "application/x-gzip", "application/octet-stream"]);
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
+// Image fields carry rasterized artifacts; domSnapshot carries the serialized DOM.
+const IMAGE_FIELDS = new Set(["screenshot", "annotations"]);
 
 function getUploadDir(): string {
   return process.env.UPLOAD_DIR || "./data/uploads";
@@ -23,6 +29,12 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename(_req, file, cb) {
+    if (file.fieldname === "domSnapshot") {
+      // path.extname would yield ".gz" for "snapshot.html.gz" and lose the ".html"
+      const gz = file.mimetype !== "text/html" || /\.gz$/i.test(file.originalname || "");
+      cb(null, `${randomUUID()}${gz ? ".html.gz" : ".html"}`);
+      return;
+    }
     const ext = path.extname(file.originalname) || mimeToExt(file.mimetype) || "";
     cb(null, `${randomUUID()}${ext}`);
   },
@@ -40,12 +52,43 @@ function mimeToExt(mime: string): string {
 
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_FILE_BYTES },
+  // multer's fileSize limit is global, so it must allow the largest accepted
+  // artifact; the tighter per-image cap is enforced in the handler below.
+  limits: { fileSize: MAX_SNAPSHOT_BYTES, files: 3 },
   fileFilter(_req, file, cb) {
-    if (ALLOWED_MIME.has(file.mimetype)) cb(null, true);
+    const allowed = IMAGE_FIELDS.has(file.fieldname) ? ALLOWED_MIME : SNAPSHOT_MIME;
+    if (allowed.has(file.mimetype)) cb(null, true);
     else cb(new Error(`Invalid file type: ${file.mimetype}`));
   },
 });
+
+type UploadedFile = { path?: string; filename?: string; size?: number };
+
+/** The three optional artifacts, keyed by field name (null when not sent). */
+function pickedFiles(req: any): { screenshot: UploadedFile | null; domSnapshot: UploadedFile | null; annotations: UploadedFile | null } {
+  const files = req.files || {};
+  const one = (k: string): UploadedFile | null => (files[k] && files[k][0]) || null;
+  return { screenshot: one("screenshot"), domSnapshot: one("domSnapshot"), annotations: one("annotations") };
+}
+
+/**
+ * Remove every file multer wrote for this request. Must run on every early exit —
+ * including multer's own error branch, since parts streamed before the failing one
+ * are already on disk.
+ */
+function cleanupUploads(req: any): void {
+  const files = req.files || {};
+  for (const key of Object.keys(files)) {
+    for (const file of files[key] || []) {
+      if (file?.path) {
+        try { fs.unlinkSync(file.path); } catch {}
+      }
+    }
+  }
+  if (req.file?.path) {
+    try { fs.unlinkSync(req.file.path); } catch {}
+  }
+}
 
 const router = Router();
 
@@ -63,11 +106,21 @@ router.post(
     // Need to handle both JSON and multipart — try multer first, but allow JSON without file
     const ct = req.headers["content-type"] || "";
     if (ct.includes("multipart/form-data")) {
-      upload.single("screenshot")(req, res, (err: any) => {
+      const fields = upload.fields([
+        { name: "screenshot", maxCount: 1 },
+        { name: "domSnapshot", maxCount: 1 },
+        { name: "annotations", maxCount: 1 },
+      ]);
+      fields(req, res, (err: any) => {
         if (err) {
-          // multer error
+          // multer may already have written earlier parts before failing
+          cleanupUploads(req);
           if (err.code === "LIMIT_FILE_SIZE") {
-            res.status(400).json({ error: "File too large (max 5MB)" });
+            res.status(400).json({ error: "File too large" });
+            return;
+          }
+          if (err.code === "LIMIT_UNEXPECTED_FILE") {
+            res.status(400).json({ error: "Unexpected file field" });
             return;
           }
           res.status(400).json({ error: err.message });
@@ -96,11 +149,8 @@ router.post(
 
     // Honeypot
     if (data.website && data.website.trim() !== "") {
-      // Clean up uploaded file if present (prevent disk leak on bot submissions)
-      const file = (req as any).file;
-      if (file?.path) {
-        try { fs.unlinkSync(file.path); } catch {}
-      }
+      // Clean up uploaded files if present (prevent disk leak on bot submissions)
+      cleanupUploads(req);
       // Pretend success to not tip off bots
       res.status(201).json({ id: generateId() });
       return;
@@ -108,11 +158,8 @@ router.post(
 
     const parsed = reportPublicSchema.safeParse(data);
     if (!parsed.success) {
-      // Clean up uploaded file if validation fails
-      const file = (req as any).file;
-      if (file?.path) {
-        try { fs.unlinkSync(file.path); } catch {}
-      }
+      // Clean up uploaded files if validation fails
+      cleanupUploads(req);
       res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
       return;
     }
@@ -120,10 +167,7 @@ router.post(
     const db = getDb();
     const project = db.prepare("SELECT * FROM projects WHERE publicKey = ?").get(parsed.data.projectKey) as any;
     if (!project) {
-      const file = (req as any).file;
-      if (file?.path) {
-        try { fs.unlinkSync(file.path); } catch {}
-      }
+      cleanupUploads(req);
       res.status(400).json({ error: "Invalid projectKey" });
       return;
     }
@@ -131,25 +175,34 @@ router.post(
     // Rate limit 20/min/IP/project
     const ip = getClientIp(req as any);
     if (!rateLimitCheck(ip, project.id)) {
-      const file = (req as any).file;
-      if (file?.path) {
-        try { fs.unlinkSync(file.path); } catch {}
-      }
+      cleanupUploads(req);
       res.status(429).json({ error: "Rate limit exceeded. Try again later." });
       return;
+    }
+
+    const files = pickedFiles(req);
+    // Per-image cap — multer's global limit had to be raised for snapshots
+    for (const image of [files.screenshot, files.annotations]) {
+      if (image && (image.size || 0) > MAX_FILE_BYTES) {
+        cleanupUploads(req);
+        res.status(400).json({ error: "File too large (max 5MB)" });
+        return;
+      }
     }
 
     const id = generateId();
     const createdAt = nowIso();
     const ipHash = hashIp(ip);
-    const screenshotPath = (req as any).file ? (req as any).file.filename : null;
+    const screenshotPath = files.screenshot?.filename || null;
+    const snapshotPath = files.domSnapshot?.filename || null;
+    const annotationsPath = files.annotations?.filename || null;
 
     // EXIF strip: for MVP we just store as-is; real EXIF strip would re-encode image.
     // We ensure random filename already prevents path traversal.
 
     db.prepare(
-      `INSERT INTO reports (id, projectId, message, contactEmail, pageUrl, userAgent, viewport, language, screenshotPath, status, createdAt, ipHash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`
+      `INSERT INTO reports (id, projectId, message, contactEmail, pageUrl, userAgent, viewport, language, screenshotPath, snapshotPath, annotationsPath, status, createdAt, ipHash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`
     ).run(
       id,
       project.id,
@@ -160,6 +213,8 @@ router.post(
       parsed.data.viewport || "",
       parsed.data.language || "",
       screenshotPath,
+      snapshotPath,
+      annotationsPath,
       createdAt,
       ipHash
     );
@@ -225,10 +280,11 @@ router.delete("/:id", authMiddleware, (req, res) => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
-  // Delete screenshot file if exists
-  if (report.screenshotPath) {
+  // Delete stored artifacts if present (screenshot, DOM snapshot, annotations overlay)
+  for (const stored of [report.screenshotPath, report.snapshotPath, report.annotationsPath]) {
+    if (!stored) continue;
     try {
-      fs.unlinkSync(path.join(getUploadDir(), report.screenshotPath));
+      fs.unlinkSync(path.join(getUploadDir(), path.basename(stored)));
     } catch {}
   }
   db.prepare("DELETE FROM reports WHERE id = ?").run(req.params.id);
