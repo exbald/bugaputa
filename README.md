@@ -77,6 +77,10 @@ by construction on every OS and browser.
 What the snapshot contains: the cloned document with form values, canvas pixels
 (`toDataURL`) and same-origin stylesheets inlined (including CSSOM-only rules), URLs
 absolutized, and fixed/stuck-sticky elements re-anchored to the captured viewport.
+Images and CSS `url()` resources are inlined as `data:` URIs (per-file 768KB, 3MB
+total, 6s budget) so the snapshot is self-contained: viewers render it in a sandboxed
+iframe, whose opaque origin would otherwise be refused any asset served with
+`Cross-Origin-Resource-Policy: same-origin` — the usual cause of broken images.
 
 What is stripped or masked: `script`/`noscript`/`template`, preload/prefetch links,
 meta refresh, all `on*` handlers and `javascript:` URLs; cross-origin frames become

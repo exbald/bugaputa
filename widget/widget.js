@@ -526,6 +526,91 @@
     root.setAttribute('data-bugaputa-url', location.href);
     try{ root.setAttribute('data-bugaputa-ts', new Date().toISOString()); }catch(_){}
   }
+  // A sandboxed iframe has an opaque origin, so any resource served with
+  // Cross-Origin-Resource-Policy: same-origin (or blocked by the host page's CSP)
+  // fails to load inside it — images render broken. Inlining them as data: URIs
+  // makes the snapshot self-contained, so it renders identically in the editor, in
+  // the dashboard, and years later even if the site has changed.
+  var SNAPSHOT_INLINE_BUDGET=3*1024*1024, SNAPSHOT_INLINE_MAX=768*1024, SNAPSHOT_INLINE_MS=6000;
+  function fetchAsDataUri(url, cb){
+    try{
+      var done=false;
+      var finish=function(v){ if(!done){ done=true; cb(v); } };
+      var timer=setTimeout(function(){ finish(null); }, SNAPSHOT_INLINE_MS);
+      fetch(url, {credentials:'same-origin', cache:'force-cache'}).then(function(res){
+        if(!res.ok) throw new Error('status '+res.status);
+        return res.blob();
+      }).then(function(blob){
+        if(blob.size>SNAPSHOT_INLINE_MAX){ clearTimeout(timer); finish(null); return; }
+        var reader=new FileReader();
+        reader.onload=function(){ clearTimeout(timer); finish({uri:String(reader.result), size:blob.size}); };
+        reader.onerror=function(){ clearTimeout(timer); finish(null); };
+        reader.readAsDataURL(blob);
+      }).catch(function(){ clearTimeout(timer); finish(null); });
+    }catch(_){ cb(null); }
+  }
+  function inlineSnapshotResources(root, cb){
+    if(typeof fetch==='undefined' || typeof FileReader==='undefined'){ cb(); return; }
+    // collect every URL worth inlining, de-duplicated so shared assets fetch once
+    var jobs={};
+    function want(url){
+      if(!url || /^(data:|about:|blob:|#)/i.test(url)) return;
+      if(!jobs[url]) jobs[url]=[];
+      return jobs[url];
+    }
+    var imgs=root.querySelectorAll('img, source, input[type="image" i]');
+    for(var i=0;i<imgs.length;i++){
+      (function(el){
+        var src=el.getAttribute('src');
+        var list=want(src);
+        if(list) list.push(function(uri){ el.setAttribute('src', uri); el.removeAttribute('srcset'); el.removeAttribute('sizes'); });
+        // srcset candidates would re-request the network copy; the inlined src wins
+        // only if srcset is dropped, which we do above when the src inlines
+      })(imgs[i]);
+    }
+    var styles=root.querySelectorAll('style');
+    var URL_RE=/url\((['"]?)([^'")]+)\1\)/g;
+    for(var s=0;s<styles.length;s++){
+      (function(styleEl){
+        var css=styleEl.textContent||'', m, seen={};
+        while((m=URL_RE.exec(css))!==null){
+          var u=m[2];
+          if(seen[u]) continue;
+          seen[u]=1;
+          var abs=absolutizeUrl(u);
+          var list=want(abs);
+          if(list) (function(orig){
+            list.push(function(uri){
+              styleEl.textContent=(styleEl.textContent||'').split('url('+orig+')').join('url('+uri+')')
+                .split('url("'+orig+'")').join('url("'+uri+'")')
+                .split("url('"+orig+"')").join("url('"+uri+"')");
+            });
+          })(u);
+        }
+      })(styles[s]);
+    }
+    var urls=Object.keys(jobs);
+    if(!urls.length){ cb(); return; }
+    var pending=urls.length, spent=0, finished=false;
+    var overall=setTimeout(function(){ if(!finished){ finished=true; cb(); } }, SNAPSHOT_INLINE_MS+500);
+    function settle(){
+      if(--pending>0 || finished) return;
+      finished=true; clearTimeout(overall); cb();
+    }
+    for(var u2=0;u2<urls.length;u2++){
+      (function(url){
+        if(spent>SNAPSHOT_INLINE_BUDGET){ settle(); return; }
+        fetchAsDataUri(url, function(result){
+          if(result && spent+result.size<=SNAPSHOT_INLINE_BUDGET){
+            spent+=result.size;
+            var appliers=jobs[url];
+            for(var a=0;a<appliers.length;a++){ try{ appliers[a](result.uri); }catch(_){} }
+          }
+          settle();
+        });
+      })(urls[u2]);
+    }
+  }
   function serializeSnapshot(root){
     var doctype='<!DOCTYPE html>\n';
     try{ if(document.doctype) doctype=new XMLSerializer().serializeToString(document.doctype)+'\n'; }catch(_){}
@@ -533,11 +618,11 @@
     if(html.length>SNAPSHOT_MAX_HTML) return null;
     return html;
   }
-  function buildSnapshotHtml(sx, sy, vw, vh, scale){
-    var untag=null;
+  function buildSnapshotHtml(sx, sy, vw, vh, scale, cb){
+    var untag=null, clone=null;
     try{
       untag=prepareCaptureFixups(sx, sy);
-      var clone=document.documentElement.cloneNode(true);
+      clone=document.documentElement.cloneNode(true);
       snapshotCopyState(document.documentElement, clone, document);
       untag(); untag=null;
       sanitizeSnapshot(clone);
@@ -548,13 +633,19 @@
       var marked=clone.querySelectorAll('[data-bugaputa-fix]');
       for(var i=0;i<marked.length;i++) applyCloneFixup(marked[i]);
       anchorSnapshotViewport(clone, sx, sy, vw, vh, scale);
-      return serializeSnapshot(clone);
     }catch(err){
       console.warn('[Bugaputa] snapshot build failed', err);
-      return null;
-    }finally{
       if(untag) try{ untag(); }catch(_){}
+      cb(null);
+      return;
     }
+    // resource inlining is async (network/cache reads) and always settles
+    inlineSnapshotResources(clone, function(){
+      var html=null;
+      try{ html=serializeSnapshot(clone); }
+      catch(err2){ console.warn('[Bugaputa] snapshot serialize failed', err2); }
+      cb(html);
+    });
   }
   function gzipSnapshotFile(html, cb){
     if(!html){ cb(null); return; }
@@ -823,17 +914,23 @@
     var snapSx=Math.round(window.scrollX||window.pageXOffset||0), snapSy=Math.round(window.scrollY||window.pageYOffset||0);
     var snapVw=window.innerWidth, snapVh=window.innerHeight;
     var snapScale=captureScale(snapVw, snapVh);
-    capturedSnapshotHtml=buildSnapshotHtml(snapSx, snapSy, snapVw, snapVh, snapScale);
-    if(capturedSnapshotHtml){
-      statusEl.style.display='none';
-      capturedDims={w:Math.round(snapVw*snapScale), h:Math.round(snapVh*snapScale), cssW:snapVw, cssH:snapVh, dpr:snapScale};
-      openAnnotateEditor(null, null, null, formWrap, chooser, capturePane);
+    function startRaster(){
+      if(window.modernScreenshot){ captureModern(); return; }
+      loadScript(scriptBase()+'/modern-screenshot.min.js', captureModern, function(){
+        // modern-screenshot unavailable (blocked/missing) — go straight to fallback
+        captureLegacy();
+      });
     }
-    if(window.modernScreenshot){ captureModern(); return; }
-    if(!capturedSnapshotHtml) statusEl.textContent='Loading capture engine…';
-    loadScript(scriptBase()+'/modern-screenshot.min.js', captureModern, function(){
-      // modern-screenshot unavailable (blocked/missing) — go straight to fallback
-      captureLegacy();
+    buildSnapshotHtml(snapSx, snapSy, snapVw, snapVh, snapScale, function(html){
+      capturedSnapshotHtml=html;
+      if(capturedSnapshotHtml){
+        statusEl.style.display='none';
+        capturedDims={w:Math.round(snapVw*snapScale), h:Math.round(snapVh*snapScale), cssW:snapVw, cssH:snapVh, dpr:snapScale};
+        openAnnotateEditor(null, null, null, formWrap, chooser, capturePane);
+      } else {
+        statusEl.textContent='Loading capture engine…';
+      }
+      startRaster();
     });
   }
   function handleCaptureError(err, statusEl, formWrap, chooser, capturePane, btn, prevBtnDisplay, prevOverlayDisplay){

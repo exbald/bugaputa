@@ -53,6 +53,23 @@ describe("DOM snapshot capture (widget)", () => {
     expect(js).toMatch(/toDataURL/);
   });
 
+  it("inlines images so snapshots survive an opaque-origin sandbox", () => {
+    // A sandboxed iframe has an opaque origin, so assets served with
+    // Cross-Origin-Resource-Policy: same-origin (or restricted by CSP) fail to load
+    // and render as broken images. Inlining removes the network dependency entirely.
+    const js = readJs();
+    expect(js).toMatch(/function inlineSnapshotResources/);
+    expect(js).toMatch(/function fetchAsDataUri/);
+    expect(js).toMatch(/readAsDataURL/);
+    expect(js).toMatch(/SNAPSHOT_INLINE_BUDGET/);
+    expect(js).toMatch(/SNAPSHOT_INLINE_MAX/);
+    // css url() references are inlined too, not just <img>
+    expect(js).toMatch(/url\\\(/);
+    // inlining must never hang the capture
+    expect(js).toMatch(/SNAPSHOT_INLINE_MS/);
+    expect(js).toMatch(/buildSnapshotHtml[\s\S]{0,1400}inlineSnapshotResources/);
+  });
+
   it("records viewport metadata needed to re-render at capture size", () => {
     const js = readJs();
     expect(js).toMatch(/data-bugaputa-viewport/);
