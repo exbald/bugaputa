@@ -52,6 +52,8 @@ function migrate(database: Db) {
       viewport TEXT NOT NULL,
       language TEXT NOT NULL,
       screenshotPath TEXT,
+      snapshotPath TEXT,
+      annotationsPath TEXT,
       status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','in_progress','resolved','archived')),
       createdAt TEXT NOT NULL,
       ipHash TEXT
@@ -62,6 +64,16 @@ function migrate(database: Db) {
     CREATE INDEX IF NOT EXISTS idx_reports_project ON reports(projectId);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
   `);
+
+  // CREATE TABLE IF NOT EXISTS is a no-op on existing databases, so columns added
+  // after first deploy need an explicit ALTER. ADD COLUMN is a metadata-only change
+  // in SQLite (no table rewrite), and the PRAGMA check keeps this idempotent.
+  const reportColumns = (database.prepare("PRAGMA table_info(reports)").all() as any[]).map((c) => c.name);
+  for (const column of ["snapshotPath", "annotationsPath"]) {
+    if (!reportColumns.includes(column)) {
+      database.exec(`ALTER TABLE reports ADD COLUMN ${column} TEXT`);
+    }
+  }
 }
 
 export function closeDb() {

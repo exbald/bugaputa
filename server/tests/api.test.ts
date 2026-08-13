@@ -3,6 +3,7 @@ import request from "supertest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import * as zlib from "node:zlib";
 import { createApp } from "../src/app.js";
 import { closeDb } from "../src/db.js";
 import { clearRateLimit } from "../src/lib/rateLimit.js";
@@ -670,6 +671,187 @@ describe("Bugaputa backend", () => {
       expect(fileRes.status).toBe(200);
       const notFound = await request(app).get("/uploads/nonexistent-xyz.png");
       expect(notFound.status).toBe(404);
+    });
+  });
+
+  describe("DOM snapshot + annotations artifacts", () => {
+    let sProjectKey: string;
+    let sOwnerCookie: string;
+
+    beforeAll(async () => {
+      const { cookie } = await registerAndLogin("snapshot-owner@test.com");
+      sOwnerCookie = cookie;
+      const p = await request(app).post("/api/projects").set("Cookie", cookie).send({ name: "Snapshot Project" });
+      sProjectKey = p.body.publicKey;
+    });
+
+    const tinyPng = Buffer.from(
+      "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082",
+      "hex"
+    );
+    const snapshotHtml = Buffer.from(
+      '<!DOCTYPE html><html data-bugaputa-viewport="412x915"><head></head><body>captured</body></html>'
+    );
+    const snapshotGz = zlib.gzipSync(snapshotHtml);
+
+    function countUploads(): number {
+      if (!fs.existsSync(uploadDir)) return 0;
+      return fs.readdirSync(uploadDir).length;
+    }
+
+    function submit(key: string) {
+      return request(app)
+        .post("/api/reports")
+        .set("x-project-key", key)
+        .field("message", "Snapshot capture with annotations attached")
+        .field("pageUrl", "https://example.com/snapshot");
+    }
+
+    it("stores all three artifacts and exposes their paths", async () => {
+      const before = countUploads();
+      const res = await submit(sProjectKey)
+        .attach("screenshot", tinyPng, { filename: "annotated.png", contentType: "image/png" })
+        .attach("domSnapshot", snapshotGz, { filename: "snapshot.html.gz", contentType: "application/gzip" })
+        .attach("annotations", tinyPng, { filename: "annotations.png", contentType: "image/png" });
+      expect(res.status).toBe(201);
+      expect(countUploads()).toBe(before + 3);
+
+      const detail = await request(app).get(`/api/reports/${res.body.id}`).set("Cookie", sOwnerCookie);
+      expect(detail.status).toBe(200);
+      expect(detail.body.screenshotPath).toBeTruthy();
+      expect(detail.body.snapshotPath).toMatch(/\.html\.gz$/);
+      expect(detail.body.annotationsPath).toMatch(/\.png$/);
+    });
+
+    it("stores an uncompressed snapshot as .html", async () => {
+      const res = await submit(sProjectKey)
+        .attach("domSnapshot", snapshotHtml, { filename: "snapshot.html", contentType: "text/html" });
+      expect(res.status).toBe(201);
+      const detail = await request(app).get(`/api/reports/${res.body.id}`).set("Cookie", sOwnerCookie);
+      expect(detail.body.snapshotPath).toMatch(/\.html$/);
+      expect(detail.body.screenshotPath).toBeNull();
+    });
+
+    it("accepts a snapshot-only report (rasterizer unavailable)", async () => {
+      const res = await submit(sProjectKey)
+        .attach("domSnapshot", snapshotGz, { filename: "snapshot.html.gz", contentType: "application/gzip" })
+        .attach("annotations", tinyPng, { filename: "annotations.png", contentType: "image/png" });
+      expect(res.status).toBe(201);
+      const detail = await request(app).get(`/api/reports/${res.body.id}`).set("Cookie", sOwnerCookie);
+      expect(detail.body.screenshotPath).toBeNull();
+      expect(detail.body.snapshotPath).toBeTruthy();
+    });
+
+    it("rejects a non-html snapshot mime", async () => {
+      const before = countUploads();
+      const res = await submit(sProjectKey)
+        .attach("domSnapshot", snapshotHtml, { filename: "snapshot.js", contentType: "text/javascript" });
+      expect(res.status).toBe(400);
+      expect(countUploads()).toBe(before);
+    });
+
+    it("rejects a non-image annotations overlay", async () => {
+      const res = await submit(sProjectKey)
+        .attach("annotations", snapshotHtml, { filename: "notes.html", contentType: "text/html" });
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects an unexpected file field without leaking files", async () => {
+      const before = countUploads();
+      const res = await submit(sProjectKey)
+        .attach("evil", tinyPng, { filename: "evil.png", contentType: "image/png" });
+      expect(res.status).toBe(400);
+      expect(countUploads()).toBe(before);
+    });
+
+    it("rejects a snapshot over 8MB", async () => {
+      const before = countUploads();
+      const res = await submit(sProjectKey)
+        .attach("domSnapshot", Buffer.alloc(8 * 1024 * 1024 + 1, 0x61), {
+          filename: "snapshot.html",
+          contentType: "text/html",
+        });
+      expect(res.status).toBe(400);
+      expect(countUploads()).toBe(before);
+    });
+
+    it("rejects an image over 5MB even though the global limit is 8MB", async () => {
+      const before = countUploads();
+      const res = await submit(sProjectKey)
+        .attach("screenshot", Buffer.alloc(6 * 1024 * 1024, 0x61), {
+          filename: "big.png",
+          contentType: "image/png",
+        });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/too large/i);
+      expect(countUploads()).toBe(before);
+    });
+
+    it("cleans up every artifact on all failure paths", async () => {
+      const attachAll = (r: request.Test) =>
+        r
+          .attach("screenshot", tinyPng, { filename: "a.png", contentType: "image/png" })
+          .attach("domSnapshot", snapshotGz, { filename: "s.html.gz", contentType: "application/gzip" })
+          .attach("annotations", tinyPng, { filename: "o.png", contentType: "image/png" });
+
+      // honeypot — fake success, nothing stored
+      let before = countUploads();
+      let res = await attachAll(submit(sProjectKey).field("website", "spam"));
+      expect(res.status).toBe(201);
+      expect(countUploads()).toBe(before);
+
+      // validation failure (message too short)
+      before = countUploads();
+      res = await attachAll(
+        request(app)
+          .post("/api/reports")
+          .set("x-project-key", sProjectKey)
+          .field("message", "short")
+          .field("pageUrl", "https://example.com/x")
+      );
+      expect(res.status).toBe(400);
+      expect(countUploads()).toBe(before);
+
+      // unknown project key
+      before = countUploads();
+      res = await attachAll(submit("pk_live_does_not_exist"));
+      expect(res.status).toBe(400);
+      expect(countUploads()).toBe(before);
+    });
+
+    it("cleans up all artifacts when the report is deleted", async () => {
+      const before = countUploads();
+      const res = await submit(sProjectKey)
+        .attach("screenshot", tinyPng, { filename: "a.png", contentType: "image/png" })
+        .attach("domSnapshot", snapshotGz, { filename: "s.html.gz", contentType: "application/gzip" })
+        .attach("annotations", tinyPng, { filename: "o.png", contentType: "image/png" });
+      expect(res.status).toBe(201);
+      expect(countUploads()).toBe(before + 3);
+
+      const del = await request(app).delete(`/api/reports/${res.body.id}`).set("Cookie", sOwnerCookie);
+      expect(del.status).toBe(204);
+      expect(countUploads()).toBe(before);
+    });
+
+    it("never serves stored snapshots as renderable HTML", async () => {
+      const res = await submit(sProjectKey)
+        .attach("domSnapshot", snapshotHtml, { filename: "snapshot.html", contentType: "text/html" });
+      const detail = await request(app).get(`/api/reports/${res.body.id}`).set("Cookie", sOwnerCookie);
+
+      const served = await request(app).get(`/uploads/${detail.body.snapshotPath}`);
+      expect(served.status).toBe(200);
+      expect(served.headers["content-type"]).toMatch(/application\/octet-stream/);
+      expect(served.headers["content-disposition"]).toMatch(/attachment/);
+      expect(served.headers["x-content-type-options"]).toBe("nosniff");
+
+      // images are unaffected
+      const imgRes = await submit(sProjectKey).attach("screenshot", tinyPng, {
+        filename: "a.png",
+        contentType: "image/png",
+      });
+      const imgDetail = await request(app).get(`/api/reports/${imgRes.body.id}`).set("Cookie", sOwnerCookie);
+      const servedImg = await request(app).get(`/uploads/${imgDetail.body.screenshotPath}`);
+      expect(servedImg.headers["content-type"]).toMatch(/image\/png/);
     });
   });
 });
