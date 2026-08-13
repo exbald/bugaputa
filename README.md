@@ -104,6 +104,11 @@ scripts/       smoke.sh
 Dockerfile     multi-stage build
 ```
 
+
+## Third-party licenses
+
+- html2canvas 1.4.1 (https://github.com/niklasvh/html2canvas) — MIT, vendored as `widget/html2canvas.min.js` and served at `/html2canvas.min.js` (lazy-loaded only after capture consent). License header retained in vendored file.
+
 ## Security
 
 - zod validation on every input; message 10-2000 chars; file MIME + 5MB check; honeypot website; rate limit 20/min/IP/project; helmet; CORS allow-all only on public POST; IP hashed, never plain.
