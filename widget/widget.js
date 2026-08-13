@@ -46,10 +46,10 @@
     try{
       var base='';
       if(script&&script.src){ try{ base=new URL(script.src).origin; }catch(_){} }
-      cfgUrl=(base||'')+"/api/projects/"+encodeURIComponent(projectKey);
+      cfgUrl=(base||'')+"/api/widget-config?project="+encodeURIComponent(projectKey);
     }catch(_){ return; }
-    // try /api/projects/:key (public widget-config also tried as fallback)
-    fetch(cfgUrl,{headers:{'x-project-key':projectKey}}).then(function(r){
+    // fetch from public /api/widget-config (CORS *, no auth)
+    fetch(cfgUrl).then(function(r){
       if(!r.ok) throw new Error(String(r.status));
       return r.json();
     }).then(function(d){
@@ -67,7 +67,7 @@
       if(changed){
         var existing=document.getElementById('bugaputa-btn');
         if(existing){ try{ existing.remove(); }catch(_){} }
-        createTrigger();
+        var nb=createTrigger(); document.body.appendChild(nb);
       }
     }).catch(function(){}); // silent fallback to defaults
   })();
