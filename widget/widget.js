@@ -331,6 +331,112 @@
     }
     clone.removeAttribute('data-bugaputa-fix');
   }
+  // Chrome quirk: inside the SVG image used for rasterization, generic font
+  // keywords (system-ui, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+  // ui-monospace) fall back to the browser default font instead of the real UI
+  // font. The default (Arial-class) has different metrics, so text overflows its
+  // pinned boxes and wraps — captures look "smushed". Concrete family names
+  // resolve correctly, so we detect which installed font the generic actually
+  // renders as (by width measurement) and pin it in the clone's inlined styles.
+  function fontProbe(){
+    var cvs=document.createElement('canvas');
+    var ctx=cvs.getContext('2d');
+    if(!ctx) return null;
+    var samples=[[16,'The quick brown fox jumps — 0123456789 iIl1|'],[24,'LIGHTWEIGHT · ACCESSIBLE · mmmwwwMMM']];
+    return function(font){
+      return samples.map(function(s){ ctx.font=s[0]+'px '+font; return ctx.measureText(s[1]).width; });
+    };
+  }
+  function fontAvailable(measure, name, refs){
+    // an unavailable family falls back to the appended generic, measuring
+    // identical to that generic alone — compare against two generics so a
+    // coincidental width tie can't false-positive
+    var c='"'+name+'"';
+    var viaMono=measure(c+', monospace'), viaSerif=measure(c+', serif');
+    return (viaMono[0]!==refs.mono[0]||viaMono[1]!==refs.mono[1]) && (viaSerif[0]!==refs.serif[0]||viaSerif[1]!==refs.serif[1]);
+  }
+  function resolveGenericFont(measure, generic, candidates, refs){
+    // Returns {name, exact}. Exact match = the candidate the generic actually
+    // renders as. When the platform UI font is not name-addressable at all
+    // (macOS San Francisco), fall back to the metrically-closest available
+    // candidate — in the SVG raster context an unresolved generic degrades to
+    // the default font anyway, so the nearest addressable font is never worse.
+    try{
+      var target=measure(generic);
+      var best=null;
+      for(var i=0;i<candidates.length;i++){
+        if(!fontAvailable(measure, candidates[i], refs)) continue;
+        var w=measure('"'+candidates[i]+'"');
+        var d=Math.abs(w[0]-target[0])+Math.abs(w[1]-target[1]);
+        if(d<0.7) return {name:candidates[i], exact:true};
+        if(!best || d<best.d) best={name:candidates[i], d:d};
+      }
+      if(best) return {name:best.name, exact:false};
+    }catch(_){}
+    return null;
+  }
+  var GENERIC_ALIASES={
+    'system-ui':'sans', 'ui-sans-serif':'sans', '-apple-system':'sans', 'blinkmacsystemfont':'sans', 'ui-rounded':'sans',
+    'ui-monospace':'mono', 'sfmono-regular':'mono',
+    'ui-serif':'serif'
+  };
+  var CSS_GENERICS={'sans-serif':1,'serif':1,'monospace':1,'cursive':1,'fantasy':1,'emoji':1,'math':1,'fangsong':1};
+  var _fontPins;
+  function systemFontPins(){
+    if(_fontPins!==undefined) return _fontPins;
+    var measure=fontProbe();
+    if(!measure){ _fontPins=null; return _fontPins; }
+    var refs={mono:measure('monospace'), serif:measure('serif')};
+    _fontPins={
+      measure: measure,
+      refs: refs,
+      sans: resolveGenericFont(measure, 'system-ui', ['Segoe UI','Roboto','Helvetica Neue','Arial','Ubuntu','Cantarell','Noto Sans','DejaVu Sans','Liberation Sans','Oxygen','Fira Sans','Droid Sans','Helvetica'], refs),
+      mono: resolveGenericFont(measure, 'ui-monospace', ['SF Mono','Menlo','Monaco','Consolas','Cascadia Mono','Segoe UI Mono','Roboto Mono','Ubuntu Mono','DejaVu Sans Mono','Liberation Mono','Noto Sans Mono','Fira Mono','Courier New'], refs),
+      serif: resolveGenericFont(measure, 'ui-serif', ['New York','Georgia','Times New Roman','DejaVu Serif','Liberation Serif','Noto Serif','Times'], refs),
+      stackCache: {}
+    };
+    return _fontPins;
+  }
+  // Decide the pin for one font-family stack (cached per unique stack string):
+  // - stack has no generic alias -> nothing to fix
+  // - alias resolves to an exact addressable font -> always pin it
+  // - no exact match (e.g. macOS SF): if the stack already lists an available
+  //   concrete family, the natural fallthrough is at least as good — leave it;
+  //   if the stack is generics-only, pin the metrically-nearest font so text
+  //   doesn't degrade to the engine default
+  function stackPin(pins, ff){
+    var cache=pins.stackCache;
+    if(ff in cache) return cache[ff];
+    var pin=null, aliasClass=null, hasConcrete=false;
+    var tokens=ff.split(',');
+    for(var i=0;i<tokens.length;i++){
+      var t=tokens[i].trim().replace(/^["']|["']$/g,'');
+      var lt=t.toLowerCase();
+      if(!aliasClass && GENERIC_ALIASES[lt]) aliasClass=GENERIC_ALIASES[lt];
+      else if(!CSS_GENERICS[lt] && !GENERIC_ALIASES[lt] && lt.indexOf('emoji')===-1 && !hasConcrete){
+        try{ hasConcrete=fontAvailable(pins.measure, t, pins.refs); }catch(_){}
+      }
+    }
+    if(aliasClass){
+      var res=pins[aliasClass];
+      if(res && (res.exact || !hasConcrete)) pin='"'+res.name+'", '+ff;
+    }
+    cache[ff]=pin;
+    return pin;
+  }
+  function pinCloneFonts(root){
+    var pins=systemFontPins();
+    if(!pins) return;
+    var nodes=[root].concat(Array.prototype.slice.call(root.querySelectorAll('*')));
+    for(var i=0;i<nodes.length;i++){
+      var el=nodes[i];
+      if(!el.style) continue;
+      var ff=el.style.fontFamily;
+      if(!ff) continue;
+      var pinned=stackPin(pins, ff);
+      if(pinned) el.style.fontFamily=pinned;
+    }
+  }
   function captureScale(vw, vh){
     // full devicePixelRatio so the capture matches the screen 1:1 (phones are 2.6-3x);
     // clamp so no canvas dimension can exceed conservative mobile limits
@@ -444,6 +550,7 @@
                   applyCloneFixup(root);
                   var marked=root.querySelectorAll('[data-bugaputa-fix]');
                   for(var i=0;i<marked.length;i++) applyCloneFixup(marked[i]);
+                  pinCloneFonts(root);
                 }
               }
             });
