@@ -2,6 +2,7 @@ import {useEffect,useState,useCallback} from "react";
 import {useParams,Link} from "react-router-dom";
 import {api} from "../lib/api";
 import {TopNav} from "../components/Layout";
+function toSrc(p: string|null){ if(!p) return null; return p.startsWith("http")||p.startsWith("/") ? p : "/uploads/"+p; }
 const STATUSES=["","open","in_progress","resolved","archived"] as const;
 function Badge({s}:{s:string}){
   const map:any={open:"bg-amber-100 text-amber-800 border-amber-200", in_progress:"bg-blue-100 text-blue-800 border-blue-200", resolved:"bg-green-100 text-green-800 border-green-200", archived:"bg-slate-100 text-slate-600 border-slate-200"};
@@ -84,7 +85,7 @@ export default function ProjectReports(){
                 <Link key={r.id} to={"/r/"+r.id} className="block bg-white border rounded-xl p-4 hover:shadow-sm transition">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm leading-relaxed line-clamp-2 flex-1">{r.message}</p>
-                    {(r.screenshotPath||r.screenshotUrl||r.screenshot) ? <img src={r.screenshotPath||r.screenshotUrl||r.screenshot} alt="" className="w-16 h-16 object-cover rounded-lg border flex-shrink-0" /> : null}
+                    {(r.screenshotPath||r.screenshotUrl||r.screenshot) ? (()=>{ const s=toSrc(r.screenshotPath||r.screenshotUrl||r.screenshot); return s ? <img src={s} alt="Screenshot thumbnail" className="w-16 h-16 object-cover rounded-lg border flex-shrink-0 bg-slate-50" onError={e=> (e.currentTarget.style.display="none")} /> : null; })() : null}
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                     <Badge s={r.status||"open"} />

@@ -162,7 +162,7 @@ export default function ReportDetail(){
               {imgSrc ? (
                 <div>
                   <button onClick={()=> setLightbox(true)} className="mt-3 block w-full text-left rounded-xl overflow-hidden border hover:opacity-90 transition" aria-label="Open screenshot full size">
-                    <img src={imgSrc} alt="Report screenshot — click to open full size" className="w-full object-contain max-h-[400px] bg-slate-50" />
+                    <img src={imgSrc} alt="Report screenshot — click to open full size" className="w-full object-contain max-h-[400px] bg-slate-50" onError={e=> (e.currentTarget.style.display="none")} />
                   </button>
                   <div className="mt-3 flex gap-2">
                     <button onClick={()=> setLightbox(true)} className="flex-1 px-3 py-2 rounded-lg border bg-white text-sm font-medium hover:bg-slate-50 min-h-[40px]">Open full size</button>
@@ -176,7 +176,7 @@ export default function ReportDetail(){
         </div>
         {lightbox && imgSrc && (
           <div role="dialog" aria-modal="true" aria-label="Screenshot full size" onClick={()=> setLightbox(false)} className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out">
-            <img src={imgSrc} alt="Report screenshot full size" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl bg-white" onClick={e=> e.stopPropagation()} />
+            <img src={imgSrc} alt="Report screenshot full size" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl bg-white" onClick={e=> e.stopPropagation()} onError={e=> (e.currentTarget.style.display="none")} />
             <button onClick={()=> setLightbox(false)} aria-label="Close" className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/90 text-slate-800 flex items-center justify-center text-xl font-bold hover:bg-white">×</button>
             <a href={imgSrc} download className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white text-sm font-semibold shadow">Download</a>
           </div>
