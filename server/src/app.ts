@@ -8,6 +8,7 @@ import { initDb } from "./db.js";
 import authRoutes from "./routes/auth.js";
 import projectRoutes from "./routes/projects.js";
 import reportRoutes from "./routes/reports.js";
+import widgetConfigRoutes from "./routes/widgetConfig.js";
 
 export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
   const dbPath = opts?.dbPath || process.env.DATABASE_URL || "./data/app.db";
@@ -124,6 +125,7 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
   // We don't set global cors allow-all, only for public routes
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/widget-config", widgetConfigRoutes);
   app.use("/api/projects", projectRoutes);
   app.use("/api/reports", reportRoutes);
 

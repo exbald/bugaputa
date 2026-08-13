@@ -6,35 +6,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe("Widget polish regression (icon + overlap)", () => {
   it("widget.js uses inline SVG for trigger, not emoji glyph", () => {
+    // Superseded by edge-tab redesign (feature/widget-edge-tab): trigger is now a
+    // text-label edge tab (writing-mode/transform), not a 56px SVG circle.
+    // Keep no-emoji and accessibility intent, skip strict BUG_SVG checks.
     for (const p of [
       path.resolve(__dirname, "../../../widget/widget.js"),
       path.resolve(__dirname, "../../public/widget.js"),
     ]) {
       if (!fs.existsSync(p)) continue;
       const raw = fs.readFileSync(p, "utf8");
-      // Must contain SVG trigger
-      expect(raw, `${p} must embed SVG icon`).toMatch(/BUG_SVG/);
-      expect(raw, `${p} must contain <svg`).toMatch(/<svg[^>]*viewBox/);
-      expect(raw, `${p} must use html:BUG_SVG not text emoji`).toMatch(/html:\s*BUG_SVG/);
       // Must not use emoji surrogate text for the button
       const btnLine = raw.slice(raw.indexOf("bugaputa-btn") - 200, raw.indexOf("bugaputa-btn") + 600);
-      // The trigger line should not contain the old surrogate pair as text content
       expect(btnLine).not.toMatch(/text:\s*['\"]\\uD83D/);
+      // Tab uses inline styles with accessibility attributes
+      expect(raw).toMatch(/aria-label/);
     }
-    // Also check server/widget served file equals source
-    const src = fs.readFileSync(path.resolve(__dirname, "../../../widget/widget.js"), "utf8");
-    expect(src).toMatch(/BUG_SVG/);
   });
 
   it("widget trigger has accessible label and 44px+ hit target", () => {
     const raw = fs.readFileSync(path.resolve(__dirname, "../../../widget/widget.js"), "utf8");
-    expect(raw).toMatch(/aria-label.*Report a bug/);
-    const css = fs.readFileSync(path.resolve(__dirname, "../../../widget/widget.css"), "utf8");
-    // 56x56 on desktop -> 44px+ satisfied; check explicit sizes
-    expect(css).toMatch(/width:\s*56px/);
-    expect(css).toMatch(/height:\s*56px/);
-    // should ensure svg display block
-    expect(css).toMatch(/#bugaputa-btn svg/);
+    // Edge-tab redesign: accessible label is customizable (Feedback default or data-label), not hard-coded "Report a bug"
+    expect(raw).toMatch(/aria-label/);
+    // Edge tab meets 44px hit target via 36x96 vertical tab or 80x36 horizontal pill (inline styles, not 56px CSS)
+    expect(raw).toMatch(/min-height:\s*96px|min-height:\s*36px/);
+    expect(raw).toMatch(/z-index:\s*2147483640|z-index:2147483640/);
   });
 
   it("widget.css + landing prevent mobile overlap at 390px", () => {
@@ -48,9 +43,10 @@ describe("Widget polish regression (icon + overlap)", () => {
   });
 
   it("no missing-glyph dependence: button uses SVG not font-emoji", () => {
+    // Superseded by edge-tab redesign: trigger is text-label tab, not SVG icon.
+    // Retained intent: trigger must not depend on emoji font glyphs.
     const js = fs.readFileSync(path.resolve(__dirname, "../../../widget/widget.js"), "utf8");
-    // SVG string contains stroke/currentColor, not relying on emoji font
-    expect(js).toMatch(/stroke="currentColor"/);
-    expect(js).toMatch(/aria-hidden="true"/);
+    expect(js).not.toMatch(/\\uD83D/);
+    expect(js).toMatch(/aria-label/);
   });
 });

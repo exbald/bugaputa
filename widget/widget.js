@@ -17,6 +17,60 @@
   if(!document.querySelector('link[href="'+cssHref+'"]')){
     var link=document.createElement('link'); link.rel='stylesheet'; link.href=cssHref; document.head.appendChild(link);
   }
+  // ---- edge feedback tab config ----
+  var WIDGET_DEFAULTS={label:'Feedback',color:'#4f46e5',position:'right'};
+  var WIDGET_POSITIONS=['left','right','bottom-left','bottom-right'];
+  function isValidHex(c){ return typeof c==='string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(c.trim()); }
+  function sanitizeLabel(s){
+    if(typeof s!=='string') return null;
+    var t=s.trim(); if(!t) return null;
+    if(t.length>30) t=t.slice(0,30);
+    return t;
+  }
+  var _dataLabel=script?script.getAttribute('data-label'):null;
+  var _dataColor=script?script.getAttribute('data-color'):null;
+  var _dataPos=script?script.getAttribute('data-position'):null;
+  var _initialLabel=sanitizeLabel(_dataLabel)||null;
+  var _initialColor=(isValidHex(_dataColor)?_dataColor.trim():null);
+  var _initialPos=(WIDGET_POSITIONS.indexOf((_dataPos||'').trim())!==-1?(_dataPos||'').trim():null);
+  var widgetConfig={
+    label: _initialLabel||WIDGET_DEFAULTS.label,
+    color: _initialColor||WIDGET_DEFAULTS.color,
+    position: _initialPos||WIDGET_DEFAULTS.position
+  };
+  // fetch fallback for any missing field when we have a projectKey
+  (function fetchWidgetConfig(){
+    var needFetch=(!_initialLabel||!_initialColor||!_initialPos);
+    if(!needFetch||!projectKey) return;
+    var cfgUrl='';
+    try{
+      var base='';
+      if(script&&script.src){ try{ base=new URL(script.src).origin; }catch(_){} }
+      cfgUrl=(base||'')+"/api/widget-config?project="+encodeURIComponent(projectKey);
+    }catch(_){ return; }
+    // fetch from public /api/widget-config (CORS *, no auth)
+    fetch(cfgUrl).then(function(r){
+      if(!r.ok) throw new Error(String(r.status));
+      return r.json();
+    }).then(function(d){
+      if(!d||typeof d!=='object') return;
+      // server may return widget_* or label/color/position keys
+      var fetchedLabel=sanitizeLabel(d.widget_label||d.widgetLabel||d.label||null);
+      var fetchedColor=d.widget_color||d.widgetColor||d.color||null;
+      if(!isValidHex(fetchedColor)) fetchedColor=null; else fetchedColor=fetchedColor.trim();
+      var fetchedPos=d.widget_position||d.widgetPosition||d.position||null;
+      if(WIDGET_POSITIONS.indexOf((fetchedPos||'').trim())===-1) fetchedPos=null; else fetchedPos=(fetchedPos||'').trim();
+      var changed=false;
+      if(!_initialLabel&&fetchedLabel&&fetchedLabel!==widgetConfig.label){ widgetConfig.label=fetchedLabel; changed=true; }
+      if(!_initialColor&&fetchedColor&&fetchedColor!==widgetConfig.color){ widgetConfig.color=fetchedColor; changed=true; }
+      if(!_initialPos&&fetchedPos&&fetchedPos!==widgetConfig.position){ widgetConfig.position=fetchedPos; changed=true; }
+      if(changed){
+        var existing=document.getElementById('bugaputa-btn');
+        if(existing){ try{ existing.remove(); }catch(_){} }
+        var nb=createTrigger(); document.body.appendChild(nb);
+      }
+    }).catch(function(){}); // silent fallback to defaults
+  })();
   function h(tag, attrs, children){
     var el=document.createElement(tag);
     if(attrs) Object.keys(attrs).forEach(function(k){
@@ -1520,9 +1574,97 @@
     // focus Done
     setTimeout(function(){ btnDone.focus(); }, 50);
   }
-  var BUG_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h1l1 3h8l1-3h1a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2h-2V7a4 4 0 0 0-4-4Z"/><path d="M6 11H3"/><path d="M21 11h-3"/><path d="M6 15H4"/><path d="M20 15h-2"/><path d="M9 17h6"/></svg>';
-  var btn=h('button',{id:'bugaputa-btn','aria-label':'Report a bug',title:'Report a bug',html:BUG_SVG,'data-html2canvas-ignore':'true'});
-  btn.addEventListener('click', open);
-  function mount(){ if(document.body) document.body.appendChild(btn); else setTimeout(mount, 100); }
+  function createTrigger(){
+    var existing=document.getElementById('bugaputa-btn');
+    if(existing){ try{ existing.remove(); }catch(_){} }
+    var label=widgetConfig.label||WIDGET_DEFAULTS.label;
+    var color=widgetConfig.color||WIDGET_DEFAULTS.color;
+    var pos=widgetConfig.position||WIDGET_DEFAULTS.position;
+    var isLeft=pos==='left', isRight=pos==='right', isBottomLeft=pos==='bottom-left', isBottomRight=pos==='bottom-right';
+    var vertical=isLeft||isRight;
+    var btn=h('button',{
+      id:'bugaputa-btn',
+      role:'button',
+      tabindex:'0',
+      'aria-label': label,
+      title: label,
+      'data-html2canvas-ignore':'true'
+    });
+    // accessible name fallback if label empty
+    if(!label) btn.setAttribute('aria-label','Feedback');
+    var tabStyle='position:fixed;z-index:2147483640;display:flex;align-items:center;justify-content:center;cursor:pointer;'+
+      'background:'+color+';color:#fff;border:none;padding:0;margin:0;'+
+      'font-family:Inter,system-ui,sans-serif;font-size:14px;font-weight:600;letter-spacing:0.02em;'+
+      'box-shadow:0 4px 16px rgba(0,0,0,0.24);'+
+      'transition:transform 180ms ease, filter 180ms ease;'+
+      'line-height:1;white-space:nowrap;user-select:none;-webkit-user-select:none;';
+    var inner;
+    if(vertical){
+      // vertical tab centered on side edge, writing-mode for rotated text
+      var sidePos=isRight?'right:0;':'left:0;';
+      var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:0 8px 8px 0;';
+      // width ~ 36px, height auto based on text; centered vertically
+      tabStyle+='top:50%;'+sidePos+radius+'width:36px;min-height:96px;max-height:70vh;'+
+        'transform:translateY(-50%);'+
+        'writing-mode:vertical-rl;'+
+        'text-orientation:mixed;';
+      // for right tab, rotate so text reads top->bottom towards page interior; use rotate(180deg) compensation
+      // vertical-rl naturally reads top-to-bottom; combine with rotate for readability if needed
+      // Right side: keep vertical-rl (top to bottom); left side: flip so text also reads top->bottom toward center
+      if(isLeft){
+        tabStyle+='transform:translateY(-50%) rotate(180deg);';
+      }
+      btn.setAttribute('style', tabStyle);
+      inner=document.createElement('span');
+      inner.textContent=label;
+      inner.setAttribute('style','display:block;padding:14px 0;writing-mode:vertical-rl;text-orientation:mixed;');
+      btn.appendChild(inner);
+    } else {
+      // bottom horizontal pill/strip 20px offset from nearest corner
+      var bottomSide=isBottomRight?'right:20px;':'left:20px;';
+      tabStyle+='bottom:0;'+bottomSide+'border-radius:8px 8px 0 0;'+
+        'padding:10px 18px;min-height:36px;min-width:80px;';
+      btn.setAttribute('style', tabStyle);
+      btn.textContent=label;
+    }
+    // hover interactions (transform + brightness)
+    var hoverTransformVertical=isRight?'translateY(-50%) translateX(-6px)':'translateY(-50%) translateX(6px)';
+    if(isLeft) hoverTransformVertical='translateY(-50%) rotate(180deg) translateX(6px)';
+    var baseTransform=vertical?(isLeft?'translateY(-50%) rotate(180deg)':'translateY(-50%)'):'' ;
+    function onEnter(){
+      if(vertical){
+        btn.style.transform=hoverTransformVertical;
+      } else {
+        btn.style.transform='translateY(-6px)';
+      }
+      btn.style.filter='brightness(1.08)';
+    }
+    function onLeave(){
+      btn.style.transform=baseTransform;
+      btn.style.filter='';
+    }
+    btn.addEventListener('mouseenter', onEnter);
+    btn.addEventListener('mouseleave', onLeave);
+    btn.addEventListener('focus', onEnter);
+    btn.addEventListener('blur', onLeave);
+    // keyboard activation
+    btn.addEventListener('keydown', function(e){
+      if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){
+        e.preventDefault();
+        open();
+      }
+    });
+    // focus-visible outline via inline fallback
+    btn.addEventListener('focus', function(){ btn.style.outline='2px solid #fff'; btn.style.outlineOffset='2px'; });
+    btn.addEventListener('blur', function(){ btn.style.outline=''; btn.style.outlineOffset=''; });
+    btn.addEventListener('click', open);
+    return btn;
+  }
+  var _triggerBtn=null;
+  function mount(){
+    if(!document.body){ setTimeout(mount, 100); return; }
+    _triggerBtn=createTrigger();
+    document.body.appendChild(_triggerBtn);
+  }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 })();

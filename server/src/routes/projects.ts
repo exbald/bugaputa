@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { nanoid } from "nanoid";
-import { getDb, generateId, nowIso } from "../db.js";
-import { projectCreateSchema, paginationSchema } from "../lib/validators.js";
+import { getDb, generateId, nowIso, WIDGET_DEFAULTS } from "../db.js";
+import { projectCreateSchema, paginationSchema, widgetSettingsSchema } from "../lib/validators.js";
 import { authMiddleware } from "../middleware/auth.js";
 
 const router = Router();
@@ -18,6 +18,13 @@ function toProject(row: any) {
     publicKey: row.publicKey,
     createdAt: row.createdAt,
     allowedOrigins: row.allowedOrigins ? JSON.parse(row.allowedOrigins) : null,
+    widget_label: row.widget_label ?? WIDGET_DEFAULTS.label,
+    widget_color: row.widget_color ?? WIDGET_DEFAULTS.color,
+    widget_position: row.widget_position ?? WIDGET_DEFAULTS.position,
+    // also expose camelCase aliases for convenience
+    widgetLabel: row.widget_label ?? WIDGET_DEFAULTS.label,
+    widgetColor: row.widget_color ?? WIDGET_DEFAULTS.color,
+    widgetPosition: row.widget_position ?? WIDGET_DEFAULTS.position,
   };
 }
 
@@ -39,8 +46,8 @@ router.post("/", (req, res) => {
   const publicKey = `pk_live_${nanoid(16)}`;
   const createdAt = nowIso();
   db.prepare(
-    "INSERT INTO projects (id, ownerId, name, publicKey, createdAt, allowedOrigins) VALUES (?, ?, ?, ?, ?, ?)"
-  ).run(id, req.user!.id, name, publicKey, createdAt, allowedOrigins ? JSON.stringify(allowedOrigins) : null);
+    "INSERT INTO projects (id, ownerId, name, publicKey, createdAt, allowedOrigins, widget_label, widget_color, widget_position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(id, req.user!.id, name, publicKey, createdAt, allowedOrigins ? JSON.stringify(allowedOrigins) : null, WIDGET_DEFAULTS.label, WIDGET_DEFAULTS.color, WIDGET_DEFAULTS.position);
   const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(id) as any;
   res.status(201).json(toProject(row));
 });
@@ -57,6 +64,88 @@ router.get("/:id", (req, res) => {
     return;
   }
   res.json(toProject(row));
+});
+
+// PATCH widget settings — owner only
+router.patch("/:id/widget-settings", (req, res) => {
+  const parsed = widgetSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
+  }
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
+  if (!row) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  if (row.ownerId !== req.user!.id) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const fields: string[] = [];
+  const values: any[] = [];
+  if (parsed.data.widget_label !== undefined) {
+    fields.push("widget_label = ?");
+    values.push(parsed.data.widget_label);
+  }
+  if (parsed.data.widget_color !== undefined) {
+    fields.push("widget_color = ?");
+    values.push(parsed.data.widget_color);
+  }
+  if (parsed.data.widget_position !== undefined) {
+    fields.push("widget_position = ?");
+    values.push(parsed.data.widget_position);
+  }
+  if (fields.length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  values.push(req.params.id);
+  db.prepare(`UPDATE projects SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+  const updated = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
+  res.json(toProject(updated));
+});
+
+// Also support PUT /:id/widget-settings for convenience
+router.put("/:id/widget-settings", (req, res) => {
+  const parsed = widgetSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
+  }
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
+  if (!row) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  if (row.ownerId !== req.user!.id) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const fields: string[] = [];
+  const values: any[] = [];
+  if (parsed.data.widget_label !== undefined) {
+    fields.push("widget_label = ?");
+    values.push(parsed.data.widget_label);
+  }
+  if (parsed.data.widget_color !== undefined) {
+    fields.push("widget_color = ?");
+    values.push(parsed.data.widget_color);
+  }
+  if (parsed.data.widget_position !== undefined) {
+    fields.push("widget_position = ?");
+    values.push(parsed.data.widget_position);
+  }
+  if (fields.length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  values.push(req.params.id);
+  db.prepare(`UPDATE projects SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+  const updated = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
+  res.json(toProject(updated));
 });
 
 router.delete("/:id", (req, res) => {
