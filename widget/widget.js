@@ -1165,7 +1165,7 @@
       });
       cvs.style.cursor = t==='select' ? 'default' : 'crosshair';
     }
-    setTool('select');
+    setTool('pen');
     updateUndoRedo();
     ed.appendChild(header);
     ed.appendChild(stage);
