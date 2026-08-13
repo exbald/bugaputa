@@ -1604,7 +1604,7 @@
       var sidePos=isRight?'right:0;':'left:0;';
       var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:0 8px 8px 0;';
       // width ~ 36px, height auto based on text; centered vertically
-      tabStyle+='top:50%;'+sidePos+radius+'width:36px;min-height:96px;max-height:70vh;'+
+      tabStyle+='top:50%;'+sidePos+radius+'width:auto;height:auto;max-height:70vh;'+
         'transform:translateY(-50%);'+
         'writing-mode:vertical-rl;'+
         'text-orientation:mixed;';
@@ -1623,7 +1623,7 @@
       // bottom horizontal pill/strip 20px offset from nearest corner
       var bottomSide=isBottomRight?'right:20px;':'left:20px;';
       tabStyle+='bottom:0;'+bottomSide+'border-radius:8px 8px 0 0;'+
-        'padding:10px 18px;min-height:36px;min-width:80px;';
+        'padding:10px 18px;min-height:36px;';
       btn.setAttribute('style', tabStyle);
       btn.textContent=label;
     }
