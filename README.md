@@ -97,7 +97,9 @@ npm --workspace=client run build   # vite build must succeed
 ```
 server/        Express app, routes, db, middleware, tests
 client/        React dashboard + landing (Vite)
-widget/        vanilla JS widget source (widget.js + widget.css)
+widget/        vanilla JS widget source (widget.js + widget.css + vendored capture engines:
+               modern-screenshot.min.js (primary, pixel-accurate SVG foreignObject) and
+               html2canvas.min.js (fallback), lazy-loaded after capture consent)
 scripts/       smoke.sh
 Dockerfile     multi-stage build
 ```
