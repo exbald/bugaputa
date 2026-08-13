@@ -11,6 +11,15 @@ const WORDMARKS = ["SHIPCRAFT", "NORTHPEAK", "ACME LABS", "PULSE", "FORGE", "QUA
 
 function CopyButton({ text, variant = "light" }: { text: string; variant?: "light" | "dark" }) {
   const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    const s = document.createElement('script');
+    s.src = '/widget.js';
+    s.async = true;
+    s.setAttribute('data-project', 'bugaputa-demo');
+    document.body.appendChild(s);
+    return () => { s.remove(); };
+  }, []);
+
   return (
     <button
       type="button"
@@ -278,6 +287,8 @@ function MiniInboxVisual() {
     </div>
   );
 }
+
+import { useEffect } from 'react';
 
 export default function Landing() {
   return (
