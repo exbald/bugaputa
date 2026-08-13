@@ -16,7 +16,7 @@ function CopyButton({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
       }}
-      className="shrink-0 px-3 py-1.5 rounded-lg bg-lime-500 text-slate-900 text-xs font-bold hover:bg-lime-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 transition"
+      className="shrink-0 px-3 py-2 min-h-[36px] rounded-lg bg-lime-500 text-slate-900 text-xs font-bold hover:bg-lime-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 transition"
       aria-label={copied ? "Copied snippet" : "Copy embed snippet"}
     >
       {copied ? "Copied!" : "Copy"}
@@ -33,6 +33,8 @@ function openWidget() {
   }
 }
 
+const WORDMARKS = ["SHIPCRAFT", "NORTHPEAK", "ACME LABS", "PULSE", "FORGE", "QUANTA"] as const;
+
 export default function Landing() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -43,12 +45,12 @@ export default function Landing() {
         {/* HERO */}
         <section className="bg-slate-900 text-white overflow-hidden">
           <div className="max-w-6xl mx-auto px-4 py-12 md:py-20 grid lg:grid-cols-[1.05fr_0.95fr] gap-10 items-center">
-            <div>
+            <div className="min-w-0">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/15 border border-lime-500/25 text-lime-400 text-[11px] font-semibold tracking-widest uppercase">
                 <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse" aria-hidden />
                 Embeddable widget · One line of JS
               </div>
-              <h1 className="mt-4 text-[2.05rem] md:text-5xl font-extrabold leading-[1.05] tracking-tight">
+              <h1 className="mt-4 text-[2.05rem] leading-[1.05] md:text-5xl font-extrabold tracking-tight">
                 Stop chasing <span className="text-lime-400">vague bug reports</span>
               </h1>
               <p className="mt-4 text-slate-300 text-[17px] leading-relaxed max-w-[58ch]">
@@ -64,8 +66,7 @@ export default function Landing() {
                 </button>
                 <a
                   href="#install"
-                  onClick={(e) => {
-                    // also copy on click for convenience
+                  onClick={() => {
                     const t = SNIPPET;
                     navigator.clipboard?.writeText(t).catch(() => {});
                   }}
@@ -76,17 +77,17 @@ export default function Landing() {
               </div>
               <p className="mt-3 text-xs tracking-wide text-slate-400">Free to start · No login for reporters · No extension required</p>
 
-              <div id="install" className="mt-6 rounded-xl bg-slate-800/80 border border-slate-700 p-3 flex flex-col gap-2 scroll-mt-20">
+              <div id="install" className="mt-6 rounded-xl bg-slate-800/80 border border-slate-700 p-3 flex flex-col gap-2 scroll-mt-20 min-w-0">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[11px] font-semibold tracking-widest uppercase text-slate-400">Embed — paste before &lt;/body&gt;</p>
                   <CopyButton text={SNIPPET_WITH_KEY} />
                 </div>
-                <pre className="overflow-x-auto rounded-lg bg-slate-950 border border-slate-800 px-3 py-2.5 text-xs font-mono text-lime-300"><code>{SNIPPET_WITH_KEY}</code></pre>
+                <pre className="overflow-x-auto max-w-full rounded-lg bg-slate-950 border border-slate-800 px-3 py-2.5 text-xs font-mono text-lime-300"><code className="break-all sm:break-normal">{SNIPPET_WITH_KEY}</code></pre>
                 <p className="text-[11px] text-slate-400">Paste before <code className="px-1 py-0.5 rounded bg-slate-700 text-slate-200">&lt;/body&gt;</code>. Works on any site and staging — no build step. You&apos;re live in 30 seconds.</p>
               </div>
             </div>
 
-            <figure className="relative">
+            <figure className="relative min-w-0">
               <div className="rounded-2xl bg-white p-2 shadow-2xl border border-slate-200">
                 <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
                   <img
@@ -96,10 +97,10 @@ export default function Landing() {
                     height={800}
                     loading="eager"
                     decoding="async"
-                    className="w-full h-auto block"
+                    className="w-full h-auto block max-w-full"
                   />
                 </div>
-                <figcaption className="px-2 pt-2 pb-1 flex items-center justify-between gap-3">
+                <figcaption className="px-2 pt-2 pb-1 flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs text-slate-500">Real report. Not a mockup. <span className="hidden sm:inline">Arrow, box, text — in seconds.</span></span>
                   <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold text-lime-700 bg-lime-50 border border-lime-200 rounded-full px-2.5 py-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-lime-500" aria-hidden /> Live widget capture
@@ -108,6 +109,25 @@ export default function Landing() {
               </div>
               <p className="sr-only">Hero visual — annotated screenshot captured with Bugaputa on a copyright-safe demo storefront.</p>
             </figure>
+          </div>
+        </section>
+
+        {/* SOCIAL PROOF — Loved by teams who ship (polished strip, after hero for visibility) */}
+        <section className="border-y border-slate-200 bg-white" aria-label="Loved by teams who ship">
+          <div className="max-w-6xl mx-auto px-4 py-8 md:py-10 text-center">
+            <h2 className="text-[11px] font-semibold tracking-[0.2em] uppercase text-slate-400">Loved by teams who ship</h2>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 md:gap-x-10" aria-label="Placeholder customer wordmarks">
+              {WORDMARKS.map((w) => (
+                <span
+                  key={w}
+                  className="select-none text-sm font-extrabold tracking-[0.18em] uppercase text-slate-400 opacity-60 hover:opacity-100 transition-opacity"
+                  aria-hidden
+                >
+                  {w}
+                </span>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-slate-400">Early access — be the first to tell your story · Free to start · One line of JS</p>
           </div>
         </section>
 
@@ -154,35 +174,35 @@ export default function Landing() {
               <p className="mt-2 text-slate-600">Three steps. One real flow. No training required.</p>
             </div>
             <ol className="mt-10 grid gap-8">
-              <li className="grid lg:grid-cols-2 gap-6 items-center rounded-2xl bg-white border border-slate-200 p-4 md:p-6">
-                <div className="order-2 lg:order-1">
+              <li className="grid lg:grid-cols-2 gap-6 items-center rounded-2xl bg-white border border-slate-200 p-4 md:p-6 min-w-0">
+                <div className="order-2 lg:order-1 min-w-0">
                   <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-lime-700"><span className="w-6 h-6 rounded-full bg-lime-500 text-slate-900 grid place-items-center text-xs font-extrabold">1</span> Capture</div>
                   <h3 className="mt-3 text-lg font-bold text-slate-900">Click Report bug. Screenshot taken instantly.</h3>
                   <p className="mt-1 text-sm text-slate-600 leading-relaxed">The widget captures the current viewport — no manual screenshot, no upload.</p>
                   <p className="mt-3 text-xs text-slate-500">No extension. One click.</p>
                 </div>
-                <figure className="order-1 lg:order-2">
+                <figure className="order-1 lg:order-2 min-w-0">
                   <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                    <img src="/landing/screenshots/02-chooser.png" alt="Bugaputa widget open — Report bug button active and viewport dimmed for capture" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block" />
+                    <img src="/landing/screenshots/02-chooser.png" alt="Bugaputa widget open — Report bug button active and viewport dimmed for capture" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block max-w-full" />
                   </div>
                   <figcaption className="mt-2 text-xs text-slate-500 text-center">Choose capture — then consent.</figcaption>
                   <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 hidden md:block">
-                    <img src="/landing/screenshots/03-capture-consent.png" alt="Capture consent pane — Before you capture with Capture this page button" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block" />
+                    <img src="/landing/screenshots/03-capture-consent.png" alt="Capture consent pane — Before you capture with Capture this page button" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block max-w-full" />
                   </div>
                 </figure>
               </li>
 
-              <li className="grid lg:grid-cols-2 gap-6 items-center rounded-2xl bg-white border border-slate-200 p-4 md:p-6">
-                <figure className="order-1">
+              <li className="grid lg:grid-cols-2 gap-6 items-center rounded-2xl bg-white border border-slate-200 p-4 md:p-6 min-w-0">
+                <figure className="order-1 min-w-0">
                   <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                    <img src="/landing/screenshots/04-annotate-empty.png" alt="Annotation in progress — arrow and text note drawn on the captured screenshot" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block" />
+                    <img src="/landing/screenshots/04-annotate-empty.png" alt="Annotation in progress — arrow and text note drawn on the captured screenshot" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block max-w-full" />
                   </div>
                   <figcaption className="mt-2 text-xs text-slate-500 text-center">Arrow, box, text — in seconds. Real toolbar, not an illustration.</figcaption>
                   <div className="mt-3 rounded-xl overflow-hidden border border-lime-200 bg-lime-50/50 hidden md:block">
-                    <img src="/landing/screenshots/05-annotate-done.png" alt="Completed annotated screenshot — arrow, rectangle and text Price overlaps on Safari pinned to the page" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block" />
+                    <img src="/landing/screenshots/05-annotate-done.png" alt="Completed annotated screenshot — arrow, rectangle and text Price overlaps on Safari pinned to the page" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block max-w-full" />
                   </div>
                 </figure>
-                <div className="order-2">
+                <div className="order-2 min-w-0">
                   <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-lime-700"><span className="w-6 h-6 rounded-full bg-lime-500 text-slate-900 grid place-items-center text-xs font-extrabold">2</span> Annotate</div>
                   <h3 className="mt-3 text-lg font-bold text-slate-900">Point, draw, explain.</h3>
                   <p className="mt-1 text-sm text-slate-600 leading-relaxed">Draw arrows, boxes, and notes right on the screenshot — so devs see exactly what you mean.</p>
@@ -190,24 +210,24 @@ export default function Landing() {
                 </div>
               </li>
 
-              <li className="grid lg:grid-cols-2 gap-6 items-center rounded-2xl bg-white border border-slate-200 p-4 md:p-6">
-                <div className="order-2 lg:order-1">
+              <li className="grid lg:grid-cols-2 gap-6 items-center rounded-2xl bg-white border border-slate-200 p-4 md:p-6 min-w-0">
+                <div className="order-2 lg:order-1 min-w-0">
                   <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-lime-700"><span className="w-6 h-6 rounded-full bg-lime-500 text-slate-900 grid place-items-center text-xs font-extrabold">3</span> Report</div>
                   <h3 className="mt-3 text-lg font-bold text-slate-900">Submit. Your team gets a clear report.</h3>
                   <p className="mt-1 text-sm text-slate-600 leading-relaxed">An actionable report lands in your dashboard — annotated image plus context, ready to fix or forward.</p>
                   <p className="mt-3 text-xs text-slate-500">Screenshot + context. No back-and-forth.</p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Link to="/register" className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2">Create your project</Link>
-                    <button type="button" onClick={openWidget} className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Try the widget</button>
+                    <Link to="/register" className="px-4 py-2 min-h-[44px] inline-flex items-center justify-center rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2">Create your project</Link>
+                    <button type="button" onClick={openWidget} className="px-4 py-2 min-h-[44px] inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Try the widget</button>
                   </div>
                 </div>
-                <figure className="order-1 lg:order-2">
+                <figure className="order-1 lg:order-2 min-w-0">
                   <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                    <img src="/landing/screenshots/06-report-form.png" alt="Completed annotated report ready to submit, with screenshot and context fields" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block" />
+                    <img src="/landing/screenshots/06-report-form.png" alt="Completed annotated report ready to submit, with screenshot and context fields" width={800} height={500} loading="lazy" decoding="async" className="w-full h-auto block max-w-full" />
                   </div>
                   <figcaption className="mt-2 text-xs text-slate-500 text-center">Report form with annotated preview — URL, viewport, browser auto-attached.</figcaption>
                   <div className="mt-3 hidden md:flex justify-center">
-                    <img src="/landing/screenshots/07-mobile-idle.png" alt="Bugaputa widget on mobile — floating button visible at 390px viewport" width={300} height={500} loading="lazy" decoding="async" className="w-[220px] h-auto rounded-xl border border-slate-200 shadow-sm" />
+                    <img src="/landing/screenshots/07-mobile-idle.png" alt="Bugaputa widget on mobile — floating button visible at 390px viewport" width={300} height={500} loading="lazy" decoding="async" className="w-[220px] h-auto rounded-xl border border-slate-200 shadow-sm max-w-full" />
                   </div>
                 </figure>
               </li>
@@ -238,20 +258,6 @@ export default function Landing() {
           <p className="mt-6 text-xs text-slate-500 text-center">Export or forward — keep your existing workflow. No session replay, AI triage, or analytics promised beyond the shipped widget.</p>
         </section>
 
-        {/* SOCIAL PROOF — State A */}
-        <section className="max-w-6xl mx-auto px-4 pb-14" aria-label="Trusted by early users">
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 md:p-10 text-center">
-            <h2 className="text-lg md:text-xl font-bold text-slate-900">Loved by teams who ship</h2>
-            <p className="mt-1 text-sm text-slate-600">Early access — be the first to tell your story</p>
-            <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
-              <div className="w-28 h-10 rounded-lg bg-white border border-slate-200 grid place-items-center text-[11px] font-semibold tracking-widest uppercase text-slate-400">Your logo here?</div>
-              <div className="w-28 h-10 rounded-lg bg-white border border-slate-200 grid place-items-center text-[11px] font-semibold tracking-widest uppercase text-slate-400">Your logo here?</div>
-              <div className="w-28 h-10 rounded-lg bg-white border border-slate-200 grid place-items-center text-[11px] font-semibold tracking-widest uppercase text-slate-400">Your logo here?</div>
-            </div>
-            <p className="mt-4 text-xs text-slate-500">Free to start · No credit card · One line of JS</p>
-          </div>
-        </section>
-
         {/* PRICING + INSTALL */}
         <section className="max-w-6xl mx-auto px-4 pb-8" aria-labelledby="pricing-heading">
           <div className="text-center max-w-2xl mx-auto">
@@ -268,15 +274,15 @@ export default function Landing() {
                 <li className="flex gap-2"><span className="text-lime-600" aria-hidden>✓</span> No credit card required</li>
               </ul>
               <div className="mt-6 grid grid-cols-1 gap-3">
-                <button type="button" onClick={openWidget} className="w-full px-5 py-3 rounded-xl bg-lime-500 text-slate-900 font-bold hover:bg-lime-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2">Try live demo</button>
-                <a href="#install" className="w-full px-5 py-3 rounded-xl border border-slate-300 bg-white font-medium hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 text-center">Add to your site — 1 line of JS</a>
+                <button type="button" onClick={openWidget} className="w-full px-5 py-3 min-h-[44px] inline-flex items-center justify-center rounded-xl bg-lime-500 text-slate-900 font-bold hover:bg-lime-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2">Try live demo</button>
+                <a href="#install" className="w-full px-5 py-3 min-h-[44px] inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white font-medium hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 text-center">Add to your site — 1 line of JS</a>
               </div>
-              <div className="mt-6 rounded-xl bg-slate-900 text-left p-3 border border-slate-800">
+              <div className="mt-6 rounded-xl bg-slate-900 text-left p-3 border border-slate-800 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-semibold tracking-widest uppercase text-slate-400">Install</span>
                   <CopyButton text={SNIPPET} />
                 </div>
-                <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-mono text-lime-300"><code>{SNIPPET}</code></pre>
+                <pre className="mt-2 overflow-x-auto max-w-full rounded-lg bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-mono text-lime-300"><code>{SNIPPET}</code></pre>
                 <p className="mt-2 text-[11px] text-slate-400">Paste before <code className="px-1 py-0.5 rounded bg-slate-800 text-slate-200">&lt;/body&gt;</code> — you&apos;re live in 30 seconds.</p>
               </div>
             </div>
@@ -286,7 +292,7 @@ export default function Landing() {
         {/* FINAL CTA BAND */}
         <section id="demo" className="bg-slate-900 text-white scroll-mt-14" aria-labelledby="cta-heading">
           <div className="max-w-6xl mx-auto px-4 py-10 md:py-12 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
+            <div className="min-w-0">
               <h2 id="cta-heading" className="text-2xl md:text-3xl font-extrabold tracking-tight">Ship fixes, not follow-ups.</h2>
               <p className="mt-2 text-slate-300 text-sm">Free to start · No credit card · Works on any site</p>
             </div>
@@ -314,7 +320,7 @@ export default function Landing() {
         <footer className="border-t">
           <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-slate-500">
             <span className="flex items-center gap-2"><img src="/bugaputa-logo.svg" alt="" className="w-5 h-5" /> Bugaputa — original bug-reporting toolkit</span>
-            <nav aria-label="Footer" className="flex items-center gap-4 text-xs">
+            <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
               <a href="/widget.js" className="hover:text-slate-700 underline underline-offset-4">widget.js</a>
               <span aria-hidden>·</span>
               <Link to="/dashboard" className="hover:text-slate-700 underline underline-offset-4">Docs</Link>
@@ -324,7 +330,7 @@ export default function Landing() {
               <span>Privacy</span>
             </nav>
           </div>
-          <p className="text-center text-xs text-slate-400 pb-4">© {new Date().getFullYear()} Bugaputa. </p>
+          <p className="text-center text-xs text-slate-400 pb-4">© {new Date().getFullYear()} Bugaputa. Not affiliated with Ybug.</p>
         </footer>
       </main>
     </div>
