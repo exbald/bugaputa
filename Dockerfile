@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY server/package.json ./server/package.json
 COPY client/package.json ./client/package.json
-RUN npm install
+RUN npm ci --include=dev
 COPY . .
 RUN npm run build
 
