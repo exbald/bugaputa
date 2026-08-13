@@ -15,6 +15,8 @@ export const api={
   createProject:(name:string)=>doFetch("/api/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name})}),
   getProject:(id:string)=>doFetch("/api/projects/"+id),
   deleteProject:(id:string)=>doFetch("/api/projects/"+id,{method:"DELETE"}),
+  updateProject:(id:string, data:{ widget_label?: string; widget_color?: string; widget_position?: string })=>doFetch("/api/projects/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}),
+  getWidgetConfig:(key:string)=>doFetch("/api/widget-config?project="+encodeURIComponent(key)),
   listReports:(projectId:string,params:Record<string,string|number>={})=>{
     const entries=Object.entries(params).filter(([,v])=>v!==""&&v!=null).map(([k,v])=>[k,String(v)] as [string,string]);
     const qs=new URLSearchParams(entries).toString();

@@ -26,7 +26,7 @@ export function initDb(dbPath: string): Db {
 
 export const WIDGET_DEFAULTS = {
   label: "Feedback",
-  color: "#4f46e5",
+  color: "#171717",
   position: "right" as const,
 };
 
@@ -90,11 +90,14 @@ function migrate(database: Db) {
       database.exec("ALTER TABLE projects ADD COLUMN widget_label TEXT DEFAULT 'Feedback'");
     }
     if (!colNames.has("widget_color")) {
-      database.exec("ALTER TABLE projects ADD COLUMN widget_color TEXT DEFAULT '#4f46e5'");
+      database.exec("ALTER TABLE projects ADD COLUMN widget_color TEXT DEFAULT '#171717'");
     }
     if (!colNames.has("widget_position")) {
       database.exec("ALTER TABLE projects ADD COLUMN widget_position TEXT DEFAULT 'right'");
     }
+    database.exec("UPDATE projects SET widget_label = 'Feedback' WHERE widget_label IS NULL");
+    database.exec("UPDATE projects SET widget_color = '#171717' WHERE widget_color IS NULL");
+    database.exec("UPDATE projects SET widget_position = 'right' WHERE widget_position IS NULL");
   }
 }
 

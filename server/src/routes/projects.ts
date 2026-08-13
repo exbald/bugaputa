@@ -66,7 +66,48 @@ router.get("/:id", (req, res) => {
   res.json(toProject(row));
 });
 
-// PATCH widget settings — owner only
+// PATCH /:id — generic project update (currently only widget settings, per spec)
+router.patch("/:id", (req, res) => {
+  const parsed = widgetSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
+  }
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
+  if (!row) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  if (row.ownerId !== req.user!.id) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const fields: string[] = [];
+  const values: any[] = [];
+  if (parsed.data.widget_label !== undefined) {
+    fields.push("widget_label = ?");
+    values.push(parsed.data.widget_label.trim());
+  }
+  if (parsed.data.widget_color !== undefined) {
+    fields.push("widget_color = ?");
+    values.push(parsed.data.widget_color);
+  }
+  if (parsed.data.widget_position !== undefined) {
+    fields.push("widget_position = ?");
+    values.push(parsed.data.widget_position);
+  }
+  if (fields.length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  values.push(req.params.id);
+  db.prepare(`UPDATE projects SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+  const updated = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
+  res.json(toProject(updated));
+});
+
+// PATCH widget settings — owner only (alias for PATCH /:id, kept for backwards compat)
 router.patch("/:id/widget-settings", (req, res) => {
   const parsed = widgetSettingsSchema.safeParse(req.body);
   if (!parsed.success) {

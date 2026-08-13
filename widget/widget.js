@@ -27,9 +27,9 @@
     if(t.length>30) t=t.slice(0,30);
     return t;
   }
-  var _dataLabel=script?script.getAttribute('data-label'):null;
+  var _dataLabel=script?script.getAttribute('data-label')||script.getAttribute('data-wording'):null;
   var _dataColor=script?script.getAttribute('data-color'):null;
-  var _dataPos=script?script.getAttribute('data-position'):null;
+  var _dataPos=script?script.getAttribute('data-position')||script.getAttribute('data-pos'):null;
   var _initialLabel=sanitizeLabel(_dataLabel)||null;
   var _initialColor=(isValidHex(_dataColor)?_dataColor.trim():null);
   var _initialPos=(WIDGET_POSITIONS.indexOf((_dataPos||'').trim())!==-1?(_dataPos||'').trim():null);
