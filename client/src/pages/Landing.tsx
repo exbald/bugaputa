@@ -690,9 +690,9 @@ export default function Landing() {
         <section className="max-w-6xl mx-auto px-4 pb-28 sm:pb-8 pt-8 w-full" aria-label="Try the live widget">
           <div className="rounded-2xl border border-lime-200 bg-lime-50 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
-              <h3 className="font-bold text-slate-900">Try it — report a bug with the button in the corner</h3>
+              <h3 className="font-bold text-slate-900">Try it — report a bug with the widget</h3>
               <p className="mt-1 text-sm text-slate-600">
-                Look for the floating <span aria-hidden>🐛</span> button in the corner — click it to report a bug, just like your users will. This is the real
+                Click the <span aria-hidden>→</span> Feedback tab on the edge of your screen to submit a report. This is the real
                 Bugaputa widget running on this page. Keyboard: press Tab to reach it, Enter to open.
               </p>
             </div>
