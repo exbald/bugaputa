@@ -331,6 +331,65 @@
     }
     clone.removeAttribute('data-bugaputa-fix');
   }
+  // Chrome quirk: inside the SVG image used for rasterization, generic font
+  // keywords (system-ui, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+  // ui-monospace) fall back to the browser default font instead of the real UI
+  // font. The default (Arial-class) has different metrics, so text overflows its
+  // pinned boxes and wraps — captures look "smushed". Concrete family names
+  // resolve correctly, so we detect which installed font the generic actually
+  // renders as (by width measurement) and pin it in the clone's inlined styles.
+  function fontProbe(){
+    var cvs=document.createElement('canvas');
+    var ctx=cvs.getContext('2d');
+    if(!ctx) return null;
+    var samples=[[16,'The quick brown fox jumps — 0123456789 iIl1|'],[24,'LIGHTWEIGHT · ACCESSIBLE · mmmwwwMMM']];
+    return function(font){
+      return samples.map(function(s){ ctx.font=s[0]+'px '+font; return ctx.measureText(s[1]).width; });
+    };
+  }
+  function resolveGenericFont(measure, generic, candidates){
+    try{
+      var target=measure(generic);
+      var monoRef=measure('monospace'), serifRef=measure('serif');
+      for(var i=0;i<candidates.length;i++){
+        var c='"'+candidates[i]+'"';
+        // availability: an unavailable candidate falls back to the appended
+        // generic, so it measures identical to that generic alone
+        var viaMono=measure(c+', monospace'), viaSerif=measure(c+', serif');
+        var available=(viaMono[0]!==monoRef[0]||viaMono[1]!==monoRef[1]) && (viaSerif[0]!==serifRef[0]||viaSerif[1]!==serifRef[1]);
+        if(!available) continue;
+        var w=measure(c);
+        if(Math.abs(w[0]-target[0])<0.35 && Math.abs(w[1]-target[1])<0.35) return candidates[i];
+      }
+    }catch(_){}
+    return null;
+  }
+  var _fontPins=null;
+  function systemFontPins(){
+    if(_fontPins) return _fontPins;
+    var measure=fontProbe();
+    _fontPins=measure?{
+      sans: resolveGenericFont(measure, 'system-ui', ['Segoe UI','Roboto','Helvetica Neue','Arial','Ubuntu','Cantarell','Noto Sans','DejaVu Sans','Liberation Sans','Helvetica']),
+      mono: resolveGenericFont(measure, 'ui-monospace', ['Menlo','Consolas','SF Mono','Cascadia Mono','DejaVu Sans Mono','Liberation Mono','Ubuntu Mono','Noto Sans Mono','Courier New'])
+    }:{sans:null, mono:null};
+    return _fontPins;
+  }
+  function pinCloneFonts(root){
+    var pins=systemFontPins();
+    if(!pins.sans && !pins.mono) return;
+    var nodes=[root].concat(Array.prototype.slice.call(root.querySelectorAll('*')));
+    for(var i=0;i<nodes.length;i++){
+      var el=nodes[i];
+      if(!el.style) continue;
+      var ff=el.style.fontFamily;
+      if(!ff) continue;
+      var lower=ff.toLowerCase();
+      var pin=null;
+      if(pins.sans && (lower.indexOf('system-ui')!==-1 || lower.indexOf('ui-sans-serif')!==-1 || lower.indexOf('-apple-system')!==-1 || lower.indexOf('blinkmacsystemfont')!==-1)) pin=pins.sans;
+      else if(pins.mono && lower.indexOf('ui-monospace')!==-1) pin=pins.mono;
+      if(pin && lower.indexOf('"'+pin.toLowerCase()+'"')!==0) el.style.fontFamily='"'+pin+'", '+ff;
+    }
+  }
   function captureScale(vw, vh){
     // full devicePixelRatio so the capture matches the screen 1:1 (phones are 2.6-3x);
     // clamp so no canvas dimension can exceed conservative mobile limits
@@ -444,6 +503,7 @@
                   applyCloneFixup(root);
                   var marked=root.querySelectorAll('[data-bugaputa-fix]');
                   for(var i=0;i<marked.length;i++) applyCloneFixup(marked[i]);
+                  pinCloneFonts(root);
                 }
               }
             });
