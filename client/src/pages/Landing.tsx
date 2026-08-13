@@ -279,7 +279,6 @@ function MiniInboxVisual() {
   );
 }
 
-import { useEffect } from 'react';
 
 export default function Landing() {
   return (
