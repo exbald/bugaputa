@@ -169,13 +169,13 @@
     var capturePane=h('div',{id:'bugaputa-capture-pane',style:'display:none'});
     var consent=h('div',{id:'bugaputa-consent-box'});
     consent.innerHTML='<strong style="display:block;font-size:13px;margin-bottom:6px">Before you capture</strong><p style="font-size:12px;color:#475569;line-height:1.5">We will capture only the visible part of this page you are seeing. Cross-origin iframes or protected video may appear blank. No passwords or form values are collected. You can annotate the screenshot before sending.</p><p style="font-size:11px;color:#94a3b8;margin-top:8px">Limits: cross-origin iframes, video/canvas may appear blank. You can still upload an image manually if capture fails.</p>';
-    var capBtn=h('button',{id:'bugaputa-do-capture',type:'button',text:'Capture this page'});
+    var dontShowChk=h('input',{id:'bugaputa-dont-show-consent',type:'checkbox',style:'margin:0;cursor:pointer'});var dontShowLbl=h('label',{style:'display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:#64748b;cursor:pointer;user-select:none'},[dontShowChk,h('span',{text:"Don't show this again"})]);capBtn=h('button',{id:'bugaputa-do-capture',type:'button',text:'Capture this page'});
     capBtn.setAttribute('aria-label','Capture this page');
     var capBack=h('button',{id:'bugaputa-cap-back',type:'button',text:'Back'});
     var capRow=h('div',{style:'display:flex;gap:8px;margin-top:12px'});
     capRow.appendChild(capBtn); capRow.appendChild(capBack);
     var capStatus=h('div',{id:'bugaputa-cap-status',style:'display:none;margin-top:10px;font-size:12px',role:'status','aria-live':'polite'});
-    capturePane.appendChild(consent); capturePane.appendChild(capRow); capturePane.appendChild(capStatus);
+    capturePane.appendChild(consent); capturePane.appendChild(dontShowLbl); capturePane.appendChild(capRow); capturePane.appendChild(capStatus);
     modal.appendChild(closeBtn);
     modal.appendChild(chooser);
     modal.appendChild(capturePane);
@@ -189,11 +189,10 @@
     btnGeneral.addEventListener('click', function(){ chooser.style.display='none'; capturePane.style.display='none'; showForm(null); });
     btnCapture.addEventListener('click', function(){
       chooser.style.display='none';
-      capturePane.style.display='block';
-      capBtn.focus();
+      if(localStorage.getItem('bugaputa-skip-consent')){ doCapture(capStatus, formWrap, chooser, capturePane); } else { capturePane.style.display='block'; capBtn.focus(); }
     });
     capBack.addEventListener('click', function(){ capturePane.style.display='none'; chooser.style.display='block'; btnCapture.focus(); });
-    capBtn.addEventListener('click', function(){ doCapture(capStatus, formWrap, chooser, capturePane); });
+    capBtn.addEventListener('click', function(){ if(dontShowChk&&dontShowChk.checked) localStorage.setItem('bugaputa-skip-consent','1'); doCapture(capStatus, formWrap, chooser, capturePane); });
     // store refs for later re-entry
     overlay._chooser=chooser; overlay._capturePane=capturePane; overlay._formWrap=formWrap;
   }
@@ -1604,7 +1603,7 @@
       var sidePos=isRight?'right:0;':'left:0;';
       var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:0 8px 8px 0;';
       // width ~ 36px, height auto based on text; centered vertically
-      tabStyle+='top:50%;'+sidePos+radius+'width:36px;min-height:96px;max-height:70vh;'+
+      tabStyle+='top:50%;'+sidePos+radius+'width:auto;height:auto;max-height:70vh;'+
         'transform:translateY(-50%);'+
         'writing-mode:vertical-rl;'+
         'text-orientation:mixed;';
@@ -1623,7 +1622,7 @@
       // bottom horizontal pill/strip 20px offset from nearest corner
       var bottomSide=isBottomRight?'right:20px;':'left:20px;';
       tabStyle+='bottom:0;'+bottomSide+'border-radius:8px 8px 0 0;'+
-        'padding:10px 18px;min-height:36px;min-width:80px;';
+        'padding:10px 18px;min-height:36px;';
       btn.setAttribute('style', tabStyle);
       btn.textContent=label;
     }
