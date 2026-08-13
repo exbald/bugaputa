@@ -113,3 +113,5 @@ Dockerfile     multi-stage build
 
 - zod validation on every input; message 10-2000 chars; file MIME + 5MB check; honeypot website; rate limit 20/min/IP/project; helmet; CORS allow-all only on public POST; IP hashed, never plain.
 - Auth: bcrypt 10, JWT httpOnly Secure SameSite=Lax (Secure in prod).
+
+<!-- coolify auto-deploy verification: 2026-08-13T03:20:02Z -->
