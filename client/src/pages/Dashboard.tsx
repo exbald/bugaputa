@@ -72,7 +72,7 @@ export default function Dashboard(){
                     <code className="block mt-1 text-xs break-all text-slate-700">{snippet}</code>
                     <button onClick={()=> navigator.clipboard.writeText(snippet)} className="mt-2 text-xs px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800">Copy snippet</button>
                   </div>
-                  <Link to={"/p/"+p.id} className="text-sm font-medium text-lime-600 hover:underline">View reports \u2192</Link>
+                  <Link to={"/p/"+p.id} className="text-sm font-medium text-lime-600 hover:underline">View reports →</Link>
                 </div>
               )
             })}

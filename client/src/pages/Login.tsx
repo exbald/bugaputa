@@ -11,7 +11,7 @@ export default function Login(){
   const [loading,setLoading]=useState(false);
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault(); setErr("");
-    const emailOk=/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+    const emailOk=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     if(!emailOk) return setErr("Enter a valid email.");
     if(!password) return setErr("Enter your password.");
     setLoading(true);
@@ -29,7 +29,7 @@ export default function Login(){
             <input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-500" placeholder="you@example.com" required />
           </label>
           <label className="block mt-3 text-sm font-medium">Password
-            <input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-500" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" required />
+            <input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime-500" placeholder="••••••••" required />
           </label>
           <button disabled={loading} className="mt-6 w-full py-2.5 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 disabled:opacity-50 min-h-[44px]">{loading?"Signing in...":"Log in"}</button>
           <p className="mt-4 text-sm text-center text-slate-600">No account? <Link to="/register" className="text-lime-600 font-medium hover:underline">Create one</Link></p>

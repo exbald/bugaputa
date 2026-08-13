@@ -8,3 +8,6 @@ uploads
 *.db
 *.db-*
 coverage/
+e2e-final/
+e2e-screenshots/
+e2e/

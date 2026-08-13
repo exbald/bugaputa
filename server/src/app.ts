@@ -18,10 +18,36 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
 
   const app = express();
 
-  app.use(helmet());
+  app.use(helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        fontSrc: ["'self'", "https:", "data:"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+        connectSrc: ["'self'", "https://bugaputa.no-code.gdn"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'", "https://bugaputa.no-code.gdn"],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", "https:", "'unsafe-inline'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+  }));
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true }));
+
+  // Default CORP same-origin for app routes; widget assets override to cross-origin
+  app.use((req, res, next) => {
+    const isWidgetAsset = req.path === "/widget.js" || req.path === "/widget.css" || req.path === "/html2canvas.min.js" || req.path === "/modern-screenshot.min.js";
+    res.setHeader("Cross-Origin-Resource-Policy", isWidgetAsset ? "cross-origin" : "same-origin");
+    if (isWidgetAsset) res.setHeader("Access-Control-Allow-Origin", "*");
+    next();
+  });
 
   // Health
   app.get("/health", (_req, res) => res.json({ ok: true }));
@@ -49,6 +75,8 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
     path.resolve("client/public/widget.css"),
     path.resolve("dist/widget.css"),
   ];
+  // Widget public assets: allow cross-origin embedding (widget is meant to be embedded on customer sites)
+  // Must override helmet's CORP same-origin for these routes only
   app.get("/widget.js", (_req, res) => {
     for (const p of widgetJsCandidates) {
       if (fs.existsSync(p)) return res.type("application/javascript").sendFile(path.resolve(p));
