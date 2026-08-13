@@ -324,7 +324,7 @@ export default function Landing() {
               <span>Privacy</span>
             </nav>
           </div>
-          <p className="text-center text-xs text-slate-400 pb-4">© {new Date().getFullYear()} Bugaputa. Not affiliated with Ybug.</p>
+          <p className="text-center text-xs text-slate-400 pb-4">© {new Date().getFullYear()} Bugaputa. </p>
         </footer>
       </main>
     </div>
