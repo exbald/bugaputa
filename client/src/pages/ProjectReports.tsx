@@ -37,7 +37,7 @@ function WidgetPreview({ label, color, position }: { label: string; color: strin
     boxShadow: "0 2px 10px rgba(0,0,0,0.18)", display: "flex", alignItems: "center", justifyContent: "center",
   };
   let tabStyle: React.CSSProperties = { ...tabBase };
-  if(pos === "left"){ tabStyle = { ...tabBase, left: 0, top: "50%", transform: "translateY(-50%) rotate(180deg)", writingMode: "vertical-rl" as const, borderRadius: "0 8px 8px 0", width: 28, minHeight: 72, padding: "10px 0" };
+  if(pos === "left"){ tabStyle = { ...tabBase, left: 0, top: "50%", transform: "translateY(-50%) rotate(180deg)", writingMode: "vertical-rl" as const, borderRadius: "8px 0 0 8px", width: 28, minHeight: 72, padding: "10px 0" };
   } else if(pos === "right"){ tabStyle = { ...tabBase, right: 0, top: "50%", transform: "translateY(-50%)", writingMode: "vertical-rl" as const, borderRadius: "8px 0 0 8px", width: 28, minHeight: 72, padding: "10px 0" };
   } else if(pos === "bottom-left"){ tabStyle = { ...tabBase, bottom: 0, left: 16, borderRadius: "8px 8px 0 0", padding: "8px 14px", minHeight: 30 };
   } else { tabStyle = { ...tabBase, bottom: 0, right: 16, borderRadius: "8px 8px 0 0", padding: "8px 14px", minHeight: 30 }; }
