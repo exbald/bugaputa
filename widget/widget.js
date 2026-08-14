@@ -1603,7 +1603,7 @@
       var sidePos=isRight?'right:0;':'left:0;';
       var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:0 8px 8px 0;';
       // width ~ 36px, height auto based on text; centered vertically
-      tabStyle+='top:50%;'+sidePos+radius+'width:auto;padding:10px;min-height:96px;max-height:70vh;'+
+      tabStyle+='top:50%;'+sidePos+radius+'width:auto;min-height:auto;max-height:70vh;padding:12px 10px;'+
         'transform:translateY(-50%);'+
         'writing-mode:vertical-rl;'+
         'text-orientation:mixed;';
@@ -1627,8 +1627,8 @@
       btn.textContent=label;
     }
     // hover interactions (transform + brightness)
-    var hoverTransformVertical=isRight?'translateY(-50%) translateX(-6px)':'translateY(-50%) translateX(6px)';
-    if(isLeft) hoverTransformVertical='translateY(-50%) rotate(180deg) translateX(6px)';
+    var hoverTransformVertical=isRight?'translateY(-50%) translateX(-4px)':'translateY(-50%) translateX(4px)';
+    if(isLeft) hoverTransformVertical='translateY(-50%) rotate(180deg) translateX(4px)';
     var baseTransform=vertical?(isLeft?'translateY(-50%) rotate(180deg)':'translateY(-50%)'):'' ;
     function onEnter(){
       if(vertical){

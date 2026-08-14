@@ -21,8 +21,8 @@
 #bugaputa-success{text-align:center;padding:24px 0}
 #bugaputa-success p{color:#16a34a;font-weight:600}
 #bugaputa-hp{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
-@media(max-width:640px){#bugaputa-btn{right:16px;bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
-@media(max-width:360px){#bugaputa-modal{padding:16px}#bugaputa-btn{right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:52px;height:52px}}
+
+@media(max-width:360px){#bugaputa-modal{padding:16px}}
 #bugaputa-btn svg{display:block;flex-shrink:0}
 /* chooser */
 #bugaputa-chooser{padding:4px 0}
