@@ -144,3 +144,4 @@ Dockerfile     multi-stage build
 - Auth: bcrypt 10, JWT httpOnly Secure SameSite=Lax (Secure in prod).
 
 <!-- coolify auto-deploy verification: 2026-08-13T03:20:02Z -->
+<!-- verify agent 08:09:05 -->
