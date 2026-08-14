@@ -74,7 +74,7 @@ function CopyButton({ text, label }: { text: string; label: string }){
 export default function ProjectReports(){
   const {id}=useParams();
   const navigate=useNavigate();
-  const [activeTab, setActiveTab] = useState<TabKey>("widget");
+  const [activeTab, setActiveTab] = useState<TabKey>("issues");
   const [project,setProject]=useState<any>(null);
   const [reports,setReports]=useState<any[]>([]);
   const [total,setTotal]=useState(0);
