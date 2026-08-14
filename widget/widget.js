@@ -256,12 +256,13 @@
     form.appendChild(msgLabel); form.appendChild(emailLabel); form.appendChild(fileLabel); form.appendChild(hpWrap); form.appendChild(ctx); form.appendChild(consent); form.appendChild(errBox); form.appendChild(actions);
     wrap.appendChild(form); wrap.appendChild(success);
     setTimeout(function(){ textarea.focus(); }, 50);
+    textarea.addEventListener('input', function(){ if(textarea.value.trim().length>=10 && textarea.value.trim().length<=2000){ textarea.style.border=''; msgErr.style.display='none'; } });
     form.addEventListener('submit', function(e){
       e.preventDefault();
-      msgErr.style.display='none'; emailErr.style.display='none'; errBox.style.display='none';
+      msgErr.style.display='none'; textarea.style.border=''; emailErr.style.display='none'; errBox.style.display='none';
       var msg=textarea.value.trim(); var email=emailInput.value.trim(); var hasError=false;
-      if(msg.length<10){ msgErr.textContent='Please describe the bug (at least 10 characters).'; msgErr.style.display='block'; hasError=true; }
-      else if(msg.length>2000){ msgErr.textContent='Message too long (max 2000 characters).'; msgErr.style.display='block'; hasError=true; }
+      if(msg.length<10){ msgErr.textContent='Please describe the bug (at least 10 characters).'; msgErr.style.display='block'; textarea.style.border='2px solid #ef4444'; hasError=true; }
+      else if(msg.length>2000){ msgErr.textContent='Message too long (max 2000 characters).'; msgErr.style.display='block'; textarea.style.border='2px solid #ef4444'; hasError=true; }
       if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ emailErr.textContent='Enter a valid email or leave empty.'; emailErr.style.display='block'; hasError=true; }
       if(hpInput.value){ close(); return; }
       if(hasError) return;
