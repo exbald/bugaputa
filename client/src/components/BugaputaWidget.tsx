@@ -25,6 +25,9 @@ export default function BugaputaWidget() {
     const s = document.createElement("script");
     s.src = WIDGET_SRC;
     s.setAttribute("data-project", WIDGET_PROJECT_KEY);
+    s.setAttribute("data-label", "Feedback");
+    s.setAttribute("data-color", "#4f46e5");
+    s.setAttribute("data-pos", "right");
     s.async = true;
     // Tag it so cleanup can identify our element unambiguously.
     s.setAttribute("data-bugaputa", "landing");
