@@ -11,10 +11,11 @@ import reportRoutes from "./routes/reports.js";
 import widgetConfigRoutes from "./routes/widgetConfig.js";
 
 export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
-  const dbPath = opts?.dbPath || process.env.DATABASE_URL || "./data/app.db";
-  const uploadDir = opts?.uploadDir || process.env.UPLOAD_DIR || "./data/uploads";
+  const dbPath = opts?.dbPath || process.env.DATABASE_URL || "/app/data/app.db";
+  const uploadDir = opts?.uploadDir || process.env.UPLOAD_DIR || "/app/data/uploads";
   if (opts?.uploadDir) process.env.UPLOAD_DIR = opts.uploadDir;
 
+  console.log(`[db] using ${dbPath}`);
   initDb(dbPath);
 
   const app = express();

@@ -1,6 +1,6 @@
 import {useEffect,useState,useCallback} from "react";
-import {useParams,Link} from "react-router-dom";
-import {api} from "../lib/api";
+import {useParams,Link,useNavigate} from "react-router-dom";
+import {api,ApiError} from "../lib/api";
 import {TopNav} from "../components/Layout";
 function toSrc(p: string|null){ if(!p) return null; return p.startsWith("http")||p.startsWith("/") ? p : "/uploads/"+p; }
 const STATUSES=["","open","in_progress","resolved","archived"] as const;
@@ -37,7 +37,7 @@ function WidgetPreview({ label, color, position }: { label: string; color: strin
     boxShadow: "0 2px 10px rgba(0,0,0,0.18)", display: "flex", alignItems: "center", justifyContent: "center",
   };
   let tabStyle: React.CSSProperties = { ...tabBase };
-  if(pos === "left"){ tabStyle = { ...tabBase, left: 0, top: "50%", transform: "translateY(-50%) rotate(180deg)", writingMode: "vertical-rl" as const, borderRadius: "8px 0 0 8px", width: 28, minHeight: 72, padding: "10px 0" };
+  if(pos === "left"){ tabStyle = { ...tabBase, left: 0, top: "50%", transform: "translateY(-50%) rotate(180deg)", writingMode: "vertical-rl" as const, borderRadius: "0 8px 8px 0", width: 28, minHeight: 72, padding: "10px 0" };
   } else if(pos === "right"){ tabStyle = { ...tabBase, right: 0, top: "50%", transform: "translateY(-50%)", writingMode: "vertical-rl" as const, borderRadius: "8px 0 0 8px", width: 28, minHeight: 72, padding: "10px 0" };
   } else if(pos === "bottom-left"){ tabStyle = { ...tabBase, bottom: 0, left: 16, borderRadius: "8px 8px 0 0", padding: "8px 14px", minHeight: 30 };
   } else { tabStyle = { ...tabBase, bottom: 0, right: 16, borderRadius: "8px 8px 0 0", padding: "8px 14px", minHeight: 30 }; }
@@ -73,6 +73,7 @@ function CopyButton({ text, label }: { text: string; label: string }){
 
 export default function ProjectReports(){
   const {id}=useParams();
+  const navigate=useNavigate();
   const [activeTab, setActiveTab] = useState<TabKey>("widget");
   const [project,setProject]=useState<any>(null);
   const [reports,setReports]=useState<any[]>([]);
@@ -133,9 +134,27 @@ export default function ProjectReports(){
       if(updated.widget_label) setWLabel(updated.widget_label);
       if(updated.widget_color) setWColor(updated.widget_color);
       if(updated.widget_position) setWPos(updated.widget_position);
+      // Refetch to ensure UI stays in sync with persisted state
+      try{
+        const fresh:any=await api.getProject(id);
+        const proj=fresh.project||fresh;
+        setProject(proj);
+        if(proj.widget_label) setWLabel(proj.widget_label);
+        if(proj.widget_color) setWColor(proj.widget_color);
+        if(proj.widget_position) setWPos(proj.widget_position);
+      }catch{}
+      // Only show Saved on 2xx
       setWSaved(true);
       setTimeout(()=> setWSaved(false), 2500);
-    }catch(e:any){ setWErr(e.message || "Failed to save"); }
+    }catch(e:any){
+      // Never show Saved on failure; keep form dirty (do not clear pending values)
+      setWSaved(false);
+      if(e instanceof ApiError && (e.status===401 || e.status===403)){
+        setWErr("Session expired — please log in again.");
+      } else {
+        setWErr(e.message || "Failed to save — please try again.");
+      }
+    }
     finally{ setWSaving(false); }
   };
   const totalPages=Math.max(1, Math.ceil(total/limit));
@@ -258,10 +277,15 @@ export default function ProjectReports(){
                     </div>
                   </div>
                   <div className="flex items-center gap-3 pt-1">
-                    <button onClick={handleSaveWidget} disabled={wSaving} className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 min-h-[44px] transition">{wSaving ? "Saving..." : "Save widget settings"}</button>
-                    {wSaved && <span className="text-sm font-medium text-green-600">Saved ✓</span>}
+                    <button onClick={handleSaveWidget} disabled={wSaving} className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 min-h-[44px] transition-colors">{wSaving ? "Saving..." : "Save widget settings"}</button>
+                    {wSaved && <span aria-live="polite" className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600"><span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" /> Saved</span>}
                   </div>
-                  {wErr && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">{wErr}</div>}
+                  {wErr && (
+                    <div role="alert" aria-live="assertive" className={wErr.includes("Session expired") ? "flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-3 py-2.5" : "bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2.5"}>
+                      <span className="flex items-center gap-2"><span className={wErr.includes("Session expired") ? "w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0 inline-block" : "w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0 inline-block"} />{wErr}</span>
+                      {wErr.includes("Session expired") && <button onClick={()=> navigate("/login")} className="text-xs font-semibold underline underline-offset-2 hover:no-underline flex-shrink-0">Log in</button>}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-slate-700 mb-1.5">Live preview</div>

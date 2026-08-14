@@ -26,9 +26,9 @@ Open http://localhost:3000 — landing, login, dashboard. The widget is at `/wid
 |-----|---------|-------|
 | PORT | 3000 | |
 | NODE_ENV | development | `production` enables Secure cookies |
-| DATABASE_URL | ./data/app.db | SQLite file; prod: `/data/app.db` (Coolify volume) |
+| DATABASE_URL | ./data/app.db | SQLite file; prod: `/app/data/app.db` (Coolify volume, see docker-compose.yaml) |
 | JWT_SECRET | dev-secret-change-me | must be set in prod |
-| UPLOAD_DIR | ./data/uploads | prod: `/data/uploads` |
+| UPLOAD_DIR | ./data/uploads | prod: `/app/data/uploads` |
 | CORS_ORIGINS | http://localhost:5173,http://localhost:3000 | |
 
 See `.env.example`.
@@ -97,11 +97,11 @@ scripts.
 
 ```bash
 docker build -t bugaputa .
-docker run -p 3000:3000 -v $(pwd)/data:/data -e DATABASE_URL=/data/app.db -e UPLOAD_DIR=/data/uploads -e JWT_SECRET=secret bugaputa
+docker run -p 3000:3000 -v $(pwd)/data:/app/data -e DATABASE_URL=/app/data/app.db -e UPLOAD_DIR=/app/data/uploads -e JWT_SECRET=secret bugaputa
 curl -sf http://localhost:3000/health
 ```
 
-Coolify: volume /data, env DATABASE_URL=/data/app.db, UPLOAD_DIR=/data/uploads, JWT_SECRET, PORT=3000, NODE_ENV=production, domain bugaputa.no-code.gdn, port 3000.
+Coolify: volume /app/data, env DATABASE_URL=/app/data/app.db, UPLOAD_DIR=/app/data/uploads, JWT_SECRET, PORT=3000, NODE_ENV=production, domain bugaputa.no-code.gdn, port 3000.
 
 ## Smoke test
 

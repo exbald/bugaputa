@@ -20,7 +20,12 @@ export function initDb(dbPath: string): Db {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
 
-  migrate(db);
+  try {
+    migrate(db);
+  } catch (err) {
+    console.error("[db] migration failed:", err);
+    throw err;
+  }
   return db;
 }
 

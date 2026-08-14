@@ -19,7 +19,7 @@ const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
 const IMAGE_FIELDS = new Set(["screenshot", "annotations"]);
 
 function getUploadDir(): string {
-  return process.env.UPLOAD_DIR || "./data/uploads";
+  return process.env.UPLOAD_DIR || "/app/data/uploads";
 }
 
 const storage = multer.diskStorage({
