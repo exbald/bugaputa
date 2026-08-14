@@ -1599,22 +1599,16 @@
       'line-height:1;white-space:nowrap;user-select:none;-webkit-user-select:none;';
     var inner;
     if(vertical){
-      // Vertical tab: fixed slim width flush to edge, height fits text via padding + content.
-      // Fixed width prevents layout flash — intrinsic sizing with writing-mode+flex caused
-      // a one-frame expansion after initial paint (auto width recalculates post-font).
-      // Only inner span carries writing-mode; outer stays horizontal for stable flex sizing.
       var sidePos=isRight?'right:0;':'left:0;';
       var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:0 8px 8px 0;';
-      tabStyle+='top:50%;'+sidePos+radius+'width:32px;max-height:70vh;padding:14px 0;'+
-        'box-sizing:border-box;transform:translateY(-50%);';
+      tabStyle+='top:50%;'+sidePos+radius+'max-height:70vh;padding:14px 10px;'+
+        'box-sizing:border-box;transform:translateY(-50%);'+
+        'writing-mode:vertical-rl;text-orientation:mixed;';
       if(isLeft){
         tabStyle+='transform:translateY(-50%) rotate(180deg);';
       }
       btn.setAttribute('style', tabStyle);
-      inner=document.createElement('span');
-      inner.textContent=label;
-      inner.setAttribute('style','display:block;writing-mode:vertical-rl;text-orientation:mixed;');
-      btn.appendChild(inner);
+      btn.textContent=label;
     } else {
       // Bottom horizontal pill — compact, width = text + padding, height 36px.
       var bottomSide=isBottomRight?'right:20px;':'left:20px;';
