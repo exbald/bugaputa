@@ -10,11 +10,41 @@ import projectRoutes from "./routes/projects.js";
 import reportRoutes from "./routes/reports.js";
 import widgetConfigRoutes from "./routes/widgetConfig.js";
 
+// If the app was previously using /data/app.db (pre-fix volume path),
+// migrate that file into /app/data/app.db on first boot after the fix.
+function migrateLegacyDbIfNeeded(targetPath: string) {
+  const legacyPath = "/data/app.db";
+  if (targetPath === legacyPath) return;
+  try {
+    if (fs.existsSync(targetPath)) return;
+    if (!fs.existsSync(legacyPath)) return;
+    const dir = path.dirname(targetPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(legacyPath, targetPath);
+    // Also copy WAL/SHM if present
+    for (const suffix of ["-wal", "-shm"]) {
+      const src = legacyPath + suffix;
+      if (fs.existsSync(src)) fs.copyFileSync(src, targetPath + suffix);
+    }
+    // Copy uploads as well if they live under /data/uploads
+    const legacyUploads = "/data/uploads";
+    const targetUploads = "/app/data/uploads";
+    if (fs.existsSync(legacyUploads) && !fs.existsSync(targetUploads)) {
+      fs.mkdirSync(path.dirname(targetUploads), { recursive: true });
+      fs.cpSync(legacyUploads, targetUploads, { recursive: true, force: false });
+    }
+    console.log(`[db] migrated legacy DB ${legacyPath} -> ${targetPath}`);
+  } catch (err) {
+    console.warn("[db] legacy migration check failed:", err);
+  }
+}
+
 export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
   const dbPath = opts?.dbPath || process.env.DATABASE_URL || "/app/data/app.db";
   const uploadDir = opts?.uploadDir || process.env.UPLOAD_DIR || "/app/data/uploads";
   if (opts?.uploadDir) process.env.UPLOAD_DIR = opts.uploadDir;
 
+  migrateLegacyDbIfNeeded(dbPath);
   console.log(`[db] using ${dbPath}`);
   initDb(dbPath);
 
@@ -62,7 +92,12 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
   // Uploads static
   app.get("/uploads/:filename", (req, res) => {
     const filename = path.basename(req.params.filename);
-    const filePath = path.join(uploadDir, filename);
+    let filePath = path.join(uploadDir, filename);
+    // Legacy fallback before volume path was fixed to /app/data
+    if (!fs.existsSync(filePath)) {
+      const legacy = path.join("/data/uploads", filename);
+      if (fs.existsSync(legacy)) filePath = legacy;
+    }
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: "Not found" });
       return;

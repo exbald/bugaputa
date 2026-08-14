@@ -22,6 +22,16 @@ function getUploadDir(): string {
   return process.env.UPLOAD_DIR || "/app/data/uploads";
 }
 
+function resolveStoredFile(filename: string): string | null {
+  const base = path.basename(filename);
+  const primary = path.join(getUploadDir(), base);
+  if (fs.existsSync(primary)) return primary;
+  // Legacy path before volume fix
+  const legacy = path.join("/data/uploads", base);
+  if (fs.existsSync(legacy)) return legacy;
+  return null;
+}
+
 const storage = multer.diskStorage({
   destination(_req, _file, cb) {
     const dir = getUploadDir();
@@ -283,8 +293,10 @@ router.delete("/:id", authMiddleware, (req, res) => {
   // Delete stored artifacts if present (screenshot, DOM snapshot, annotations overlay)
   for (const stored of [report.screenshotPath, report.snapshotPath, report.annotationsPath]) {
     if (!stored) continue;
+    const resolved = resolveStoredFile(stored);
+    if (!resolved) continue;
     try {
-      fs.unlinkSync(path.join(getUploadDir(), path.basename(stored)));
+      fs.unlinkSync(resolved);
     } catch {}
   }
   db.prepare("DELETE FROM reports WHERE id = ?").run(req.params.id);
