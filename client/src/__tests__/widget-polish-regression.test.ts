@@ -27,8 +27,8 @@ describe("Widget polish regression (icon + overlap)", () => {
     const raw = fs.readFileSync(path.resolve(__dirname, "../../../widget/widget.js"), "utf8");
     // Edge-tab redesign: accessible label is customizable (Feedback default or data-label), not hard-coded "Report a bug"
     expect(raw).toMatch(/aria-label/);
-    // Edge tab meets 44px hit target via 36x96 vertical tab or 80x36 horizontal pill (inline styles, not 56px CSS)
-    expect(raw).toMatch(/min-height:\s*96px|min-height:\s*36px/);
+    // Edge tab: vertical = fixed 32px slim tab (width:32px), horizontal = 36px pill (min-height:36px)
+    expect(raw).toMatch(/width:\s*32px|min-height:\s*36px/);
     expect(raw).toMatch(/z-index:\s*2147483640|z-index:2147483640/);
   });
 
