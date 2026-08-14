@@ -1603,7 +1603,7 @@
       var sidePos=isRight?'right:0;':'left:0;';
       var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:0 8px 8px 0;';
       // width ~ 36px, height auto based on text; centered vertically
-      tabStyle+='top:50%;'+sidePos+radius+'width:36px;height:auto;min-height:96px;max-height:70vh;'+
+      tabStyle+='top:50%;'+sidePos+radius+'width:auto;padding:10px;min-height:96px;max-height:70vh;'+
         'transform:translateY(-50%);'+
         'writing-mode:vertical-rl;'+
         'text-orientation:mixed;';
@@ -1616,7 +1616,7 @@
       btn.setAttribute('style', tabStyle);
       inner=document.createElement('span');
       inner.textContent=label;
-      inner.setAttribute('style','display:block;padding:14px 0;writing-mode:vertical-rl;text-orientation:mixed;');
+      inner.setAttribute('style','display:block;padding:0;writing-mode:vertical-rl;text-orientation:mixed;');
       btn.appendChild(inner);
     } else {
       // bottom horizontal pill/strip 20px offset from nearest corner
