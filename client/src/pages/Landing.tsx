@@ -5,7 +5,7 @@ import BugaputaWidget from "../components/BugaputaWidget";
 
 const SNIPPET = '<script src="https://bugaputa.no-code.gdn/widget.js"></script>';
 const SNIPPET_WITH_KEY =
-  '<script src="https://bugaputa.no-code.gdn/widget.js" data-project="pk_live_OXoMeigFh6QMxkui"></script>';
+  '<script src="https://bugaputa.no-code.gdn/widget.js" data-project="YOUR_PROJECT_KEY"></script>';
 
 const WORDMARKS = ["SHIPCRAFT", "NORTHPEAK", "ACME LABS", "PULSE", "FORGE", "QUANTA"] as const;
 
