@@ -1600,7 +1600,7 @@
     var inner;
     if(vertical){
       var sidePos=isRight?'right:0;':'left:0;';
-      var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:0 8px 8px 0;';
+      var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:8px 0 0 8px;';
       tabStyle+='top:50%;'+sidePos+radius+'max-height:70vh;padding:14px 10px;'+
         'box-sizing:border-box;transform:translateY(-50%);'+
         'writing-mode:vertical-rl;text-orientation:mixed;';
