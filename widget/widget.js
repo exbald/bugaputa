@@ -1599,30 +1599,27 @@
       'line-height:1;white-space:nowrap;user-select:none;-webkit-user-select:none;';
     var inner;
     if(vertical){
-      // vertical tab centered on side edge, writing-mode for rotated text
+      // Vertical tab: fixed slim width flush to edge, height fits text via padding + content.
+      // Fixed width prevents layout flash — intrinsic sizing with writing-mode+flex caused
+      // a one-frame expansion after initial paint (auto width recalculates post-font).
+      // Only inner span carries writing-mode; outer stays horizontal for stable flex sizing.
       var sidePos=isRight?'right:0;':'left:0;';
       var radius=isRight?'border-radius:8px 0 0 8px;':'border-radius:0 8px 8px 0;';
-      // width ~ 36px, height auto based on text; centered vertically
-      tabStyle+='top:50%;'+sidePos+radius+'width:auto;min-height:auto;max-height:70vh;padding:12px 10px;'+
-        'transform:translateY(-50%);'+
-        'writing-mode:vertical-rl;'+
-        'text-orientation:mixed;';
-      // for right tab, rotate so text reads top->bottom towards page interior; use rotate(180deg) compensation
-      // vertical-rl naturally reads top-to-bottom; combine with rotate for readability if needed
-      // Right side: keep vertical-rl (top to bottom); left side: flip so text also reads top->bottom toward center
+      tabStyle+='top:50%;'+sidePos+radius+'width:32px;max-height:70vh;padding:14px 0;'+
+        'box-sizing:border-box;transform:translateY(-50%);';
       if(isLeft){
         tabStyle+='transform:translateY(-50%) rotate(180deg);';
       }
       btn.setAttribute('style', tabStyle);
       inner=document.createElement('span');
       inner.textContent=label;
-      inner.setAttribute('style','display:block;padding:0;writing-mode:vertical-rl;text-orientation:mixed;');
+      inner.setAttribute('style','display:block;writing-mode:vertical-rl;text-orientation:mixed;');
       btn.appendChild(inner);
     } else {
-      // bottom horizontal pill/strip 20px offset from nearest corner
+      // Bottom horizontal pill — compact, width = text + padding, height 36px.
       var bottomSide=isBottomRight?'right:20px;':'left:20px;';
       tabStyle+='bottom:0;'+bottomSide+'border-radius:8px 8px 0 0;'+
-        'padding:10px 18px;min-height:36px;';
+        'padding:10px 18px;min-height:36px;box-sizing:border-box;';
       btn.setAttribute('style', tabStyle);
       btn.textContent=label;
     }
