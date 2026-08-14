@@ -1,9 +1,20 @@
+export class ApiError extends Error {
+  status: number;
+  data: any;
+  constructor(message: string, status: number, data: any) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
 const BASE = "";
 async function doFetch(path: string, opts: RequestInit = {}){
   const res = await fetch(BASE+path, {credentials:"include", ...opts, headers:{...(opts.headers as any)}});
   const text = await res.text();
   let data:any=null; try{ data=text?JSON.parse(text):null;}catch{ data=text; }
-  if(!res.ok){ const msg=(data && (data.error||data.message)) || ("Request failed ("+res.status+")"); throw new Error(msg); }
+  if(!res.ok){ const msg=(data && (data.error||data.message)) || ("Request failed ("+res.status+")"); throw new ApiError(msg, res.status, data); }
   return data;
 }
 export const api={

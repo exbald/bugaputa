@@ -23,8 +23,15 @@ router.get("/", (req, res) => {
     res.status(400).json({ error: "Invalid project key" });
     return;
   }
-  const db = getDb();
-  const row = db.prepare("SELECT widget_label, widget_color, widget_position FROM projects WHERE publicKey = ?").get(projectKey) as any;
+  let row: any;
+  try {
+    const db = getDb();
+    row = db.prepare("SELECT widget_label, widget_color, widget_position FROM projects WHERE publicKey = ?").get(projectKey) as any;
+  } catch (err) {
+    console.error("[widget-config] DB error:", err);
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
   if (!row) {
     // Return defaults rather than 404 so widget still renders
     res.json({
