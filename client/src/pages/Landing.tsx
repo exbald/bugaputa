@@ -3,11 +3,8 @@ import { useState } from "react";
 import { TopNav } from "../components/Layout";
 import BugaputaWidget from "../components/BugaputaWidget";
 
-const SNIPPET = '<script src="https://bugaputa.no-code.gdn/widget.js"></script>';
 const SNIPPET_WITH_KEY =
   '<script src="https://bugaputa.no-code.gdn/widget.js" data-project="YOUR_PROJECT_KEY"></script>';
-
-const WORDMARKS = ["SHIPCRAFT", "NORTHPEAK", "ACME LABS", "PULSE", "FORGE", "QUANTA"] as const;
 
 function CopyButton({ text, variant = "light" }: { text: string; variant?: "light" | "dark" }) {
   const [copied, setCopied] = useState(false);
@@ -307,19 +304,15 @@ export default function Landing() {
               <div className="min-w-0">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.08] border border-white/10 px-3 py-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse" aria-hidden />
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-lime-300">One script · Zero setup · Live in 30 seconds</span>
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-lime-300">Visual website feedback, without the back-and-forth</span>
                 </div>
 
                 <h1 className="mt-5 text-[2.2rem] sm:text-[2.6rem] md:text-[3.15rem] font-extrabold leading-[0.95] tracking-[-0.035em]">
-                  Bug reports
-                  <br />
-                  <span className="text-white">your devs can</span>
-                  <br />
-                  <span className="text-lime-400">actually fix.</span>
+                  See the bug. Get the context. Fix it faster.
                 </h1>
 
                 <p className="mt-4 text-[16px] sm:text-[17px] leading-relaxed text-slate-300 max-w-[54ch]">
-                  One tiny script. Anyone on your site can capture, draw an arrow, add a note, and send — screenshot plus browser, URL and viewport attached. No extension. No account for the reporter.
+                  Let clients, testers, and users point to a problem, mark up the page, and send it in seconds. Bugaputa attaches the screenshot, page URL, browser, OS, and viewport automatically — no extension or reporter account required.
                 </p>
 
                 <div className="mt-7 flex flex-wrap gap-3">
@@ -327,33 +320,29 @@ export default function Landing() {
                     to="/register"
                     className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-lime-400 text-slate-900 font-bold hover:bg-lime-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 transition min-h-[44px] text-[15px]"
                   >
-                    Get started free →
+                    Start free
                   </Link>
                   <button
                     type="button"
                     onClick={openWidget}
                     className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-white text-slate-900 font-semibold hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 transition min-h-[44px] text-[15px]"
                   >
-                    Try live demo
+                    Try it on this page
                   </button>
                 </div>
-                <p className="mt-3 text-xs text-slate-400">Free to start · No credit card · Works on any site or staging — no build step</p>
+                <p className="mt-3 text-xs text-slate-400">Free up to 50 reports/month · No credit card · Install in under a minute</p>
 
                 {/* install snippet — hero resident */}
                 <div id="install" className="mt-6 rounded-[16px] bg-white/[0.06] border border-white/10 backdrop-blur p-3 flex flex-col gap-2 scroll-mt-20">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[11px] font-semibold tracking-widest uppercase text-slate-400">Paste before &lt;/body&gt;</span>
+                    <span className="text-[11px] font-semibold tracking-widest uppercase text-slate-400">Add Bugaputa to your site</span>
                     <CopyButton text={SNIPPET_WITH_KEY} variant="dark" />
                   </div>
                   <pre className="overflow-x-auto rounded-xl bg-slate-950 border border-white/10 px-3 py-2.5 text-xs font-mono text-lime-300">
                     <code className="break-all sm:break-normal">{SNIPPET_WITH_KEY}</code>
                   </pre>
                   <p className="text-[11px] leading-relaxed text-slate-400">
-                    Copy, paste, and you are live. The floating button appears instantly.{" "}
-                    <a href="#how" className="underline underline-offset-4 decoration-white/20 hover:decoration-white/40">
-                      See how it works
-                    </a>
-                    .
+                    Paste one script once. Manage the widget from your dashboard without replacing the snippet.
                   </p>
                 </div>
               </div>
@@ -367,8 +356,8 @@ export default function Landing() {
                     ✓
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold leading-none text-slate-900">Report ready — no follow-up needed</p>
-                    <p className="text-[11px] text-slate-500 mt-1 leading-tight">Screenshot + URL + viewport + browser auto-attached</p>
+                    <p className="text-xs font-semibold leading-none text-slate-900">A complete report, ready to reproduce</p>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-tight">Screenshot, page URL, browser, OS, and viewport included</p>
                   </div>
                 </div>
               </div>
@@ -376,53 +365,53 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* SOCIAL PROOF — Loved by teams who ship */}
-        <section className="border-y border-slate-200 bg-white" aria-label="Loved by teams who ship">
+        {/* FACTUAL STRIP — replaces fake wordmarks */}
+        <section className="border-y border-slate-200 bg-white" aria-label="Built for the feedback web teams handle every day">
           <div className="max-w-6xl mx-auto px-4 py-7 md:py-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-400 shrink-0">Loved by teams who ship</p>
-              <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-7 gap-y-2">
-                {WORDMARKS.map((w) => (
-                  <span key={w} className="text-xs font-extrabold tracking-[0.18em] uppercase text-slate-300 select-none" aria-hidden>
-                    {w}
-                  </span>
-                ))}
+              <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-400 shrink-0">Built for the feedback web teams handle every day</p>
+              <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-2 gap-y-2 text-xs font-semibold text-slate-500">
+                <span>Client review</span>
+                <span aria-hidden className="text-slate-300">·</span>
+                <span>QA testing</span>
+                <span aria-hidden className="text-slate-300">·</span>
+                <span>Production bugs</span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* VALUE — 3 pain points */}
+        {/* VALUE — From vague feedback to a fixable report */}
         <section className="max-w-6xl mx-auto px-4 py-14 md:py-16" aria-labelledby="why-heading">
           <div className="max-w-2xl">
-            <p className="text-xs font-bold tracking-widest uppercase text-lime-700">Why Bugaputa exists</p>
+            <p className="text-xs font-bold tracking-widest uppercase text-lime-700">From vague feedback to a fixable report</p>
             <h2 id="why-heading" className="mt-2 text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-              Bug reports fail the same three ways.
+              Turn “it’s broken” into a report your team can act on.
             </h2>
-            <p className="mt-2 text-slate-600 leading-relaxed">We fixed each one at the source — so the report you get is the report you can ship from.</p>
+            <p className="mt-2 text-slate-600 leading-relaxed">Bugaputa captures the visual problem and the technical context together, before details get lost.</p>
           </div>
 
           <div className="mt-8 grid md:grid-cols-3 gap-5">
             {[
               {
                 n: "01",
-                title: '“It looks broken” — but where?',
-                pain: "A screenshot with no URL, no element, no viewport. You guess, they re-explain.",
-                fix: "Every report is pinned to the exact element with an annotated screenshot and page context.",
+                title: "Know exactly where to look",
+                pain: "A screenshot alone rarely shows which page, viewport, or element caused the problem.",
+                fix: "Reporters point to the issue and annotate it directly on the captured page.",
                 icon: <IconTarget />,
               },
               {
                 n: "02",
-                title: '“What browser? Can you reproduce?”',
-                pain: "Hours of back-and-forth just to understand the conditions.",
-                fix: "Browser, OS, viewport, URL and time are captured automatically — no follow-up.",
+                title: "Get the environment automatically",
+                pain: "Asking for the browser, device, URL, and screen size turns one bug into a long thread.",
+                fix: "Bugaputa attaches the browser, OS, viewport, page URL, and time to every report.",
                 icon: <IconLayers />,
               },
               {
                 n: "03",
-                title: "Forms and extensions people abandon",
-                pain: "Install this, sign up there — most reporters give up before they hit send.",
-                fix: "No extension. No login for the reporter. Click, mark up, send — done in seconds.",
+                title: "Make reporting effortless",
+                pain: "Extensions, accounts, and long forms stop clients and testers before they submit.",
+                fix: "No extension. No reporter login. Click, mark up, and send.",
                 icon: <IconZap />,
               },
             ].map((c) => (
@@ -439,28 +428,27 @@ export default function Landing() {
               </article>
             ))}
           </div>
-          <p className="mt-6 text-center text-xs tracking-wide text-slate-400">Not a platform. A widget that just works — lightweight, privacy-first, yours to keep.</p>
+          <p className="mt-6 text-center text-xs tracking-wide text-slate-400">Less chasing. More reproducing and fixing.</p>
         </section>
 
-        {/* HOW IT WORKS — bento 3 */}
+        {/* HOW IT WORKS */}
         <section id="how" className="bg-slate-50 border-y border-slate-200 scroll-mt-20" aria-labelledby="how-heading">
           <div className="max-w-6xl mx-auto px-4 py-14 md:py-16">
             <div className="max-w-2xl">
               <p className="text-xs font-bold tracking-widest uppercase text-lime-700">How it works</p>
               <h2 id="how-heading" className="mt-2 text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-                Capture → Annotate → Report
+                Point → Mark up → Send
               </h2>
-              <p className="mt-2 text-slate-600">A real flow, not a mockup. Three steps, no training.</p>
+              <p className="mt-2 text-slate-600">Three quick steps. No training and no separate screenshot tool.</p>
             </div>
 
             <div className="mt-8 grid md:grid-cols-3 gap-5">
               <article className="rounded-[20px] bg-white border border-slate-200 p-5 flex flex-col gap-4">
                 <div>
                   <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-lime-700">
-                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-extrabold">1</span> Capture
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-extrabold">1</span> Point to the problem
                   </div>
-                  <h3 className="mt-3 text-[15px] font-bold text-slate-900 leading-tight">Click Report bug. Screenshot taken instantly.</h3>
-                  <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">The widget captures the current viewport — no manual screenshot or upload.</p>
+                  <p className="mt-3 text-sm text-slate-600 leading-relaxed">Open the feedback widget on the page where the issue happened.</p>
                 </div>
                 <div className="mt-auto">
                   <MiniCaptureVisual />
@@ -470,10 +458,9 @@ export default function Landing() {
               <article className="rounded-[20px] bg-white border border-slate-200 p-5 flex flex-col gap-4">
                 <div>
                   <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-lime-700">
-                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-extrabold">2</span> Annotate
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-extrabold">2</span> Show what went wrong
                   </div>
-                  <h3 className="mt-3 text-[15px] font-bold text-slate-900 leading-tight">Point, draw, explain.</h3>
-                  <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">Arrows, boxes and notes right on the screenshot — precise and fast.</p>
+                  <p className="mt-3 text-sm text-slate-600 leading-relaxed">Add an arrow, box, or note directly to the captured page.</p>
                 </div>
                 <div className="mt-auto">
                   <MiniAnnotateVisual />
@@ -483,10 +470,9 @@ export default function Landing() {
               <article className="rounded-[20px] bg-white border border-slate-200 p-5 flex flex-col gap-4">
                 <div>
                   <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-lime-700">
-                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-extrabold">3</span> Report
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-extrabold">3</span> Send the full report
                   </div>
-                  <h3 className="mt-3 text-[15px] font-bold text-slate-900 leading-tight">Submit. Your team gets a clear report.</h3>
-                  <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">Annotated image plus context lands in your dashboard — ready to fix.</p>
+                  <p className="mt-3 text-sm text-slate-600 leading-relaxed">Your team receives the visual report and technical context together in the Bugaputa inbox.</p>
                 </div>
                 <div className="mt-auto">
                   <MiniInboxVisual />
@@ -494,44 +480,42 @@ export default function Landing() {
               </article>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-2 justify-center">
+            <div className="mt-6 flex flex-wrap gap-3 justify-center">
               <Link
                 to="/register"
                 className="px-5 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 min-h-[44px] inline-flex items-center"
               >
-                Create your project
+                Create a free project
               </Link>
               <button
                 type="button"
                 onClick={openWidget}
                 className="px-5 py-2.5 rounded-full border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 min-h-[44px]"
               >
-                Try the widget
+                Try the live widget
               </button>
             </div>
           </div>
         </section>
 
-        {/* FEATURE BENTO */}
+        {/* FEATURES */}
         <section className="max-w-6xl mx-auto px-4 py-14 md:py-16" aria-labelledby="features-heading">
           <div className="max-w-2xl">
             <h2 id="features-heading" className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-              Everything you need. Nothing you don’t.
+              Everything needed to reproduce the issue.
             </h2>
-            <p className="mt-2 text-slate-600">No dashboards-for-dashboards-sake. Just the report, done right.</p>
+            <p className="mt-2 text-slate-600">A focused workflow for collecting, understanding, and triaging website feedback.</p>
           </div>
 
-          {/* bento: 6 cards, varied */}
           <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-12 gap-4">
-            {/* large — embeddable */}
             <div className="sm:col-span-2 lg:col-span-7 rounded-[20px] border border-slate-200 bg-slate-950 text-white p-6 flex flex-col overflow-hidden relative">
               <div aria-hidden className="pointer-events-none absolute -top-20 -right-20 w-64 h-64 rounded-full bg-lime-400/15 blur-[40px]" />
               <div className="relative">
                 <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 grid place-items-center text-white">
                   <IconLayers />
                 </div>
-                <h3 className="mt-4 font-bold text-white">Embeddable anywhere</h3>
-                <p className="mt-1.5 text-sm text-slate-300 leading-relaxed">Drops into any site or staging URL with one script tag. No build step, no SDK, no framework lock-in.</p>
+                <h3 className="mt-4 font-bold text-white">Install once</h3>
+                <p className="mt-1.5 text-sm text-slate-300 leading-relaxed">Add one script to any website or staging environment. Update the widget from your dashboard without changing the embed code.</p>
                 <div className="mt-4 rounded-xl bg-white/[0.06] border border-white/10 px-3 py-2.5 flex items-center justify-between gap-3">
                   <code className="text-xs font-mono text-lime-300 truncate">widget.js · ~18 kB · async</code>
                   <span className="shrink-0 text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 border border-emerald-500/20 rounded-full px-2 py-0.5">Fast</span>
@@ -539,13 +523,12 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* tall — annotation */}
             <div className="sm:col-span-1 lg:col-span-5 rounded-[20px] border border-slate-200 bg-white p-6 flex flex-col">
               <div className="w-9 h-9 rounded-xl bg-lime-100 text-lime-700 grid place-items-center">
                 <IconAnnotate />
               </div>
-              <h3 className="mt-4 font-semibold text-slate-900 text-sm">Instant annotation</h3>
-              <p className="mt-1 text-sm text-slate-600 leading-relaxed">Arrows, boxes and text right on the capture — in seconds. Full-screen editor, keyboard accessible.</p>
+              <h3 className="mt-4 font-semibold text-slate-900 text-sm">Visual annotation</h3>
+              <p className="mt-1 text-sm text-slate-600 leading-relaxed">Reporters add arrows, boxes, and notes directly to the captured page, so the problem is clear at a glance.</p>
               <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3 flex items-center gap-2">
                 <span className="w-6 h-6 rounded bg-rose-500 grid place-items-center text-white text-xs">↗</span>
                 <span className="w-6 h-6 rounded border-2 border-slate-900 bg-white" />
@@ -554,21 +537,20 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* row 2 — 3 equal-ish */}
             <div className="sm:col-span-1 lg:col-span-4 rounded-[20px] border border-slate-200 bg-white p-6">
               <div className="w-9 h-9 rounded-xl bg-slate-900 text-white grid place-items-center">
                 <IconShield />
               </div>
-              <h3 className="mt-4 font-semibold text-slate-900 text-sm">No login for reporters</h3>
-              <p className="mt-1 text-sm text-slate-600 leading-relaxed">Clients and testers submit without creating an account. Friction kills reports — we removed it.</p>
+              <h3 className="mt-4 font-semibold text-slate-900 text-sm">No reporter account</h3>
+              <p className="mt-1 text-sm text-slate-600 leading-relaxed">Clients, testers, and users can submit feedback without signing up or installing an extension.</p>
             </div>
 
             <div className="sm:col-span-1 lg:col-span-4 rounded-[20px] border border-slate-200 bg-white p-6">
               <div className="w-9 h-9 rounded-xl bg-slate-900 text-white grid place-items-center">
                 <IconTarget />
               </div>
-              <h3 className="mt-4 font-semibold text-slate-900 text-sm">Screenshot + context</h3>
-              <p className="mt-1 text-sm text-slate-600 leading-relaxed">Annotated image plus URL, viewport, browser and time — auto-attached, no follow-up.</p>
+              <h3 className="mt-4 font-semibold text-slate-900 text-sm">Technical context included</h3>
+              <p className="mt-1 text-sm text-slate-600 leading-relaxed">Every report includes the page URL, browser, OS, viewport, and submission time automatically.</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <span className="px-2 py-1 rounded-full bg-slate-50 border border-slate-200 text-[11px] font-medium text-slate-600">URL</span>
                 <span className="px-2 py-1 rounded-full bg-slate-50 border border-slate-200 text-[11px] font-medium text-slate-600">Viewport</span>
@@ -580,46 +562,64 @@ export default function Landing() {
               <div className="w-9 h-9 rounded-xl bg-slate-900 text-white grid place-items-center">
                 <IconInbox />
               </div>
-              <h3 className="mt-4 font-semibold text-slate-900 text-sm">Simple inbox</h3>
-              <p className="mt-1 text-sm text-slate-600 leading-relaxed">All reports in one dashboard — no email archaeology, no scattered threads.</p>
-              <p className="mt-3 text-xs text-slate-400">Privacy-first. Lightweight. Yours to keep.</p>
+              <h3 className="mt-4 font-semibold text-slate-900 text-sm">A focused team inbox</h3>
+              <p className="mt-1 text-sm text-slate-600 leading-relaxed">Review every report in one place instead of searching through email, chat, and disconnected screenshots.</p>
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-12 rounded-[20px] border border-slate-200 bg-white p-6 flex flex-col sm:flex-row gap-4">
+              <div className="w-9 h-9 rounded-xl bg-slate-900 text-white grid place-items-center shrink-0">
+                <IconShield />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900 text-sm">Privacy-conscious capture</h3>
+                <p className="mt-1 text-sm text-slate-600 leading-relaxed">Sensitive password fields are masked before capture, with controls to exclude additional page areas when needed.</p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* QUOTE */}
-        <section className="max-w-6xl mx-auto px-4 pb-8" aria-label="What early teams say">
-          <div className="rounded-[20px] bg-slate-900 text-white p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div className="flex-1">
-              <p className="text-lg md:text-xl font-medium leading-relaxed">“We stopped asking ‘what browser?’ — every report just arrives ready to fix.”</p>
-              <p className="mt-2 text-sm text-slate-400">Early team · staging feedback in under a minute</p>
+        {/* CALLOUT — replaces unverified testimonial */}
+        <section className="max-w-6xl mx-auto px-4 pb-8" aria-label="The details developers ask for">
+          <div className="rounded-[20px] bg-slate-50 border border-slate-200 p-6 md:p-8">
+            <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-slate-900">The details developers ask for — already attached.</h2>
+            <p className="mt-2 text-slate-600 leading-relaxed max-w-2xl">Give reporters one simple way to show the problem. Give your team the context to start reproducing it.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700">No extension</span>
+              <span className="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700">No reporter login</span>
+              <span className="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700">Automatic context</span>
             </div>
-            <div className="shrink-0 rounded-full bg-lime-400 text-slate-900 px-5 py-2.5 text-sm font-bold">Free to start</div>
           </div>
         </section>
 
         {/* PRICING + INSTALL */}
         <section className="max-w-6xl mx-auto px-4 pb-8" aria-labelledby="pricing-heading">
           <div className="text-center max-w-2xl mx-auto">
-            <h2 id="pricing-heading" className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Free to start. Scale when you need to.</h2>
-            <p className="mt-2 text-slate-600">No seat games. Just reports that get fixed faster.</p>
+            <p className="text-xs font-bold tracking-widest uppercase text-lime-700">Free plan</p>
+            <h2 id="pricing-heading" className="mt-2 text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Start free. Upgrade when volume grows.</h2>
+            <p className="mt-2 text-slate-600">Use the complete reporting workflow for up to 50 reports each month.</p>
           </div>
           <div className="mt-8 flex justify-center">
             <div className="w-full max-w-md rounded-[20px] border border-slate-200 bg-white p-6 md:p-8 text-center shadow-sm">
-              <h3 className="font-bold text-slate-900">Free to start</h3>
-              <p className="mt-1 text-sm text-slate-600">Add the widget now. Upgrade only when you need more.</p>
+              <h3 className="font-bold text-slate-900">Free</h3>
+              <p className="mt-1 text-sm text-slate-500">For trying Bugaputa on a project or staging site.</p>
               <ul className="mt-4 text-sm text-slate-700 space-y-1.5 text-left inline-block">
                 <li className="flex gap-2">
                   <span className="text-lime-600" aria-hidden>
                     ✓
                   </span>{" "}
-                  Up to 50 reports / month
+                  Up to 50 reports per month
                 </li>
                 <li className="flex gap-2">
                   <span className="text-lime-600" aria-hidden>
                     ✓
                   </span>{" "}
-                  Widget + annotation + dashboard
+                  Visual annotation and technical context
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-lime-600" aria-hidden>
+                    ✓
+                  </span>{" "}
+                  Team dashboard for triage
                 </li>
                 <li className="flex gap-2">
                   <span className="text-lime-600" aria-hidden>
@@ -633,26 +633,26 @@ export default function Landing() {
                   to="/register"
                   className="w-full px-5 py-3 rounded-full bg-slate-900 text-white font-semibold hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 text-center min-h-[44px] inline-flex items-center justify-center"
                 >
-                  Get started free →
+                  Create a free project
                 </Link>
                 <button
                   type="button"
                   onClick={openWidget}
                   className="w-full px-5 py-3 rounded-full border border-slate-300 bg-white font-medium hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 min-h-[44px]"
                 >
-                  Try live demo
+                  Try the live widget
                 </button>
               </div>
               <div className="mt-6 rounded-2xl bg-slate-900 text-left p-3 border border-slate-800">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-slate-400">Install</span>
-                  <CopyButton text={SNIPPET} variant="dark" />
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-slate-400">Add Bugaputa to your site</span>
+                  <CopyButton text={SNIPPET_WITH_KEY} variant="dark" />
                 </div>
                 <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-mono text-lime-300">
-                  <code>{SNIPPET}</code>
+                  <code>{SNIPPET_WITH_KEY}</code>
                 </pre>
                 <p className="mt-2 text-[11px] text-slate-400">
-                  Paste before <code className="px-1 py-0.5 rounded bg-slate-800 text-slate-200">&lt;/body&gt;</code> — you are live in 30 seconds.
+                  Registration supplies your real project key — replace <code className="px-1 py-0.5 rounded bg-slate-800 text-lime-300">YOUR_PROJECT_KEY</code> after creating a project.
                 </p>
               </div>
             </div>
@@ -665,51 +665,49 @@ export default function Landing() {
           <div className="relative max-w-6xl mx-auto px-4 py-10 md:py-12 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="min-w-0">
               <h2 id="cta-heading" className="text-2xl md:text-3xl font-extrabold tracking-tight">
-                Ship fixes, not follow-ups.
+                Stop asking for screenshots and browser details.
               </h2>
-              <p className="mt-2 text-slate-300 text-sm">Free to start · No credit card · Works on any site</p>
+              <p className="mt-2 text-slate-300 text-sm">Add one feedback button to your site and get reports your team can reproduce.</p>
+              <p className="mt-1 text-xs text-slate-400">Free up to 50 reports/month · No credit card</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
                 to="/register"
                 className="px-6 py-3 rounded-full bg-lime-400 text-slate-900 font-bold hover:bg-lime-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 text-center min-h-[44px] inline-flex items-center"
               >
-                Get started free →
+                Start free
               </Link>
               <button
                 type="button"
                 onClick={openWidget}
                 className="px-6 py-3 rounded-full bg-white text-slate-900 font-semibold hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 min-h-[44px]"
               >
-                Try live demo
+                Try it on this page
               </button>
             </div>
           </div>
         </section>
 
-        {/* LIVE WIDGET CALLOUT — keep exact phrase for existing test */}
-        <section className="max-w-6xl mx-auto px-4 pb-28 sm:pb-8 pt-8 w-full" aria-label="Try the live widget">
+        {/* LIVE WIDGET CALLOUT */}
+        <section className="max-w-6xl mx-auto px-4 pb-28 sm:pb-8 pt-8 w-full" aria-label="Try Bugaputa on this page">
           <div className="rounded-2xl border border-lime-200 bg-lime-50 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
-              <h3 className="font-bold text-slate-900">Try it — report a bug with the widget</h3>
+              <h3 className="font-bold text-slate-900">Try Bugaputa on this page</h3>
               <p className="mt-1 text-sm text-slate-600">
-                Click the <span aria-hidden>→</span> Feedback tab on the edge of your screen to submit a report. This is the real
-                Bugaputa widget running on this page. Keyboard: press Tab to reach it, Enter to open.
+                Open the Feedback tab at the edge of the screen. Point to anything, add a note, and see the same flow your users will see.
               </p>
+              <p className="mt-2 text-xs text-slate-500">Keyboard: Tab to the Feedback tab, Enter to open. Esc to close.</p>
             </div>
-            <span className="shrink-0 inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Live widget active</span>
+            <span className="shrink-0 inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Live demo</span>
           </div>
         </section>
 
-        <span className="sr-only" aria-hidden>
-          Lightweight · Accessible · Fast — Get started free → — No credit card · Works — Bugaputa — original — © Bugaputa
-        </span>
         <BugaputaWidget />
 
         <footer className="border-t border-slate-200 bg-white">
           <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-slate-500">
             <span className="flex items-center gap-2">
-              <img src="/bugaputa-logo.svg" alt="" className="w-5 h-5" /> Bugaputa — original bug-reporting toolkit
+              <img src="/bugaputa-logo.svg" alt="" className="w-5 h-5" /> Bugaputa — visual website feedback and bug reporting
             </span>
             <nav aria-label="Footer" className="flex items-center gap-4 text-xs">
               <a href="/widget.js" className="hover:text-slate-700 underline underline-offset-4">

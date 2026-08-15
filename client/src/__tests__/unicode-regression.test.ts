@@ -32,14 +32,13 @@ describe("Unicode rendering regression", () => {
     const jsFiles = fs.readdirSync(distDir).filter(f=>f.endsWith(".js")).map(f=>path.join(distDir,f));
     if (!jsFiles.length) return;
     const js = fs.readFileSync(jsFiles[0], "utf8");
-    expect(js).toContain("Lightweight \u00b7 Accessible \u00b7 Fast");
-    expect(js).toContain("Get started free \u2192");
-    expect(js).toContain("No credit card \u00b7 Works");
-    expect(js).toContain("Bugaputa \u2014 original");
+    expect(js).toContain("Visual website feedback");
+    expect(js).toContain("See the bug. Get the context. Fix it faster.");
+    expect(js).toContain("Bugaputa \u2014 visual website feedback and bug reporting");
+    expect(js).toContain("Free up to 50 reports/month \u00b7 No credit card");
     expect(js).toContain("\u00a9 ");
-    expect(js).not.toContain("Lightweight \\u00B7");
-    expect(js).not.toContain("Get started free \\u2192");
     expect(js).not.toContain("Bugaputa \\u2014");
+    expect(js).not.toContain("Lightweight \\u00B7");
   });
   it("email regex accepts standard valid emails", () => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
