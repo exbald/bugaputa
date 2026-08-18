@@ -14,8 +14,26 @@ declare global {
   }
 }
 
+const MIN_JWT_SECRET_LENGTH = 32;
+
+// Signing login tokens with a known default string would let anyone forge an
+// auth cookie, so a missing/weak JWT_SECRET must be fatal, never a fallback.
+export function assertJwtSecret(): void {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < MIN_JWT_SECRET_LENGTH) {
+    throw new Error(
+      `JWT_SECRET is missing or shorter than ${MIN_JWT_SECRET_LENGTH} characters. Generate one with ` +
+        `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))" and set it in the environment.`
+    );
+  }
+}
+
 function getSecret(): string {
-  return process.env.JWT_SECRET || "dev-secret-change-me";
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET is not set; refusing to sign/verify tokens with a default secret.");
+  }
+  return secret;
 }
 
 export function signToken(user: AuthUser): string {

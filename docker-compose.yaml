@@ -7,6 +7,10 @@ services:
       - bugaputa-data:/app/data
     environment:
       - NODE_ENV=production
+      # The server refuses to boot without a strong JWT_SECRET; set it in your
+      # shell/deploy environment (never commit the value):
+      #   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a random value of at least 32 characters}
     healthcheck:
       test: "wget -qO- http://localhost:3000/health || exit 1"
       interval: 30s
