@@ -45,9 +45,10 @@
   var WIDGET_REVEAL_TIMEOUT_MS=1500;
   function revealOnce(){
     if(_revealed) return;
-    // SPA loaders may be removed before config/timeout settles. Do not let a
-    // stale widget closure append onto the next route after its owner unmounted.
-    if(script&&!script.isConnected){
+    // SPA owners can explicitly cancel a pending reveal during route cleanup.
+    // Do not infer cancellation from script removal alone: loader libraries
+    // commonly discard a loaded script tag while expecting its effects to live.
+    if(script&&script.getAttribute('data-bugaputa-unmounted')==='true'){
       if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
       return;
     }
@@ -1809,7 +1810,7 @@
     return btn;
   }
   function mount(){
-    if(script&&!script.isConnected){
+    if(script&&script.getAttribute('data-bugaputa-unmounted')==='true'){
       if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
       return;
     }
