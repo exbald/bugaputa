@@ -45,6 +45,13 @@
   var WIDGET_REVEAL_TIMEOUT_MS=1500;
   function revealOnce(){
     if(_revealed) return;
+    // SPA owners can explicitly cancel a pending reveal during route cleanup.
+    // Do not infer cancellation from script removal alone: loader libraries
+    // commonly discard a loaded script tag while expecting its effects to live.
+    if(script&&script.getAttribute('data-bugaputa-unmounted')==='true'){
+      if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
+      return;
+    }
     if(!document.body){
       setTimeout(revealOnce, 50);
       return;
@@ -1803,6 +1810,10 @@
     return btn;
   }
   function mount(){
+    if(script&&script.getAttribute('data-bugaputa-unmounted')==='true'){
+      if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
+      return;
+    }
     var fastPath=(_initialLabel&&_initialColor&&_initialPos);
     if(fastPath){
       if(!document.body){ setTimeout(mount, 50); return; }

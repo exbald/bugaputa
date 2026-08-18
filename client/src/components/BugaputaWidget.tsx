@@ -32,7 +32,12 @@ export default function BugaputaWidget() {
     return () => {
       // Remove only the script we injected.
       const ours = document.querySelector('script[data-bugaputa="landing"]') as HTMLScriptElement | null;
-      if (ours) ours.remove();
+      if (ours) {
+        // Explicitly cancel widget.js's pending config/timeout reveal before
+        // removing the loader; plain script-tag removal is not an unload signal.
+        ours.setAttribute("data-bugaputa-unmounted", "true");
+        ours.remove();
+      }
       // Fallback: if selector still matches a script we created (no data-bugaputa e.g. manual embed), remove that one too when it matches our src.
       // Do not remove a script injected by another route (none should exist; Landing is the only mount point).
       // Clean up widget DOM injected by widget.js

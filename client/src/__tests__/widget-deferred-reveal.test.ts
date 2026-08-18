@@ -85,6 +85,28 @@ describe("widget deferred atomic reveal (no wrong-position flash)", () => {
     expect(appended).toBe(1);
   });
 
+  it("cancels deferred reveal only after an explicit owner-unmount signal", () => {
+    const s = js();
+    const rIdx = s.indexOf("function revealOnce()");
+    const rEnd = s.indexOf("\n  }\n  // fetch fallback", rIdx);
+    const rBody = rEnd > 0 ? s.slice(rIdx, rEnd + 4) : s.slice(rIdx, rIdx + 1000);
+    expect(rBody, "reveal must stop after explicit owner cleanup").toMatch(/data-bugaputa-unmounted/);
+    expect(rBody, "routine script-tag removal must not disable the widget").not.toMatch(/!script\.isConnected/);
+    expect(rBody.indexOf("data-bugaputa-unmounted"), "owner guard must run before body polling").toBeLessThan(rBody.indexOf("!document.body"));
+    expect(rBody, "explicit owner cleanup must cancel the pending fallback timer").toMatch(/clearTimeout\(_revealTimer\)/);
+
+    const mountIdx = s.indexOf("function mount()");
+    const mountBody = s.slice(mountIdx, s.indexOf("if(document.readyState", mountIdx));
+    expect(mountBody, "mount polling must also stop after explicit owner cleanup").toMatch(/data-bugaputa-unmounted/);
+    expect(mountBody).not.toMatch(/!script\.isConnected/);
+
+    const component = read(path.resolve(__dirname, "../components/BugaputaWidget.tsx"));
+    const mark = component.indexOf('setAttribute("data-bugaputa-unmounted", "true")');
+    const remove = component.indexOf("ours.remove()", mark);
+    expect(mark, "React owner must explicitly mark its loader as unmounted").toBeGreaterThan(-1);
+    expect(remove, "owner marker must be set before script removal").toBeGreaterThan(mark);
+  });
+
   it("has bounded timeout fallback <=2000ms (1500ms)", () => {
     const s = js();
     expect(s, "WIDGET_REVEAL_TIMEOUT_MS const").toMatch(/WIDGET_REVEAL_TIMEOUT_MS\s*=\s*(\d+)/);
