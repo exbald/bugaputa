@@ -1260,21 +1260,92 @@
       y=Math.max(0, Math.min(capturedDims.cssH, y));
       return {x:x, y:y};
     }
+    function wrapText(text, ctx2, maxW){
+      var paras=String(text||'').split('\n');
+      var out=[];
+      for(var pi=0;pi<paras.length;pi++){
+        var para=paras[pi];
+        if(!para){ out.push(''); continue; }
+        var words=para.split(/\s+/);
+        var cur='';
+        for(var wi=0;wi<words.length;wi++){
+          var w=words[wi];
+          if(!w) continue;
+          // break overly long word
+          if(ctx2.measureText(w).width>maxW){
+            if(cur){ out.push(cur); cur=''; }
+            var curW='';
+            for(var ci=0;ci<w.length;ci++){
+              var testW=curW+w[ci];
+              if(ctx2.measureText(testW).width>maxW && curW){ out.push(curW); curW=w[ci]; } else curW=testW;
+            }
+            if(curW) cur=curW;
+            continue;
+          }
+          var test=cur?cur+' '+w:w;
+          if(ctx2.measureText(test).width<=maxW) cur=test;
+          else { if(cur) out.push(cur); cur=w; }
+        }
+        if(cur) out.push(cur);
+        else if(!out.length || out[out.length-1]!=='') out.push('');
+      }
+      if(!out.length) out.push('');
+      return out;
+    }
+    function pointInPolygon(pt, pts){
+      var x=pt.x, y=pt.y, inside=false;
+      for(var i=0,j=pts.length-1;i<pts.length;j=i++){
+        var xi=pts[i][0], yi=pts[i][1], xj=pts[j][0], yj=pts[j][1];
+        var intersect=((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
+        if(intersect) inside=!inside;
+      }
+      return inside;
+    }
+    function isClosedPen(pts){
+      if(!pts||pts.length<8) return false;
+      var d=Math.hypot(pts[0][0]-pts[pts.length-1][0], pts[0][1]-pts[pts.length-1][1]);
+      if(d>=25) return false;
+      var xs=pts.map(function(p){return p[0]}), ys=pts.map(function(p){return p[1]});
+      var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs), minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys);
+      var w=maxX-minX, h=maxY-minY;
+      if(w<1||h<1) return false;
+      var asp=Math.min(w,h)/Math.max(w,h);
+      return asp>0.4;
+    }
     function hitTest(pt){
-      // reverse to find topmost
       for(var i=state.annotations.length-1;i>=0;i--){
         var a=state.annotations[i];
         if(a.type==='rect'){
           var minX=Math.min(a.x, a.x2), maxX=Math.max(a.x,a.x2), minY=Math.min(a.y,a.y2), maxY=Math.max(a.y,a.y2);
           if(pt.x>=minX-6 && pt.x<=maxX+6 && pt.y>=minY-6 && pt.y<=maxY+6) return a;
         } else if(a.type==='arrow'){
-          // distance to segment
           var d=distToSeg(pt, {x:a.x,y:a.y},{x:a.x2,y:a.y2});
           if(d<10) return a;
         } else if(a.type==='pen'){
+          if(isClosedPen(a.points) && pointInPolygon(pt, a.points)) return a;
           for(var p=0;p<a.points.length;p++){ var q=a.points[p]; if(Math.hypot(q[0]-pt.x,q[1]-pt.y)<12) return a; }
-        } else if(a.type==='text' || a.type==='pin'){
-          if(Math.abs(a.x-pt.x)<60 && Math.abs(a.y-pt.y)<22) return a;
+        } else if(a.type==='text'){
+          ctx.font='14px Inter, system-ui, sans-serif';
+          var maxW=Math.max(120, cvs.width - a.x - 12);
+          var lines=wrapText(a.text||'', ctx, maxW);
+          var maxLineW=0; for(var li=0;li<lines.length;li++){ var ww=ctx.measureText(lines[li]).width; if(ww>maxLineW) maxLineW=ww; }
+          var totalH=lines.length*16;
+          var x0=a.x-4, y0=a.y-2, x1=a.x+maxLineW+8, y1=a.y+totalH+2;
+          if(pt.x>=x0 && pt.x<=x1 && pt.y>=y0 && pt.y<=y1) return a;
+        } else if(a.type==='pin'){
+          if(Math.hypot(pt.x-a.x, pt.y-a.y)<=16) return a;
+          if(a.text){
+            ctx.font='12px Inter, system-ui';
+            var pLines=wrapText(a.text, ctx, 220);
+            var pMaxW=0; for(var pj=0;pj<pLines.length;pj++){ var w2=ctx.measureText(pLines[pj]).width; if(w2>pMaxW) pMaxW=w2; }
+            var pad=6, tw2=pMaxW+pad*2, th2=pLines.length*14+8;
+            var bx2=a.x+18, by2=a.y-14;
+            if(bx2+tw2>cvs.width) bx2=a.x - tw2 - 10;
+            if(by2<4) by2=a.y+10;
+            bx2=Math.max(4, Math.min(bx2, cvs.width - tw2 - 4));
+            by2=Math.max(4, Math.min(by2, cvs.height - th2 - 4));
+            if(pt.x>=bx2 && pt.x<=bx2+tw2 && pt.y>=by2 && pt.y<=by2+th2) return a;
+          }
         }
       }
       return null;
@@ -1315,25 +1386,35 @@
         } else if(a.type==='text'){
           ctx.font='14px Inter, system-ui, sans-serif';
           ctx.fillStyle=a.color;
-          var lines=(a.text||'').split('\n');
-          lines.forEach(function(line, idx){ ctx.fillText(line, a.x, a.y+16+idx*16); });
-          if(isSel){ var w2=ctx.measureText(a.text||'').width; ctx.setLineDash([6,4]); ctx.strokeStyle='#0f172a'; ctx.strokeRect(a.x-4,a.y-2,w2+8,20); ctx.setLineDash([]); }
+          var tMaxW=Math.max(120, cvs.width - a.x - 12);
+          var tLines=wrapText(a.text||'', ctx, tMaxW);
+          var tMaxLineW=0; for(var ti=0;ti<tLines.length;ti++){ var twm=ctx.measureText(tLines[ti]).width; if(twm>tMaxLineW) tMaxLineW=twm; }
+          var tClampX=Math.max(4, Math.min(a.x, cvs.width - tMaxLineW - 12));
+          var tClampY=Math.max(2, Math.min(a.y, cvs.height - tLines.length*16 - 4));
+          tLines.forEach(function(line, idx){ ctx.fillText(line, tClampX, tClampY+16+idx*16); });
+          if(isSel){
+            ctx.setLineDash([6,4]); ctx.strokeStyle='#0f172a'; ctx.strokeRect(tClampX-4,tClampY-2,tMaxLineW+8,tLines.length*16+4); ctx.setLineDash([]);
+          }
         } else if(a.type==='pin'){
           // circle with number
           ctx.beginPath(); ctx.arc(a.x,a.y,14,0,Math.PI*2); ctx.fillStyle=a.color; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
           ctx.fillStyle='#fff'; ctx.font='bold 12px Inter, system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(a.n), a.x, a.y);
           ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-          // comment bubble
+          // comment bubble multi-line wrapped
           if(a.text){
-            var pad=6, tw=ctx.measureText(a.text).width+pad*2, th=18;
+            ctx.font='12px Inter, system-ui';
+            var pinLines=wrapText(a.text, ctx, 220);
+            var pinMaxW=0; for(var pi2=0;pi2<pinLines.length;pi2++){ var pwm=ctx.measureText(pinLines[pi2]).width; if(pwm>pinMaxW) pinMaxW=pwm; }
+            var pad=6, tw=pinMaxW+pad*2, th=pinLines.length*14+8;
             var bx=a.x+18, by=a.y-14;
-            // keep in bounds
             if(bx+tw>cvs.width) bx=a.x - tw - 10;
-            if(by<0) by=a.y+10;
+            bx=Math.max(4, Math.min(bx, cvs.width - tw - 4));
+            if(by<4) by=a.y+10;
+            by=Math.max(4, Math.min(by, cvs.height - th - 4));
             ctx.fillStyle='rgba(15,23,42,0.96)'; ctx.strokeStyle='rgba(255,255,255,0.9)';
-            // rounded rect fallback
             ctx.beginPath(); var r=8; ctx.moveTo(bx+r,by); ctx.lineTo(bx+tw-r,by); ctx.quadraticCurveTo(bx+tw,by,bx+tw,by+r); ctx.lineTo(bx+tw,by+th-r); ctx.quadraticCurveTo(bx+tw,by+th,bx+tw-r,by+th); ctx.lineTo(bx+r,by+th); ctx.quadraticCurveTo(bx,by+th,bx,by+th-r); ctx.lineTo(bx,by+r); ctx.quadraticCurveTo(bx,by,bx+r,by); ctx.closePath(); ctx.fill(); ctx.lineWidth=1; ctx.stroke();
-            ctx.fillStyle='#fff'; ctx.font='12px Inter, system-ui'; ctx.fillText(a.text, bx+pad, by+13);
+            ctx.fillStyle='#fff'; ctx.font='12px Inter, system-ui';
+            pinLines.forEach(function(pl, pidx){ ctx.fillText(pl, bx+pad, by+13+pidx*14); });
           }
           if(isSel){ ctx.setLineDash([6,4]); ctx.strokeStyle='#0f172a'; ctx.lineWidth=2; ctx.strokeRect(a.x-16,a.y-16,32,32); ctx.setLineDash([]); }
         }
@@ -1419,7 +1500,20 @@
       var pt=cssPoint(e);
       if(state.tool==='select' && dragging && isPointerDown){
         if(dragging.type==='text' || dragging.type==='pin'){
-          dragging.x=pt.x - dragOff.x; dragging.y=pt.y - dragOff.y;
+          var nx=pt.x - dragOff.x, ny=pt.y - dragOff.y;
+          if(dragging.type==='text'){
+            ctx.font='14px Inter, system-ui, sans-serif';
+            var dragMaxW=Math.max(120, cvs.width - nx - 12);
+            var dLines=wrapText(dragging.text||'', ctx, dragMaxW);
+            var dMaxW=0; for(var di=0;di<dLines.length;di++){ var dwm=ctx.measureText(dLines[di]).width; if(dwm>dMaxW) dMaxW=dwm; }
+            var dH=dLines.length*16;
+            nx=Math.max(4, Math.min(nx, cvs.width - dMaxW - 12));
+            ny=Math.max(2, Math.min(ny, cvs.height - dH - 4));
+          } else {
+            nx=Math.max(14, Math.min(nx, cvs.width - 14));
+            ny=Math.max(14, Math.min(ny, cvs.height - 14));
+          }
+          dragging.x=nx; dragging.y=ny;
         } else if(dragging.type==='rect' || dragging.type==='arrow'){
           // move shape so origin follows pointer offset
           // actually we stored offset from hit point to shape origin; for simplicity move both points by delta of pointer
@@ -1433,9 +1527,21 @@
           dragging.y=pt.y - dragOff.y;
           dragging.x2=pt.x - dragOff.x2;
           dragging.y2=pt.y - dragOff.y2;
+          // clamp rect/arrow so whole shape stays in canvas
+          var rMinX=Math.min(dragging.x, dragging.x2), rMaxX=Math.max(dragging.x, dragging.x2);
+          var rMinY=Math.min(dragging.y, dragging.y2), rMaxY=Math.max(dragging.y, dragging.y2);
+          var shiftX=0, shiftY=0;
+          if(rMinX<0) shiftX=-rMinX; else if(rMaxX>cvs.width) shiftX=cvs.width - rMaxX;
+          if(rMinY<0) shiftY=-rMinY; else if(rMaxY>cvs.height) shiftY=cvs.height - rMaxY;
+          dragging.x+=shiftX; dragging.x2+=shiftX; dragging.y+=shiftY; dragging.y2+=shiftY;
         } else if(dragging.type==='pen'){
           // translate all points by pointer delta using stored offsets (pt0 -> points)
           for(var i=0;i<dragging.points.length;i++){ dragging.points[i][0]=pt.x + dragOff.pts[i][0]; dragging.points[i][1]=pt.y + dragOff.pts[i][1]; }
+          // clamp pen points inside canvas bounds
+          var pMinX=Infinity, pMaxX=-Infinity, pMinY=Infinity, pMaxY=-Infinity;
+          for(var pp=0;pp<dragging.points.length;pp++){ if(dragging.points[pp][0]<pMinX) pMinX=dragging.points[pp][0]; if(dragging.points[pp][0]>pMaxX) pMaxX=dragging.points[pp][0]; if(dragging.points[pp][1]<pMinY) pMinY=dragging.points[pp][1]; if(dragging.points[pp][1]>pMaxY) pMaxY=dragging.points[pp][1]; }
+          var sX=0,sY=0; if(pMinX<0) sX=-pMinX; else if(pMaxX>cvs.width) sX=cvs.width-pMaxX; if(pMinY<0) sY=-pMinY; else if(pMaxY>cvs.height) sY=cvs.height-pMaxY;
+          if(sX||sY) for(var qq=0;qq<dragging.points.length;qq++){ dragging.points[qq][0]+=sX; dragging.points[qq][1]+=sY; }
         }
         renderAll();
         return;
@@ -1486,8 +1592,17 @@
         if(a.type==='rect'){ var x=Math.min(a.x,a.x2), y=Math.min(a.y,a.y2), w=Math.abs(a.x2-a.x), h=Math.abs(a.y2-a.y); octx.strokeRect(x,y,w,h); }
         else if(a.type==='arrow'){ octx.beginPath(); octx.moveTo(a.x,a.y); octx.lineTo(a.x2,a.y2); octx.stroke(); var ang=Math.atan2(a.y2-a.y,a.x2-a.x); var len=14; octx.beginPath(); octx.moveTo(a.x2,a.y2); octx.lineTo(a.x2-len*Math.cos(ang-Math.PI/6), a.y2-len*Math.sin(ang-Math.PI/6)); octx.lineTo(a.x2-len*Math.cos(ang+Math.PI/6), a.y2-len*Math.sin(ang+Math.PI/6)); octx.closePath(); octx.fill(); }
         else if(a.type==='pen'){ if(a.points.length>=2){ octx.beginPath(); octx.moveTo(a.points[0][0],a.points[0][1]); for(var i=1;i<a.points.length;i++) octx.lineTo(a.points[i][0],a.points[i][1]); octx.stroke(); } else if(a.points.length===1){ octx.beginPath(); octx.arc(a.points[0][0],a.points[0][1],2,0,Math.PI*2); octx.fill(); } }
-        else if(a.type==='text'){ octx.font='14px Inter, system-ui, sans-serif'; octx.fillStyle=a.color; var lines=(a.text||'').split('\n'); lines.forEach(function(line, idx){ octx.fillText(line, a.x, a.y+16+idx*16); }); }
-        else if(a.type==='pin'){ octx.beginPath(); octx.arc(a.x,a.y,14,0,Math.PI*2); octx.fillStyle=a.color; octx.fill(); octx.strokeStyle='#fff'; octx.lineWidth=2; octx.stroke(); octx.fillStyle='#fff'; octx.font='bold 12px Inter, system-ui'; octx.textAlign='center'; octx.textBaseline='middle'; octx.fillText(String(a.n), a.x, a.y); octx.textAlign='left'; octx.textBaseline='alphabetic'; if(a.text){ var pad=6, tw=octx.measureText(a.text).width+pad*2, th=18; var bx=a.x+18, by=a.y-14; if(bx+tw>cssW) bx=a.x - tw - 10; if(by<0) by=a.y+10; octx.fillStyle='rgba(15,23,42,0.96)'; octx.strokeStyle='rgba(255,255,255,0.9)'; octx.beginPath(); var r=8; octx.moveTo(bx+r,by); octx.lineTo(bx+tw-r,by); octx.quadraticCurveTo(bx+tw,by,bx+tw,by+r); octx.lineTo(bx+tw,by+th-r); octx.quadraticCurveTo(bx+tw,by+th,bx+tw-r,by+th); octx.lineTo(bx+r,by+th); octx.quadraticCurveTo(bx,by+th,bx,by+th-r); octx.lineTo(bx,by+r); octx.quadraticCurveTo(bx,by,bx+r,by); octx.closePath(); octx.fill(); octx.lineWidth=1; octx.stroke(); octx.fillStyle='#fff'; octx.font='12px Inter, system-ui'; octx.fillText(a.text, bx+pad, by+13); } }
+        else if(a.type==='text'){ octx.font='14px Inter, system-ui, sans-serif'; octx.fillStyle=a.color;
+          (function(){ var tcsW=Math.max(120, cssW - a.x - 12); var oMax=0; // measure wrap to clamp
+            // simple word wrap mirroring wrapText inline (uses octx)
+            var paras=String(a.text||'').split('\n'); var wLines=[];
+            for(var pi=0;pi<paras.length;pi++){ var para=paras[pi]; if(!para){ wLines.push(''); continue; } var words=para.split(/\s+/); var cur=''; for(var wi=0;wi<words.length;wi++){ var w=words[wi]; if(!w) continue; if(octx.measureText(w).width>tcsW){ if(cur){ wLines.push(cur); cur=''; } var curW=''; for(var ci=0;ci<w.length;ci++){ var testW=curW+w[ci]; if(octx.measureText(testW).width>tcsW && curW){ wLines.push(curW); curW=w[ci]; } else curW=testW; } if(curW) cur=curW; continue; } var test=cur?cur+' '+w:w; if(octx.measureText(test).width<=tcsW) cur=test; else { if(cur) wLines.push(cur); cur=w; } } if(cur) wLines.push(cur); else if(!wLines.length||wLines[wLines.length-1]!=='') wLines.push(''); }
+            if(!wLines.length) wLines.push('');
+            for(var li=0;li<wLines.length;li++){ var ww=octx.measureText(wLines[li]).width; if(ww>oMax) oMax=ww; }
+            var ox=Math.max(4, Math.min(a.x, cssW - oMax - 12)); var oy=Math.max(2, Math.min(a.y, cvs.height - wLines.length*16 - 4));
+            wLines.forEach(function(line, idx){ octx.fillText(line, ox, oy+16+idx*16); });
+          })(); }
+        else if(a.type==='pin'){ octx.beginPath(); octx.arc(a.x,a.y,14,0,Math.PI*2); octx.fillStyle=a.color; octx.fill(); octx.strokeStyle='#fff'; octx.lineWidth=2; octx.stroke(); octx.fillStyle='#fff'; octx.font='bold 12px Inter, system-ui'; octx.textAlign='center'; octx.textBaseline='middle'; octx.fillText(String(a.n), a.x, a.y); octx.textAlign='left'; octx.textBaseline='alphabetic'; if(a.text){ (function(){ octx.font='12px Inter, system-ui'; var paras=String(a.text||'').split('\n'); var wLines=[]; var tcsW=220; for(var pi=0;pi<paras.length;pi++){ var para=paras[pi]; if(!para){ wLines.push(''); continue; } var words=para.split(/\s+/); var cur=''; for(var wi=0;wi<words.length;wi++){ var w=words[wi]; if(!w) continue; if(octx.measureText(w).width>tcsW){ if(cur){ wLines.push(cur); cur=''; } var curW=''; for(var ci=0;ci<w.length;ci++){ var testW=curW+w[ci]; if(octx.measureText(testW).width>tcsW && curW){ wLines.push(curW); curW=w[ci]; } else curW=testW; } if(curW) cur=curW; continue; } var test=cur?cur+' '+w:w; if(octx.measureText(test).width<=tcsW) cur=test; else { if(cur) wLines.push(cur); cur=w; } } if(cur) wLines.push(cur); else if(!wLines.length||wLines[wLines.length-1]!=='') wLines.push(''); } if(!wLines.length) wLines.push(''); var pMax=0; for(var li=0;li<wLines.length;li++){ var ww=octx.measureText(wLines[li]).width; if(ww>pMax) pMax=ww; } var pad=6, tw=pMax+pad*2, th=wLines.length*14+8; var bx=a.x+18, by=a.y-14; if(bx+tw>cssW) bx=a.x - tw - 10; bx=Math.max(4, Math.min(bx, cssW - tw - 4)); if(by<4) by=a.y+10; by=Math.max(4, Math.min(by, cvs.height - th - 4)); octx.fillStyle='rgba(15,23,42,0.96)'; octx.strokeStyle='rgba(255,255,255,0.9)'; octx.beginPath(); var r=8; octx.moveTo(bx+r,by); octx.lineTo(bx+tw-r,by); octx.quadraticCurveTo(bx+tw,by,bx+tw,by+r); octx.lineTo(bx+tw,by+th-r); octx.quadraticCurveTo(bx+tw,by+th,bx+tw-r,by+th); octx.lineTo(bx+r,by+th); octx.quadraticCurveTo(bx,by+th,bx,by+th-r); octx.lineTo(bx,by+r); octx.quadraticCurveTo(bx,by,bx+r,by); octx.closePath(); octx.fill(); octx.lineWidth=1; octx.stroke(); octx.fillStyle='#fff'; octx.font='12px Inter, system-ui'; wLines.forEach(function(pl, pidx){ octx.fillText(pl, bx+pad, by+13+pidx*14); }); })(); } }
         octx.restore();
       });
     }
