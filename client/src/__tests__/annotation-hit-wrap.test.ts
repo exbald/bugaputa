@@ -63,6 +63,16 @@ describe("annotation hit+wrap widget contract", () => {
     expect(textHitBranch).toMatch(/y0\s*=\s*hitClampY/);
   });
 
+  it("text drag normalizes stored coordinates to the displayed clamp before offset", () => {
+    const downStart = widgetJs.indexOf("if(state.tool==='select'){");
+    const downEnd = widgetJs.indexOf("if(hit.type==='rect' || hit.type==='arrow')", downStart);
+    const selectPointerDown = widgetJs.slice(downStart, downEnd);
+    expect(selectPointerDown).toMatch(/if\(hit\.type==='text'\)/);
+    expect(selectPointerDown).toMatch(/hit\.x\s*=\s*dragClampX/);
+    expect(selectPointerDown).toMatch(/hit\.y\s*=\s*dragClampY/);
+    expect(selectPointerDown.indexOf("hit.x=dragClampX")).toBeLessThan(selectPointerDown.indexOf("dragOff={x:"));
+  });
+
   it("text bbox: wrap + clamp keeps maxLineW inside canvas", () => {
     // mock canvas ctx measure: ~7px per char for test
     const fakeCtx={ measureText(s:string){ return {width: s.length*7} as any }, font:"" } as any;
