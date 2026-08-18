@@ -38,6 +38,21 @@
     color: _initialColor||WIDGET_DEFAULTS.color,
     position: _initialPos||WIDGET_DEFAULTS.position
   };
+  // deferred atomic reveal: don't paint a visible #bugaputa-btn until
+  // final config is resolved or a bounded timeout fires (<=2000ms).
+  // Fast-path when all data-* attrs present → no wait.
+  var _revealed=false, _revealTimer=null;
+  var WIDGET_REVEAL_TIMEOUT_MS=1500;
+  function revealOnce(){
+    if(_revealed) return;
+    if(!document.body){
+      setTimeout(revealOnce, 50);
+      return;
+    }
+    _revealed=true;
+    if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
+    try{ document.body.appendChild(createTrigger()); }catch(_){}
+  }
   // fetch fallback for any missing field when we have a projectKey
   (function fetchWidgetConfig(){
     var needFetch=(!_initialLabel||!_initialColor||!_initialPos);
@@ -48,28 +63,26 @@
       if(script&&script.src){ try{ base=new URL(script.src).origin; }catch(_){} }
       cfgUrl=(base||'')+"/api/widget-config?project="+encodeURIComponent(projectKey);
     }catch(_){ return; }
+    // Bounded fallback: reveal with defaults if fetch hasn't completed in time
+    _revealTimer=setTimeout(function(){ if(!_revealed) revealOnce(); }, WIDGET_REVEAL_TIMEOUT_MS);
     // fetch from public /api/widget-config (CORS *, no auth)
     fetch(cfgUrl).then(function(r){
       if(!r.ok) throw new Error(String(r.status));
       return r.json();
     }).then(function(d){
-      if(!d||typeof d!=='object') return;
+      if(!d||typeof d!=='object'){ if(!_revealed) revealOnce(); return; }
       // server may return widget_* or label/color/position keys
       var fetchedLabel=sanitizeLabel(d.widget_label||d.widgetLabel||d.label||null);
       var fetchedColor=d.widget_color||d.widgetColor||d.color||null;
       if(!isValidHex(fetchedColor)) fetchedColor=null; else fetchedColor=fetchedColor.trim();
       var fetchedPos=d.widget_position||d.widgetPosition||d.position||null;
       if(WIDGET_POSITIONS.indexOf((fetchedPos||'').trim())===-1) fetchedPos=null; else fetchedPos=(fetchedPos||'').trim();
-      var changed=false;
-      if(!_initialLabel&&fetchedLabel&&fetchedLabel!==widgetConfig.label){ widgetConfig.label=fetchedLabel; changed=true; }
-      if(!_initialColor&&fetchedColor&&fetchedColor!==widgetConfig.color){ widgetConfig.color=fetchedColor; changed=true; }
-      if(!_initialPos&&fetchedPos&&fetchedPos!==widgetConfig.position){ widgetConfig.position=fetchedPos; changed=true; }
-      if(changed){
-        var existing=document.getElementById('bugaputa-btn');
-        if(existing){ try{ existing.remove(); }catch(_){} }
-        var nb=createTrigger(); document.body.appendChild(nb);
-      }
-    }).catch(function(){}); // silent fallback to defaults
+      if(!_initialLabel&&fetchedLabel) widgetConfig.label=fetchedLabel;
+      if(!_initialColor&&fetchedColor) widgetConfig.color=fetchedColor;
+      if(!_initialPos&&fetchedPos) widgetConfig.position=fetchedPos;
+      if(!_revealed) revealOnce();
+      // if already revealed (timeout won), keep stability — do not re-append / jump
+    }).catch(function(){ if(!_revealed) revealOnce(); });
   })();
   function h(tag, attrs, children){
     var el=document.createElement(tag);
@@ -1789,11 +1802,31 @@
     btn.addEventListener('click', open);
     return btn;
   }
-  var _triggerBtn=null;
   function mount(){
-    if(!document.body){ setTimeout(mount, 100); return; }
-    _triggerBtn=createTrigger();
-    document.body.appendChild(_triggerBtn);
+    var fastPath=(_initialLabel&&_initialColor&&_initialPos);
+    if(fastPath){
+      if(!document.body){ setTimeout(mount, 50); return; }
+      revealOnce();
+      return;
+    }
+    // needFetch but no projectKey → no remote config possible, reveal with defaults
+    var needFetch=(!_initialLabel||!_initialColor||!_initialPos);
+    if(needFetch&&!projectKey){
+      if(!document.body){ setTimeout(mount, 50); return; }
+      revealOnce();
+      return;
+    }
+    // needFetch && has projectKey: fetchWidgetConfig already scheduled the
+    // bounded timeout + fetch. Ensure reveal even if body wasn't ready at
+    // timer creation — poll until body exists, then let revealOnce append.
+    // If fetch path wasn't entered (shouldn't happen), fall back to timer.
+    if(!_revealed&&!_revealTimer){
+      _revealTimer=setTimeout(function(){ if(!_revealed) revealOnce(); }, WIDGET_REVEAL_TIMEOUT_MS);
+    }
+    if(!document.body){ setTimeout(mount, 50); return; }
+    // body ready: reveal will be triggered by fetch success / catch / timeout
+    if(_revealed) return;
+    // nothing else to do — waiting for fetch or timeout (already scheduled)
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 })();
