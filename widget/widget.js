@@ -1449,6 +1449,15 @@
           pushUndo();
           state.selectedId=hit.id;
           dragging=hit;
+          if(hit.type==='text'){
+            ctx.font='14px Inter, system-ui, sans-serif';
+            var dragInitMaxW=Math.max(120, cvs.width - hit.x - 12);
+            var dragInitLines=wrapText(hit.text||'', ctx, dragInitMaxW);
+            var dragInitLineW=0; for(var dli=0;dli<dragInitLines.length;dli++){ var dliw=ctx.measureText(dragInitLines[dli]).width; if(dliw>dragInitLineW) dragInitLineW=dliw; }
+            var dragClampX=Math.max(4, Math.min(hit.x, cvs.width - dragInitLineW - 12));
+            var dragClampY=Math.max(2, Math.min(hit.y, cvs.height - dragInitLines.length*16 - 4));
+            hit.x=dragClampX; hit.y=dragClampY;
+          }
           dragOff={x: pt.x - hit.x, y: pt.y - hit.y};
           // for rect/arrow need offset for both points
           if(hit.type==='rect' || hit.type==='arrow'){
