@@ -1313,7 +1313,7 @@
       return asp>0.4;
     }
     function hitTest(pt){
-      var rect=cvs.getBoundingClientRect(); var s=rect.width / capturedDims.cssW || 1; var modelTol=Math.min(18, Math.max(10, 14 / s));
+      var rect=cvs.getBoundingClientRect(); var s=(capturedDims&&capturedDims.cssW)? rect.width/capturedDims.cssW : 1; var modelTol=Math.min(18, Math.max(10, 14 / s));
       for(var i=state.annotations.length-1;i>=0;i--){
         var a=state.annotations[i];
         if(a.type==='rect'){
