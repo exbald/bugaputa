@@ -1330,7 +1330,9 @@
           var lines=wrapText(a.text||'', ctx, maxW);
           var maxLineW=0; for(var li=0;li<lines.length;li++){ var ww=ctx.measureText(lines[li]).width; if(ww>maxLineW) maxLineW=ww; }
           var totalH=lines.length*16;
-          var x0=a.x-4, y0=a.y-2, x1=a.x+maxLineW+8, y1=a.y+totalH+2;
+          var hitClampX=Math.max(4, Math.min(a.x, cvs.width - maxLineW - 12));
+          var hitClampY=Math.max(2, Math.min(a.y, cvs.height - totalH - 4));
+          var x0=hitClampX-4, y0=hitClampY-2, x1=hitClampX+maxLineW+8, y1=hitClampY+totalH+2;
           if(pt.x>=x0 && pt.x<=x1 && pt.y>=y0 && pt.y<=y1) return a;
         } else if(a.type==='pin'){
           if(Math.hypot(pt.x-a.x, pt.y-a.y)<=16) return a;
