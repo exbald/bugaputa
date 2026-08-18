@@ -85,6 +85,20 @@ describe("widget deferred atomic reveal (no wrong-position flash)", () => {
     expect(appended).toBe(1);
   });
 
+  it("cancels deferred reveal when its loader script is removed", () => {
+    const s = js();
+    const rIdx = s.indexOf("function revealOnce()");
+    const rEnd = s.indexOf("\n  }\n  // fetch fallback", rIdx);
+    const rBody = rEnd > 0 ? s.slice(rIdx, rEnd + 4) : s.slice(rIdx, rIdx + 900);
+    expect(rBody, "reveal must stop after the owning loader is disconnected").toMatch(/script\s*&&\s*!script\.isConnected/);
+    expect(rBody.indexOf("!script.isConnected"), "loader guard must run before body polling").toBeLessThan(rBody.indexOf("!document.body"));
+    expect(rBody, "disconnected loader must cancel the pending fallback timer").toMatch(/clearTimeout\(_revealTimer\)/);
+
+    const mountIdx = s.indexOf("function mount()");
+    const mountBody = s.slice(mountIdx, s.indexOf("if(document.readyState", mountIdx));
+    expect(mountBody, "mount polling must also stop after loader cleanup").toMatch(/script\s*&&\s*!script\.isConnected/);
+  });
+
   it("has bounded timeout fallback <=2000ms (1500ms)", () => {
     const s = js();
     expect(s, "WIDGET_REVEAL_TIMEOUT_MS const").toMatch(/WIDGET_REVEAL_TIMEOUT_MS\s*=\s*(\d+)/);

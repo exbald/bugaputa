@@ -45,6 +45,12 @@
   var WIDGET_REVEAL_TIMEOUT_MS=1500;
   function revealOnce(){
     if(_revealed) return;
+    // SPA loaders may be removed before config/timeout settles. Do not let a
+    // stale widget closure append onto the next route after its owner unmounted.
+    if(script&&!script.isConnected){
+      if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
+      return;
+    }
     if(!document.body){
       setTimeout(revealOnce, 50);
       return;
@@ -1803,6 +1809,10 @@
     return btn;
   }
   function mount(){
+    if(script&&!script.isConnected){
+      if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
+      return;
+    }
     var fastPath=(_initialLabel&&_initialColor&&_initialPos);
     if(fastPath){
       if(!document.body){ setTimeout(mount, 50); return; }
