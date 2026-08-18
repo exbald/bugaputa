@@ -45,12 +45,12 @@
   var WIDGET_REVEAL_TIMEOUT_MS=1500;
   function revealOnce(){
     if(_revealed) return;
-    _revealed=true;
-    if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
     if(!document.body){
-      setTimeout(function(){ try{ document.body.appendChild(createTrigger()); }catch(_){} }, 50);
+      setTimeout(revealOnce, 50);
       return;
     }
+    _revealed=true;
+    if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
     try{ document.body.appendChild(createTrigger()); }catch(_){}
   }
   // fetch fallback for any missing field when we have a projectKey
@@ -1802,7 +1802,6 @@
     btn.addEventListener('click', open);
     return btn;
   }
-  var _triggerBtn=null;
   function mount(){
     var fastPath=(_initialLabel&&_initialColor&&_initialPos);
     if(fastPath){
