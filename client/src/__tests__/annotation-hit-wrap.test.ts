@@ -68,6 +68,8 @@ describe("annotation hit+wrap widget contract", () => {
     const downEnd = widgetJs.indexOf("if(hit.type==='rect' || hit.type==='arrow')", downStart);
     const selectPointerDown = widgetJs.slice(downStart, downEnd);
     expect(selectPointerDown).toMatch(/if\(hit\.type==='text'\)/);
+    expect(selectPointerDown).toMatch(/for\(var dragLayoutPass=0;dragLayoutPass<4;dragLayoutPass\+\+\)/);
+    expect(selectPointerDown).toMatch(/cvs\.width\s*-\s*dragClampX\s*-\s*12/);
     expect(selectPointerDown).toMatch(/hit\.x\s*=\s*dragClampX/);
     expect(selectPointerDown).toMatch(/hit\.y\s*=\s*dragClampY/);
     expect(selectPointerDown.indexOf("hit.x=dragClampX")).toBeLessThan(selectPointerDown.indexOf("dragOff={x:"));
