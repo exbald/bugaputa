@@ -53,6 +53,16 @@ describe("annotation hit+wrap widget contract", () => {
     expect(isClosedPen(open as any)).toBe(false);
   });
 
+  it("text hit-test uses the same clamped bounds as rendering", () => {
+    const hitStart = widgetJs.indexOf("} else if(a.type==='text'){");
+    const hitEnd = widgetJs.indexOf("} else if(a.type==='pin')", hitStart);
+    const textHitBranch = widgetJs.slice(hitStart, hitEnd);
+    expect(textHitBranch).toMatch(/hitClampX\s*=\s*Math\.max/);
+    expect(textHitBranch).toMatch(/hitClampY\s*=\s*Math\.max/);
+    expect(textHitBranch).toMatch(/x0\s*=\s*hitClampX/);
+    expect(textHitBranch).toMatch(/y0\s*=\s*hitClampY/);
+  });
+
   it("text bbox: wrap + clamp keeps maxLineW inside canvas", () => {
     // mock canvas ctx measure: ~7px per char for test
     const fakeCtx={ measureText(s:string){ return {width: s.length*7} as any }, font:"" } as any;
