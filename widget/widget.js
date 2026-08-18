@@ -1313,6 +1313,7 @@
       return asp>0.4;
     }
     function hitTest(pt){
+      var rect=cvs.getBoundingClientRect(); var s=(capturedDims&&capturedDims.cssW)? rect.width/capturedDims.cssW : 1; var modelTol=Math.min(18, Math.max(10, 14 / s));
       for(var i=state.annotations.length-1;i>=0;i--){
         var a=state.annotations[i];
         if(a.type==='rect'){
@@ -1320,10 +1321,16 @@
           if(pt.x>=minX-6 && pt.x<=maxX+6 && pt.y>=minY-6 && pt.y<=maxY+6) return a;
         } else if(a.type==='arrow'){
           var d=distToSeg(pt, {x:a.x,y:a.y},{x:a.x2,y:a.y2});
-          if(d<10) return a;
+          if(d<modelTol) return a;
         } else if(a.type==='pen'){
           if(isClosedPen(a.points) && pointInPolygon(pt, a.points)) return a;
-          for(var p=0;p<a.points.length;p++){ var q=a.points[p]; if(Math.hypot(q[0]-pt.x,q[1]-pt.y)<12) return a; }
+          if(a.points.length>=2){
+            for(var p=0;p<a.points.length-1;p++){
+              var d2=distToSeg(pt, {x:a.points[p][0],y:a.points[p][1]}, {x:a.points[p+1][0],y:a.points[p+1][1]});
+              if(d2<modelTol) return a;
+            }
+          }
+          for(var p2=0;p2<a.points.length;p2++){ var q=a.points[p2]; if(Math.hypot(q[0]-pt.x,q[1]-pt.y)<modelTol) return a; }
         } else if(a.type==='text'){
           ctx.font='14px Inter, system-ui, sans-serif';
           var maxW=Math.max(120, cvs.width - a.x - 12);
