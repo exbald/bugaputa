@@ -2,6 +2,7 @@ import {useEffect,useState,useCallback} from "react";
 import {useParams,Link,useNavigate} from "react-router-dom";
 import {api,ApiError} from "../lib/api";
 import {TopNav} from "../components/Layout";
+import {WIDGET_API_ORIGIN,WIDGET_SRC} from "../components/BugaputaWidget";
 function toSrc(p: string|null){ if(!p) return null; return p.startsWith("http")||p.startsWith("/") ? p : "/uploads/"+p; }
 const STATUSES=["","open","in_progress","resolved","archived"] as const;
 
@@ -118,8 +119,7 @@ export default function ProjectReports(){
   useEffect(()=>{ loadProject(); },[loadProject]);
   useEffect(()=>{ loadReports(); },[loadReports]);
   const pk=project?.publicKey||project?.public_key||"";
-  // Simplified snippet: data-project only — settings sync from server
-  const snippet=pk?'<script src="https://bugaputa.no-code.gdn/widget.js" data-project="'+pk+'"></script>':"";
+  const snippet=pk?'<script src="'+WIDGET_SRC+'" data-project="'+pk+'" data-api="'+WIDGET_API_ORIGIN+'"></script>':"";
   const handleSaveWidget=async()=>{
     if(!id) return;
     const trimmedLabel=wLabel.trim();

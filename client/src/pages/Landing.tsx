@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { TopNav } from "../components/Layout";
-import BugaputaWidget from "../components/BugaputaWidget";
+import BugaputaWidget, {WIDGET_API_ORIGIN,WIDGET_SRC} from "../components/BugaputaWidget";
 
 const SNIPPET_WITH_KEY =
-  '<script src="https://bugaputa.no-code.gdn/widget.js" data-project="YOUR_PROJECT_KEY"></script>';
+  '<script src="'+WIDGET_SRC+'" data-project="YOUR_PROJECT_KEY" data-api="'+WIDGET_API_ORIGIN+'"></script>';
 
 function CopyButton({ text, variant = "light" }: { text: string; variant?: "light" | "dark" }) {
   const [copied, setCopied] = useState(false);
