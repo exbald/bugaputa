@@ -2,7 +2,7 @@ import {useEffect,useState} from "react";
 import {Link} from "react-router-dom";
 import {api} from "../lib/api";
 import {TopNav} from "../components/Layout";
-import {WIDGET_API_ORIGIN,WIDGET_SRC} from "../components/BugaputaWidget";
+import { CANONICAL_ORIGIN } from "../lib/canonical";
 export default function Dashboard(){
   const [projects,setProjects]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
@@ -54,7 +54,7 @@ export default function Dashboard(){
           <div className="mt-6 grid md:grid-cols-2 gap-4">
             {projects.map((p:any)=> {
               const key=p.publicKey||p.public_key||"";
-              const snippet='<scr'+'ipt src="'+WIDGET_SRC+'" data-project="'+key+'" data-api="'+WIDGET_API_ORIGIN+'"></scr'+'ipt>';
+              const snippet='<scr'+'ipt src="'+CANONICAL_ORIGIN+'/widget.js" data-project="'+key+'" data-api="'+CANONICAL_ORIGIN+'"></scr'+'ipt>';
               return (
                 <div key={p.id} className="bg-white border rounded-2xl p-5 flex flex-col gap-3">
                   <div className="flex items-start justify-between gap-2">

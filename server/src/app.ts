@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.js";
 import projectRoutes from "./routes/projects.js";
 import reportRoutes from "./routes/reports.js";
 import widgetConfigRoutes from "./routes/widgetConfig.js";
+import { CANONICAL_ORIGIN, LEGACY_ORIGIN, canonicalRedirectMiddleware } from "./lib/canonical.js";
 
 // If the app was previously using /data/app.db (pre-fix volume path),
 // migrate that file into /app/data/app.db on first boot after the fix.
@@ -59,14 +60,14 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
         fontSrc: ["'self'", "https:", "data:"],
         formAction: ["'self'"],
         frameAncestors: ["'self'"],
-        connectSrc: ["'self'", "https://bugaputa.no-code.gdn"],
+        connectSrc: ["'self'", CANONICAL_ORIGIN, LEGACY_ORIGIN],
         // https: lets DOM-snapshot viewers load the reporter's remote images. A
         // srcdoc iframe inherits this policy; the frame is sandboxed and sends no
         // credentials, but note remote images do reach the customer's servers.
         imgSrc: ["'self'", "data:", "blob:", "https:"],
         frameSrc: ["'self'"],
         objectSrc: ["'none'"],
-        scriptSrc: ["'self'", "https://bugaputa.no-code.gdn"],
+        scriptSrc: ["'self'", CANONICAL_ORIGIN, LEGACY_ORIGIN],
         scriptSrcAttr: ["'none'"],
         styleSrc: ["'self'", "https:", "'unsafe-inline'"],
         upgradeInsecureRequests: [],
@@ -76,6 +77,11 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true }));
+
+  // Canonical host redirect (Traefik-aware via X-Forwarded-Host). Must run
+  // before static/API so document requests on legacy/www are redirected, while
+  // widget assets and API remain reachable via compat allowlist.
+  app.use(canonicalRedirectMiddleware);
 
   // Default CORP same-origin for app routes; widget assets override to cross-origin
   app.use((req, res, next) => {

@@ -42,6 +42,15 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   }
 }
 
+/**
+ * Cookie options: host-only (no Domain attribute), SameSite=lax, Secure in prod.
+ * Moving to a new apex (bugaputa.com vs bugaputa.no-code.gdn) requires one
+ * re-login because cookies are host-only and the two hosts are unrelated
+ * origins (not parent/child). We intentionally do NOT set Domain to share
+ * across them — that would weaken isolation and does not work for unrelated
+ * domains anyway. Users hitting the legacy host will be redirected for
+ * document requests, but API/widget remain compat; auth cookie stays per-host.
+ */
 export function cookieOptions() {
   const isProd = process.env.NODE_ENV === "production";
   return {
