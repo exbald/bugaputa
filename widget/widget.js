@@ -160,7 +160,8 @@
     capturedSnapshotHtml=null; pendingSnapshotFile=null; pendingAnnotationsFile=null;
     cleanupAnnotate();
     ed.remove();
-    document.body.style.overflow='';
+    // overlay remains open — keep body locked; cleanup reset it so re-lock
+    document.body.style.overflow='hidden';
     // restore overlay chooser
     if(overlay){
       overlay.style.display='flex';
@@ -1687,7 +1688,8 @@
       function finish(){
         cleanupAnnotate();
         ed.remove();
-        document.body.style.overflow='';
+        // done via overlay -> form, keep body locked for the restored dialog
+        document.body.style.overflow='hidden';
         if(overlay) overlay.style.display='flex';
         chooser.style.display='none'; capturePane.style.display='none';
         showForm(null);
