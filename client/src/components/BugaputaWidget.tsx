@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 
 export const WIDGET_SRC = "https://bugaputa.no-code.gdn/widget.js";
+export const WIDGET_API_ORIGIN = "https://bugaputa.no-code.gdn";
 export const WIDGET_PROJECT_KEY = "pk_live_OXoMeigFh6QMxkui";
 
 /**
  * Singleton, React-safe live widget loader.
- * - Injects exactly <script src="https://bugaputa.no-code.gdn/widget.js" data-project="pk_live_OXoMeigFh6QMxkui"></script>
+ * - Injects exactly <script src="https://bugaputa.no-code.gdn/widget.js" data-project="pk_live_OXoMeigFh6QMxkui" data-api="https://bugaputa.no-code.gdn"></script>
  * - Landing-only: only rendered inside Landing route.
  * - Singleton: never injects twice even on remount / StrictMode double-invoke.
  * - Clean unmount: removes the script we added and any DOM the widget created.
@@ -16,15 +17,19 @@ export default function BugaputaWidget() {
     const selector = `script[src="${WIDGET_SRC}"]`;
     const existing = document.querySelector(selector) as HTMLScriptElement | null;
     if (existing) {
-      // Verify the existing tag carries the correct project key; if not, correct it.
+      // Verify the existing tag carries the correct project key and API origin; if not, correct it.
       if (existing.getAttribute("data-project") !== WIDGET_PROJECT_KEY) {
         existing.setAttribute("data-project", WIDGET_PROJECT_KEY);
+      }
+      if (existing.getAttribute("data-api") !== WIDGET_API_ORIGIN) {
+        existing.setAttribute("data-api", WIDGET_API_ORIGIN);
       }
       return;
     }
     const s = document.createElement("script");
     s.src = WIDGET_SRC;
     s.setAttribute("data-project", WIDGET_PROJECT_KEY);
+    s.setAttribute("data-api", WIDGET_API_ORIGIN);
     s.async = true;
     // Tag it so cleanup can identify our element unambiguously.
     s.setAttribute("data-bugaputa", "landing");

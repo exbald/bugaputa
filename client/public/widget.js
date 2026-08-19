@@ -9,7 +9,7 @@
   //   License MIT — no Ybug proprietary code. Lazy-loaded only after explicit capture consent.
   var script=document.currentScript||document.querySelector('script[data-project]');
   var projectKey=script&&script.getAttribute('data-project')||'';
-  var API_BASE=(script&&script.getAttribute('data-api'))||'';
+  var API_BASE=((script&&script.getAttribute('data-api'))||'').replace(/\/+$/,'');
   var apiUrl=API_BASE?API_BASE+"/api/reports":"/api/reports";
   if(!projectKey){ console.warn('[Bugaputa] missing data-project'); }
   var cssHref=(API_BASE||'')+"/widget.css";

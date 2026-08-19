@@ -60,10 +60,10 @@ Sequence: register -> POST /api/projects -> note publicKey -> POST /api/reports 
 ## Widget snippet
 
 ```html
-<script src="https://bugaputa.no-code.gdn/widget.js" data-project="pk_live_..."></script>
+<script src="https://bugaputa.no-code.gdn/widget.js" data-project="pk_live_..." data-api="https://bugaputa.no-code.gdn"></script>
 ```
 
-Optional `data-api="https://bugaputa.no-code.gdn"` to override API base. The widget injects a floating button, opens an accessible modal (focus trap, ESC, 44px targets), shows what will be sent (URL, browser, viewport, language), and posts to POST /api/reports.
+The snippet includes `data-api` so the widget resolves `widget.css` and `POST /api/reports` against the Bugaputa origin even when embedded on a customer site. `data-api` can be overridden to point elsewhere if needed. The widget injects a floating button, opens an accessible modal (focus trap, ESC, 44px targets), shows what will be sent (URL, browser, viewport, language), and posts to POST /api/reports.
 
 ### Capture: DOM snapshot, not a rasterized image
 
