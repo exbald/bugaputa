@@ -96,6 +96,24 @@ describe("modal shell: fixed actions, only body scrolls (regression for 1440x765
     expect(raw).toMatch(/aria-label=.Close/);
   });
 
+  it("widget footer promotion keeps submit owned by form (requestSubmit bridge)", () => {
+    const js = readJs();
+    // submit inside promoted footer must still belong to the form
+    expect(js).toMatch(/getAttribute\('form'\),\s*'bugaputa-form'\)|setAttribute\('form',\s*'bugaputa-form'\)/);
+    expect(js, "click bridge must call requestSubmit or dispatch submit").toMatch(/requestSubmit|dispatchEvent\(new Event\('submit'/);
+  });
+
+  it("widget hides promoted footer after success so it does not linger over thank-you", () => {
+    const js = readJs();
+    expect(js).toMatch(/getElementById\('bugaputa-actions'\)[^}]*style\.display\s*=\s*'none'/s);
+  });
+
+  it("widget close revokes preview blob URLs (annotated + file-input)", () => {
+    const js = readJs();
+    // close() must revoke the preview blob created in showForm
+    expect(js).toMatch(/getElementById\('bugaputa-preview'\)[^}]*revokeObjectURL/s);
+  });
+
   it("widget gzip stays under 30KB", async () => {
     const raw = fs.readFileSync(widgetJsPath, "utf8");
     const { gzipSync } = await import("zlib");

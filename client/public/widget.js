@@ -134,6 +134,8 @@
     // restore trigger button (hidden during capture)
     var b=document.getElementById('bugaputa-btn');
     if(b) b.style.display='';
+    // revoke preview blob URLs created by showForm (annotated file + file input)
+    try{ var _pv=document.getElementById('bugaputa-preview'); if(_pv && _pv._blobUrl){ URL.revokeObjectURL(_pv._blobUrl); _pv._blobUrl=null; } }catch(_){}
     // remove promoted footer if any before overlay teardown
     try{ var _fa=document.getElementById('bugaputa-actions'); if(_fa && _fa._inModalFooter) _fa.remove(); }catch(_){}
     var _prevY=0, _prevOv=''; try{ _prevY=overlay? (overlay._prevScrollY||0):0; _prevOv=overlay? (overlay._prevOverflow||'') : ''; }catch(_){}
@@ -285,6 +287,11 @@
     form.appendChild(msgLabel); form.appendChild(emailLabel); form.appendChild(fileLabel); form.appendChild(hpWrap); form.appendChild(ctx); form.appendChild(consent); form.appendChild(errBox);
     // Footer actions live outside the scrollable body so they are always visible (viewport-bounded shell)
     // Keep form content in the scroll area, promote footer to modal root.
+    submitBtn.setAttribute('form','bugaputa-form');
+    // keep Enter in textarea/email submitting the form even after footer promotion
+    submitBtn.addEventListener('click', function(e){
+      if(submitBtn.form!==form){ e.preventDefault(); try{ if(typeof form.requestSubmit==='function') form.requestSubmit(); else form.dispatchEvent(new Event('submit',{cancelable:true})); }catch(_){ try{ form.dispatchEvent(new Event('submit',{cancelable:true})); }catch(_2){} } }
+    });
     form.appendChild(actions);
     wrap.appendChild(form); wrap.appendChild(success);
     try{
@@ -309,7 +316,7 @@
       if(hasFile && hasFile.size>5*1024*1024){ errBox.textContent='File too large (max 5MB)'; errBox.style.display='block'; submitBtn.disabled=false; submitBtn.textContent='Send report'; return; }
       if(hasFile && !/^(image\/png|image\/jpeg|image\/webp|image\/gif)$/.test(hasFile.type)){ errBox.textContent='Invalid file type (png/jpeg/webp/gif only)'; errBox.style.display='block'; submitBtn.disabled=false; submitBtn.textContent='Send report'; return; }
       var url=apiUrl; if(url.startsWith('/') && script && script.src){ try{ var u=new URL(script.src); url=u.origin+url; }catch(_){} }
-      function onSuccess(){ form.style.display='none'; success.style.display='block'; setTimeout(close, 2200); }
+      function onSuccess(){ try{ var _fa2=document.getElementById('bugaputa-actions'); if(_fa2) _fa2.style.display='none'; }catch(_){} form.style.display='none'; success.style.display='block'; setTimeout(close, 2200); }
       function onError(msg){ errBox.textContent=msg || 'Failed to send. Please try again.'; errBox.style.display='block'; submitBtn.disabled=false; submitBtn.textContent='Send report'; }
       if(hasFile || pendingSnapshotFile || pendingAnnotationsFile){
         var fd=new FormData(); fd.append('message', msg); if(email) fd.append('contactEmail', email); fd.append('pageUrl', location.href); fd.append('userAgent', navigator.userAgent); fd.append('viewport', window.innerWidth+'x'+window.innerHeight); fd.append('language', navigator.language||''); fd.append('website', hpInput.value); if(hasFile) fd.append('screenshot', hasFile); if(pendingSnapshotFile) fd.append('domSnapshot', pendingSnapshotFile); if(pendingAnnotationsFile) fd.append('annotations', pendingAnnotationsFile); if(projectKey) fd.append('projectKey', projectKey);
