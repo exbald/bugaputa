@@ -1,0 +1,1646 @@
+[
+  {
+    "viewport": {
+      "name": "1440x765",
+      "width": 1440,
+      "height": 765
+    },
+    "cases": {
+      "baseForm": {
+        "viewport": {
+          "w": 1440,
+          "h": 765
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 79.109375,
+            "bottom": 685.890625,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 606.78125
+          },
+          "overflow": "hidden",
+          "maxHeight": "688.5px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 79.109375,
+            "bottom": 616.890625,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 537.78125
+          },
+          "overflowY": "auto",
+          "scrollHeight": 538,
+          "clientHeight": 538
+        },
+        "actions": {
+          "rect": {
+            "top": 616.890625,
+            "bottom": 685.890625,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "footerStationaryProbe": {
+        "before": 657.75,
+        "after": 657.75,
+        "delta": 0,
+        "maxScroll": 826,
+        "bodyScrollTop": 60,
+        "stationary": true,
+        "hadFiller": true
+      },
+      "validationError": {
+        "viewport": {
+          "w": 1440,
+          "h": 765
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 68.359375,
+            "bottom": 696.640625,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 628.28125
+          },
+          "overflow": "hidden",
+          "maxHeight": "688.5px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 68.359375,
+            "bottom": 627.640625,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 559.28125
+          },
+          "overflowY": "auto",
+          "scrollHeight": 559,
+          "clientHeight": 559
+        },
+        "actions": {
+          "rect": {
+            "top": 627.640625,
+            "bottom": 696.640625,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "withPreview": {
+        "viewport": {
+          "w": 1440,
+          "h": 765
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 38.25,
+            "bottom": 726.75,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 688.5
+          },
+          "overflow": "hidden",
+          "maxHeight": "688.5px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 38.25,
+            "bottom": 657.75,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 619.5
+          },
+          "overflowY": "auto",
+          "scrollHeight": 705,
+          "clientHeight": 620
+        },
+        "actions": {
+          "rect": {
+            "top": 657.75,
+            "bottom": 726.75,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "loadingState": {
+        "viewport": {
+          "w": 1440,
+          "h": 765
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 38.25,
+            "bottom": 726.75,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 688.5
+          },
+          "overflow": "hidden",
+          "maxHeight": "688.5px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 38.25,
+            "bottom": 657.75,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 619.5
+          },
+          "overflowY": "auto",
+          "scrollHeight": 705,
+          "clientHeight": 620
+        },
+        "actions": {
+          "rect": {
+            "top": 657.75,
+            "bottom": 726.75,
+            "left": 460,
+            "right": 980,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "nonzeroScrollY": {
+        "scrollY": 300,
+        "geom": {
+          "viewport": {
+            "w": 1440,
+            "h": 765
+          },
+          "bodyOverflow": "hidden",
+          "modal": {
+            "rect": {
+              "top": 79.109375,
+              "bottom": 685.890625,
+              "left": 460,
+              "right": 980,
+              "w": 520,
+              "h": 606.78125
+            },
+            "overflow": "hidden",
+            "maxHeight": "688.5px"
+          },
+          "modalBody": {
+            "rect": {
+              "top": 79.109375,
+              "bottom": 616.890625,
+              "left": 460,
+              "right": 980,
+              "w": 520,
+              "h": 537.78125
+            },
+            "overflowY": "auto",
+            "scrollHeight": 538,
+            "clientHeight": 538
+          },
+          "actions": {
+            "rect": {
+              "top": 616.890625,
+              "bottom": 685.890625,
+              "left": 460,
+              "right": 980,
+              "w": 520,
+              "h": 69
+            },
+            "parentId": "bugaputa-modal",
+            "inFooter": true,
+            "borderTop": "1px"
+          },
+          "footerInViewport": true,
+          "modalNotScroller": true,
+          "noHOverflow": true
+        }
+      },
+      "bodyScrollLock": {
+        "locked": true,
+        "prevY": 300
+      },
+      "afterClose": {
+        "overlayPresent": false,
+        "bodyOverflow": "",
+        "scrollY": 300,
+        "btnVisible": true
+      }
+    },
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": []
+  },
+  {
+    "viewport": {
+      "name": "1280x720",
+      "width": 1280,
+      "height": 720
+    },
+    "cases": {
+      "baseForm": {
+        "viewport": {
+          "w": 1280,
+          "h": 720
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 56.609375,
+            "bottom": 663.390625,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 606.78125
+          },
+          "overflow": "hidden",
+          "maxHeight": "648px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 56.609375,
+            "bottom": 594.390625,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 537.78125
+          },
+          "overflowY": "auto",
+          "scrollHeight": 538,
+          "clientHeight": 538
+        },
+        "actions": {
+          "rect": {
+            "top": 594.390625,
+            "bottom": 663.390625,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "footerStationaryProbe": {
+        "before": 615,
+        "after": 615,
+        "delta": 0,
+        "maxScroll": 867,
+        "bodyScrollTop": 60,
+        "stationary": true,
+        "hadFiller": true
+      },
+      "validationError": {
+        "viewport": {
+          "w": 1280,
+          "h": 720
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 45.859375,
+            "bottom": 674.140625,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 628.28125
+          },
+          "overflow": "hidden",
+          "maxHeight": "648px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 45.859375,
+            "bottom": 605.140625,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 559.28125
+          },
+          "overflowY": "auto",
+          "scrollHeight": 559,
+          "clientHeight": 559
+        },
+        "actions": {
+          "rect": {
+            "top": 605.140625,
+            "bottom": 674.140625,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "withPreview": {
+        "viewport": {
+          "w": 1280,
+          "h": 720
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 36,
+            "bottom": 684,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 648
+          },
+          "overflow": "hidden",
+          "maxHeight": "648px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 36,
+            "bottom": 615,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 579
+          },
+          "overflowY": "auto",
+          "scrollHeight": 705,
+          "clientHeight": 579
+        },
+        "actions": {
+          "rect": {
+            "top": 615,
+            "bottom": 684,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "loadingState": {
+        "viewport": {
+          "w": 1280,
+          "h": 720
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 36,
+            "bottom": 684,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 648
+          },
+          "overflow": "hidden",
+          "maxHeight": "648px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 36,
+            "bottom": 615,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 579
+          },
+          "overflowY": "auto",
+          "scrollHeight": 705,
+          "clientHeight": 579
+        },
+        "actions": {
+          "rect": {
+            "top": 615,
+            "bottom": 684,
+            "left": 380,
+            "right": 900,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "nonzeroScrollY": {
+        "scrollY": 300,
+        "geom": {
+          "viewport": {
+            "w": 1280,
+            "h": 720
+          },
+          "bodyOverflow": "hidden",
+          "modal": {
+            "rect": {
+              "top": 56.609375,
+              "bottom": 663.390625,
+              "left": 380,
+              "right": 900,
+              "w": 520,
+              "h": 606.78125
+            },
+            "overflow": "hidden",
+            "maxHeight": "648px"
+          },
+          "modalBody": {
+            "rect": {
+              "top": 56.609375,
+              "bottom": 594.390625,
+              "left": 380,
+              "right": 900,
+              "w": 520,
+              "h": 537.78125
+            },
+            "overflowY": "auto",
+            "scrollHeight": 538,
+            "clientHeight": 538
+          },
+          "actions": {
+            "rect": {
+              "top": 594.390625,
+              "bottom": 663.390625,
+              "left": 380,
+              "right": 900,
+              "w": 520,
+              "h": 69
+            },
+            "parentId": "bugaputa-modal",
+            "inFooter": true,
+            "borderTop": "1px"
+          },
+          "footerInViewport": true,
+          "modalNotScroller": true,
+          "noHOverflow": true
+        }
+      },
+      "bodyScrollLock": {
+        "locked": true,
+        "prevY": 300
+      },
+      "afterClose": {
+        "overlayPresent": false,
+        "bodyOverflow": "",
+        "scrollY": 300,
+        "btnVisible": true
+      }
+    },
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": []
+  },
+  {
+    "viewport": {
+      "name": "768x500",
+      "width": 768,
+      "height": 500
+    },
+    "cases": {
+      "baseForm": {
+        "viewport": {
+          "w": 768,
+          "h": 500
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 25,
+            "bottom": 475,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 450
+          },
+          "overflow": "hidden",
+          "maxHeight": "450px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 25,
+            "bottom": 406,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 381
+          },
+          "overflowY": "auto",
+          "scrollHeight": 538,
+          "clientHeight": 381
+        },
+        "actions": {
+          "rect": {
+            "top": 406,
+            "bottom": 475,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "footerStationaryProbe": {
+        "before": 406,
+        "after": 406,
+        "delta": 0,
+        "maxScroll": 157,
+        "bodyScrollTop": 60,
+        "stationary": true,
+        "hadFiller": false
+      },
+      "validationError": {
+        "viewport": {
+          "w": 768,
+          "h": 500
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 25,
+            "bottom": 475,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 450
+          },
+          "overflow": "hidden",
+          "maxHeight": "450px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 25,
+            "bottom": 406,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 381
+          },
+          "overflowY": "auto",
+          "scrollHeight": 559,
+          "clientHeight": 381
+        },
+        "actions": {
+          "rect": {
+            "top": 406,
+            "bottom": 475,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "withPreview": {
+        "viewport": {
+          "w": 768,
+          "h": 500
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 25,
+            "bottom": 475,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 450
+          },
+          "overflow": "hidden",
+          "maxHeight": "450px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 25,
+            "bottom": 406,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 381
+          },
+          "overflowY": "auto",
+          "scrollHeight": 705,
+          "clientHeight": 381
+        },
+        "actions": {
+          "rect": {
+            "top": 406,
+            "bottom": 475,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "loadingState": {
+        "viewport": {
+          "w": 768,
+          "h": 500
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 25,
+            "bottom": 475,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 450
+          },
+          "overflow": "hidden",
+          "maxHeight": "450px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 25,
+            "bottom": 406,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 381
+          },
+          "overflowY": "auto",
+          "scrollHeight": 705,
+          "clientHeight": 381
+        },
+        "actions": {
+          "rect": {
+            "top": 406,
+            "bottom": 475,
+            "left": 124,
+            "right": 644,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "nonzeroScrollY": {
+        "scrollY": 300,
+        "geom": {
+          "viewport": {
+            "w": 768,
+            "h": 500
+          },
+          "bodyOverflow": "hidden",
+          "modal": {
+            "rect": {
+              "top": 25,
+              "bottom": 475,
+              "left": 124,
+              "right": 644,
+              "w": 520,
+              "h": 450
+            },
+            "overflow": "hidden",
+            "maxHeight": "450px"
+          },
+          "modalBody": {
+            "rect": {
+              "top": 25,
+              "bottom": 406,
+              "left": 124,
+              "right": 644,
+              "w": 520,
+              "h": 381
+            },
+            "overflowY": "auto",
+            "scrollHeight": 538,
+            "clientHeight": 381
+          },
+          "actions": {
+            "rect": {
+              "top": 406,
+              "bottom": 475,
+              "left": 124,
+              "right": 644,
+              "w": 520,
+              "h": 69
+            },
+            "parentId": "bugaputa-modal",
+            "inFooter": true,
+            "borderTop": "1px"
+          },
+          "footerInViewport": true,
+          "modalNotScroller": true,
+          "noHOverflow": true
+        }
+      },
+      "bodyScrollLock": {
+        "locked": true,
+        "prevY": 300
+      },
+      "afterClose": {
+        "overlayPresent": false,
+        "bodyOverflow": "",
+        "scrollY": 300,
+        "btnVisible": true
+      }
+    },
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": []
+  },
+  {
+    "viewport": {
+      "name": "390x844",
+      "width": 390,
+      "height": 844
+    },
+    "cases": {
+      "baseForm": {
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 100.609375,
+            "bottom": 743.390625,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 642.78125
+          },
+          "overflow": "hidden",
+          "maxHeight": "759.6px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 100.609375,
+            "bottom": 674.390625,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 573.78125
+          },
+          "overflowY": "auto",
+          "scrollHeight": 574,
+          "clientHeight": 574
+        },
+        "actions": {
+          "rect": {
+            "top": 674.390625,
+            "bottom": 743.390625,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "footerStationaryProbe": {
+        "before": 732.796875,
+        "after": 732.796875,
+        "delta": 0,
+        "maxScroll": 791,
+        "bodyScrollTop": 60,
+        "stationary": true,
+        "hadFiller": true
+      },
+      "validationError": {
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 80.109375,
+            "bottom": 763.890625,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 683.78125
+          },
+          "overflow": "hidden",
+          "maxHeight": "759.6px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 80.109375,
+            "bottom": 694.890625,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 614.78125
+          },
+          "overflowY": "auto",
+          "scrollHeight": 615,
+          "clientHeight": 615
+        },
+        "actions": {
+          "rect": {
+            "top": 694.890625,
+            "bottom": 763.890625,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "withPreview": {
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 42.203125,
+            "bottom": 801.796875,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 759.59375
+          },
+          "overflow": "hidden",
+          "maxHeight": "759.6px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 42.203125,
+            "bottom": 732.796875,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 690.59375
+          },
+          "overflowY": "auto",
+          "scrollHeight": 691,
+          "clientHeight": 691
+        },
+        "actions": {
+          "rect": {
+            "top": 732.796875,
+            "bottom": 801.796875,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "loadingState": {
+        "viewport": {
+          "w": 390,
+          "h": 844
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 42.203125,
+            "bottom": 801.796875,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 759.59375
+          },
+          "overflow": "hidden",
+          "maxHeight": "759.6px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 42.203125,
+            "bottom": 732.796875,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 690.59375
+          },
+          "overflowY": "auto",
+          "scrollHeight": 691,
+          "clientHeight": 691
+        },
+        "actions": {
+          "rect": {
+            "top": 732.796875,
+            "bottom": 801.796875,
+            "left": 16,
+            "right": 374,
+            "w": 358,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "nonzeroScrollY": {
+        "scrollY": 300,
+        "geom": {
+          "viewport": {
+            "w": 390,
+            "h": 844
+          },
+          "bodyOverflow": "hidden",
+          "modal": {
+            "rect": {
+              "top": 100.609375,
+              "bottom": 743.390625,
+              "left": 16,
+              "right": 374,
+              "w": 358,
+              "h": 642.78125
+            },
+            "overflow": "hidden",
+            "maxHeight": "759.6px"
+          },
+          "modalBody": {
+            "rect": {
+              "top": 100.609375,
+              "bottom": 674.390625,
+              "left": 16,
+              "right": 374,
+              "w": 358,
+              "h": 573.78125
+            },
+            "overflowY": "auto",
+            "scrollHeight": 574,
+            "clientHeight": 574
+          },
+          "actions": {
+            "rect": {
+              "top": 674.390625,
+              "bottom": 743.390625,
+              "left": 16,
+              "right": 374,
+              "w": 358,
+              "h": 69
+            },
+            "parentId": "bugaputa-modal",
+            "inFooter": true,
+            "borderTop": "1px"
+          },
+          "footerInViewport": true,
+          "modalNotScroller": true,
+          "noHOverflow": true
+        }
+      },
+      "bodyScrollLock": {
+        "locked": true,
+        "prevY": 300
+      },
+      "afterClose": {
+        "overlayPresent": false,
+        "bodyOverflow": "",
+        "scrollY": 300,
+        "btnVisible": true
+      }
+    },
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": []
+  },
+  {
+    "viewport": {
+      "name": "360x800",
+      "width": 360,
+      "height": 800
+    },
+    "cases": {
+      "baseForm": {
+        "viewport": {
+          "w": 360,
+          "h": 800
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 82.609375,
+            "bottom": 717.390625,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 634.78125
+          },
+          "overflow": "hidden",
+          "maxHeight": "720px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 82.609375,
+            "bottom": 648.390625,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 565.78125
+          },
+          "overflowY": "auto",
+          "scrollHeight": 566,
+          "clientHeight": 566
+        },
+        "actions": {
+          "rect": {
+            "top": 648.390625,
+            "bottom": 717.390625,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "footerStationaryProbe": {
+        "before": 691,
+        "after": 691,
+        "delta": 0,
+        "maxScroll": 823,
+        "bodyScrollTop": 60,
+        "stationary": true,
+        "hadFiller": true
+      },
+      "validationError": {
+        "viewport": {
+          "w": 360,
+          "h": 800
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 62.109375,
+            "bottom": 737.890625,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 675.78125
+          },
+          "overflow": "hidden",
+          "maxHeight": "720px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 62.109375,
+            "bottom": 668.890625,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 606.78125
+          },
+          "overflowY": "auto",
+          "scrollHeight": 607,
+          "clientHeight": 607
+        },
+        "actions": {
+          "rect": {
+            "top": 668.890625,
+            "bottom": 737.890625,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "withPreview": {
+        "viewport": {
+          "w": 360,
+          "h": 800
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 40,
+            "bottom": 760,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 720
+          },
+          "overflow": "hidden",
+          "maxHeight": "720px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 40,
+            "bottom": 691,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 651
+          },
+          "overflowY": "auto",
+          "scrollHeight": 676,
+          "clientHeight": 651
+        },
+        "actions": {
+          "rect": {
+            "top": 691,
+            "bottom": 760,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "loadingState": {
+        "viewport": {
+          "w": 360,
+          "h": 800
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 40,
+            "bottom": 760,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 720
+          },
+          "overflow": "hidden",
+          "maxHeight": "720px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 40,
+            "bottom": 691,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 651
+          },
+          "overflowY": "auto",
+          "scrollHeight": 676,
+          "clientHeight": 651
+        },
+        "actions": {
+          "rect": {
+            "top": 691,
+            "bottom": 760,
+            "left": 16,
+            "right": 344,
+            "w": 328,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "nonzeroScrollY": {
+        "scrollY": 300,
+        "geom": {
+          "viewport": {
+            "w": 360,
+            "h": 800
+          },
+          "bodyOverflow": "hidden",
+          "modal": {
+            "rect": {
+              "top": 82.609375,
+              "bottom": 717.390625,
+              "left": 16,
+              "right": 344,
+              "w": 328,
+              "h": 634.78125
+            },
+            "overflow": "hidden",
+            "maxHeight": "720px"
+          },
+          "modalBody": {
+            "rect": {
+              "top": 82.609375,
+              "bottom": 648.390625,
+              "left": 16,
+              "right": 344,
+              "w": 328,
+              "h": 565.78125
+            },
+            "overflowY": "auto",
+            "scrollHeight": 566,
+            "clientHeight": 566
+          },
+          "actions": {
+            "rect": {
+              "top": 648.390625,
+              "bottom": 717.390625,
+              "left": 16,
+              "right": 344,
+              "w": 328,
+              "h": 69
+            },
+            "parentId": "bugaputa-modal",
+            "inFooter": true,
+            "borderTop": "1px"
+          },
+          "footerInViewport": true,
+          "modalNotScroller": true,
+          "noHOverflow": true
+        }
+      },
+      "bodyScrollLock": {
+        "locked": true,
+        "prevY": 300
+      },
+      "afterClose": {
+        "overlayPresent": false,
+        "bodyOverflow": "",
+        "scrollY": 300,
+        "btnVisible": true
+      }
+    },
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": []
+  },
+  {
+    "viewport": {
+      "name": "844x390-landscape",
+      "width": 844,
+      "height": 390
+    },
+    "cases": {
+      "baseForm": {
+        "viewport": {
+          "w": 844,
+          "h": 390
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 19.5,
+            "bottom": 370.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 351
+          },
+          "overflow": "hidden",
+          "maxHeight": "351px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 19.5,
+            "bottom": 301.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 282
+          },
+          "overflowY": "auto",
+          "scrollHeight": 538,
+          "clientHeight": 282
+        },
+        "actions": {
+          "rect": {
+            "top": 301.5,
+            "bottom": 370.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "footerStationaryProbe": {
+        "before": 301.5,
+        "after": 301.5,
+        "delta": 0,
+        "maxScroll": 256,
+        "bodyScrollTop": 60,
+        "stationary": true,
+        "hadFiller": false
+      },
+      "validationError": {
+        "viewport": {
+          "w": 844,
+          "h": 390
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 19.5,
+            "bottom": 370.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 351
+          },
+          "overflow": "hidden",
+          "maxHeight": "351px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 19.5,
+            "bottom": 301.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 282
+          },
+          "overflowY": "auto",
+          "scrollHeight": 559,
+          "clientHeight": 282
+        },
+        "actions": {
+          "rect": {
+            "top": 301.5,
+            "bottom": 370.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "withPreview": {
+        "viewport": {
+          "w": 844,
+          "h": 390
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 19.5,
+            "bottom": 370.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 351
+          },
+          "overflow": "hidden",
+          "maxHeight": "351px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 19.5,
+            "bottom": 301.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 282
+          },
+          "overflowY": "auto",
+          "scrollHeight": 705,
+          "clientHeight": 282
+        },
+        "actions": {
+          "rect": {
+            "top": 301.5,
+            "bottom": 370.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "loadingState": {
+        "viewport": {
+          "w": 844,
+          "h": 390
+        },
+        "bodyOverflow": "hidden",
+        "modal": {
+          "rect": {
+            "top": 19.5,
+            "bottom": 370.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 351
+          },
+          "overflow": "hidden",
+          "maxHeight": "351px"
+        },
+        "modalBody": {
+          "rect": {
+            "top": 19.5,
+            "bottom": 301.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 282
+          },
+          "overflowY": "auto",
+          "scrollHeight": 705,
+          "clientHeight": 282
+        },
+        "actions": {
+          "rect": {
+            "top": 301.5,
+            "bottom": 370.5,
+            "left": 162,
+            "right": 682,
+            "w": 520,
+            "h": 69
+          },
+          "parentId": "bugaputa-modal",
+          "inFooter": true,
+          "borderTop": "1px"
+        },
+        "footerInViewport": true,
+        "modalNotScroller": true,
+        "noHOverflow": true
+      },
+      "nonzeroScrollY": {
+        "scrollY": 300,
+        "geom": {
+          "viewport": {
+            "w": 844,
+            "h": 390
+          },
+          "bodyOverflow": "hidden",
+          "modal": {
+            "rect": {
+              "top": 19.5,
+              "bottom": 370.5,
+              "left": 162,
+              "right": 682,
+              "w": 520,
+              "h": 351
+            },
+            "overflow": "hidden",
+            "maxHeight": "351px"
+          },
+          "modalBody": {
+            "rect": {
+              "top": 19.5,
+              "bottom": 301.5,
+              "left": 162,
+              "right": 682,
+              "w": 520,
+              "h": 282
+            },
+            "overflowY": "auto",
+            "scrollHeight": 538,
+            "clientHeight": 282
+          },
+          "actions": {
+            "rect": {
+              "top": 301.5,
+              "bottom": 370.5,
+              "left": 162,
+              "right": 682,
+              "w": 520,
+              "h": 69
+            },
+            "parentId": "bugaputa-modal",
+            "inFooter": true,
+            "borderTop": "1px"
+          },
+          "footerInViewport": true,
+          "modalNotScroller": true,
+          "noHOverflow": true
+        }
+      },
+      "bodyScrollLock": {
+        "locked": true,
+        "prevY": 300
+      },
+      "afterClose": {
+        "overlayPresent": false,
+        "bodyOverflow": "",
+        "scrollY": 300,
+        "btnVisible": true
+      }
+    },
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": []
+  }
+]
