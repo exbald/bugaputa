@@ -10,7 +10,7 @@ It provides shared repo context and the security rules that every agent inherits
 - **Widget:** vanilla JS IIFE `<30KB gzipped` — floating button + accessible modal (focus trap, ESC, 44px targets), posts to `POST /api/reports` with `x-project-key` (`pk_live_…`), shows what will be sent (URL, browser, viewport, language). Capture serializes a sanitized DOM snapshot (scripts stripped, password fields masked `XXXXX`, `data-bugaputa-mask`, inlines same-origin stylesheets and images as `data:` URIs 768KB/file, 3MB total, 6s budget) so viewers render pixel-exact in sandboxed iframe.
 - **Backend:** Node 20 + Express + SQLite (`better-sqlite3` WAL at `DATABASE_URL` default `./data/app.db`) + JWT httpOnly cookie (`JWT_SECRET`) + `zod` + `helmet` + `multer` (screenshots ≤5MB, DOM snapshot ≤8MB) — code in `server/src/` (`src/index.ts`, `src/routes/`, `src/middleware/`).
 - **Frontend:** React 18 + Vite + Tailwind + React Router — code in `client/src/` (`pages/Dashboard.tsx`, `pages/ProjectReports.tsx`, `components/BugaputaWidget.tsx`), built via `vite`.
-- **Deploy:** single Docker image (`Dockerfile` + `docker-compose.yaml` volume `/app/data`), health checks `GET /health` & `/api/health`, Coolify on `https://bugaputa.no-code.gdn`, CORS `CORS_ORIGINS`.
+- **Deploy:** single Docker image (`Dockerfile` + `docker-compose.yaml` volume `/app/data`), health checks `GET /health` & `/api/health`, Coolify on `https://bugaputa.com` (legacy `https://bugaputa.no-code.gdn` retained for compat), CORS `CORS_ORIGINS`.
 
 Key files an agent should read for context:
 - `README.md` — product overview, quick start, env table, API table (`/api/auth/*`, `/api/projects`, `/api/reports`), widget snippet, Docker

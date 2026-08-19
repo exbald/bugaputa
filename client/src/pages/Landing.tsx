@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { TopNav } from "../components/Layout";
-import BugaputaWidget, {WIDGET_API_ORIGIN,WIDGET_SRC} from "../components/BugaputaWidget";
+import BugaputaWidget from "../components/BugaputaWidget";
+import { CANONICAL_ORIGIN } from "../lib/canonical";
 
 const SNIPPET_WITH_KEY =
-  '<script src="'+WIDGET_SRC+'" data-project="YOUR_PROJECT_KEY" data-api="'+WIDGET_API_ORIGIN+'"></script>';
+  `<script src="${CANONICAL_ORIGIN}/widget.js" data-project="YOUR_PROJECT_KEY" data-api="${CANONICAL_ORIGIN}"></script>`;
 
 function CopyButton({ text, variant = "light" }: { text: string; variant?: "light" | "dark" }) {
   const [copied, setCopied] = useState(false);

@@ -5,7 +5,7 @@ Lightweight bug-reporting SaaS: a drop-in widget lets visitors submit bugs in <3
 - **Widget**: vanilla JS IIFE, <30KB gzipped, floating button + accessible modal
 - **Backend**: Node 20 + Express + SQLite (better-sqlite3, WAL) + JWT httpOnly cookie + zod + helmet + multer
 - **Frontend**: React + Vite + Tailwind + React Router
-- **Deploy**: single Docker image, health checks, Coolify on `bugaputa.no-code.gdn`
+- **Deploy**: single Docker image, health checks, Coolify on `bugaputa.com` (legacy `bugaputa.no-code.gdn` retained for widget/API compat)
 
 ## Quick start (local)
 
@@ -60,10 +60,10 @@ Sequence: register -> POST /api/projects -> note publicKey -> POST /api/reports 
 ## Widget snippet
 
 ```html
-<script src="https://bugaputa.no-code.gdn/widget.js" data-project="pk_live_..." data-api="https://bugaputa.no-code.gdn"></script>
+<script src="https://bugaputa.com/widget.js" data-project="pk_live_..." data-api="https://bugaputa.com"></script>
 ```
 
-The snippet includes `data-api` so the widget resolves `widget.css` and `POST /api/reports` against the Bugaputa origin even when embedded on a customer site. `data-api` can be overridden to point elsewhere if needed. The widget injects a floating button, opens an accessible modal (focus trap, ESC, 44px targets), shows what will be sent (URL, browser, viewport, language), and posts to POST /api/reports.
+Optional `data-api="https://bugaputa.com"` to override API base (defaults to the script origin). The widget injects a floating button, opens an accessible modal (focus trap, ESC, 44px targets), shows what will be sent (URL, browser, viewport, language), and posts to POST /api/reports.
 
 ### Capture: DOM snapshot, not a rasterized image
 
@@ -101,14 +101,14 @@ docker run -p 3000:3000 -v $(pwd)/data:/app/data -e DATABASE_URL=/app/data/app.d
 curl -sf http://localhost:3000/health
 ```
 
-Coolify: volume /app/data, env DATABASE_URL=/app/data/app.db, UPLOAD_DIR=/app/data/uploads, JWT_SECRET, PORT=3000, NODE_ENV=production, domain bugaputa.no-code.gdn, port 3000.
+Coolify: volume /app/data, env DATABASE_URL=/app/data/app.db, UPLOAD_DIR=/app/data/uploads, JWT_SECRET, PORT=3000, NODE_ENV=production, domains `bugaputa.com`, `www.bugaputa.com` (redirects to apex), and `bugaputa.no-code.gdn` (compat), port 3000.
 
 ## Smoke test
 
 ```bash
 ./scripts/smoke.sh http://localhost:3000
 # or against prod:
-./scripts/smoke.sh https://bugaputa.no-code.gdn
+./scripts/smoke.sh https://bugaputa.com  # legacy https://bugaputa.no-code.gdn still serves widget/API for existing embeds
 ```
 
 Checks: /health, /api/health, /widget.js, then register -> create project -> public submit (x-project-key) -> list reports (assert 1 item).
