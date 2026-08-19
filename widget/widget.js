@@ -134,7 +134,10 @@
     // restore trigger button (hidden during capture)
     var b=document.getElementById('bugaputa-btn');
     if(b) b.style.display='';
-    if(overlay){ overlay.remove(); overlay=null; document.removeEventListener('keydown', trapFocus); document.body.style.overflow=''; if(lastFocus) try{ lastFocus.focus(); }catch(_){} }
+    // remove promoted footer if any before overlay teardown
+    try{ var _fa=document.getElementById('bugaputa-actions'); if(_fa && _fa._inModalFooter) _fa.remove(); }catch(_){}
+    var _prevY=0, _prevOv=''; try{ _prevY=overlay? (overlay._prevScrollY||0):0; _prevOv=overlay? (overlay._prevOverflow||'') : ''; }catch(_){}
+    if(overlay){ overlay.remove(); overlay=null; document.removeEventListener('keydown', trapFocus); document.body.style.overflow=_prevOv; try{ if(_prevY) window.scrollTo(0,_prevY); }catch(_){} if(lastFocus) try{ lastFocus.focus(); }catch(_){} }
     else { document.body.style.overflow=''; }
   }
   function cleanupAnnotate(){
@@ -196,12 +199,18 @@
     capRow.appendChild(capBtn); capRow.appendChild(capBack);
     var capStatus=h('div',{id:'bugaputa-cap-status',style:'display:none;margin-top:10px;font-size:12px',role:'status','aria-live':'polite'});
     capturePane.appendChild(consent); capturePane.appendChild(dontShowLbl); capturePane.appendChild(capRow); capturePane.appendChild(capStatus);
+    // Scroll ownership: only the body scrolls; header (closeBtn) and footer (actions) stay fixed.
+    var modalBody=h('div',{id:'bugaputa-modal-body'});
     modal.appendChild(closeBtn);
-    modal.appendChild(chooser);
-    modal.appendChild(capturePane);
+    modal.appendChild(modalBody);
+    modalBody.appendChild(chooser);
+    modalBody.appendChild(capturePane);
     // form container (for general feedback and for annotated submit)
     var formWrap=h('div',{id:'bugaputa-form-wrap',style:'display:none'});
-    modal.appendChild(formWrap);
+    modalBody.appendChild(formWrap);
+    // lock page scroll while dialog is open; store position for restore
+    try{ overlay._prevScrollY=window.scrollY||window.pageYOffset||0; overlay._prevOverflow=document.body.style.overflow; }catch(_){}
+    document.body.style.overflow='hidden';
     overlay.appendChild(modal); document.body.appendChild(overlay); document.addEventListener('keydown', trapFocus);
     // focus first chooser button
     setTimeout(function(){ btnCapture.focus(); }, 50);
@@ -273,8 +282,16 @@
     actions.appendChild(cancelBtn); actions.appendChild(submitBtn);
     var success=h('div',{id:'bugaputa-success',style:'display:none'}); success.innerHTML='<p>Thanks! Report sent.</p><p style="font-size:13px;color:#64748b;margin-top:4px">We will look into it shortly.</p>';
     var errBox=h('div',{id:'bugaputa-error',style:'display:none'}); errBox.setAttribute('role','alert'); errBox.setAttribute('aria-live','polite');
-    form.appendChild(msgLabel); form.appendChild(emailLabel); form.appendChild(fileLabel); form.appendChild(hpWrap); form.appendChild(ctx); form.appendChild(consent); form.appendChild(errBox); form.appendChild(actions);
+    form.appendChild(msgLabel); form.appendChild(emailLabel); form.appendChild(fileLabel); form.appendChild(hpWrap); form.appendChild(ctx); form.appendChild(consent); form.appendChild(errBox);
+    // Footer actions live outside the scrollable body so they are always visible (viewport-bounded shell)
+    // Keep form content in the scroll area, promote footer to modal root.
+    form.appendChild(actions);
     wrap.appendChild(form); wrap.appendChild(success);
+    try{
+      var _modal=document.getElementById('bugaputa-modal');
+      if(_modal){ _modal.appendChild(actions); actions._inModalFooter=true; }
+    }catch(_){}
+
     setTimeout(function(){ textarea.focus(); }, 50);
     textarea.addEventListener('input', function(){ if(textarea.value.trim().length>=10 && textarea.value.trim().length<=2000){ textarea.style.border=''; msgErr.style.display='none'; } });
     form.addEventListener('submit', function(e){
