@@ -86,6 +86,8 @@ export default function ReportDetail(){
   const [saving,setSaving]=useState(false);
   const [deleting,setDeleting]=useState(false);
   const [lightbox,setLightbox]=useState(false);
+  const lightboxPrevFocus=useRef<HTMLElement|null>(null);
+  useEffect(()=>{ if(lightbox){ lightboxPrevFocus.current=document.activeElement as HTMLElement|null; const prev=document.body.style.overflow; document.body.style.overflow="hidden"; return ()=>{ document.body.style.overflow=prev; try{ lightboxPrevFocus.current?.focus(); }catch{} } } },[lightbox]);
   useEffect(()=>{
     if(!id) return;
     (async()=>{
@@ -175,10 +177,10 @@ export default function ReportDetail(){
           </div>
         </div>
         {lightbox && imgSrc && (
-          <div role="dialog" aria-modal="true" aria-label="Screenshot full size" onClick={()=> setLightbox(false)} className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out">
-            <img src={imgSrc} alt="Report screenshot full size" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl bg-white" onClick={e=> e.stopPropagation()} onError={e=> (e.currentTarget.style.display="none")} />
-            <button onClick={()=> setLightbox(false)} aria-label="Close" className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/90 text-slate-800 flex items-center justify-center text-xl font-bold hover:bg-white">×</button>
-            <a href={imgSrc} download className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white text-sm font-semibold shadow">Download</a>
+          <div role="dialog" aria-modal="true" aria-label="Screenshot full size" onClick={()=> setLightbox(false)} className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 pt-[calc(16px+env(safe-area-inset-top,0px))] pb-[calc(16px+env(safe-area-inset-bottom,0px))] cursor-zoom-out" onKeyDown={e=>{ if(e.key==="Escape") setLightbox(false); if(e.key==="Tab"){ const f=(e.currentTarget as HTMLElement).querySelectorAll("button, a[href]"); if(!f.length) return; const first=f[0] as HTMLElement, last=f[f.length-1] as HTMLElement; const active=document.activeElement; if(e.shiftKey && (active===first || active===e.currentTarget)){ e.preventDefault(); last.focus(); } else if(!e.shiftKey && active===last){ e.preventDefault(); first.focus(); } } }} tabIndex={-1} autoFocus>
+            <img src={imgSrc} alt="Report screenshot full size" className="max-w-full max-h-[min(90vh,90dvh)] object-contain rounded-lg shadow-2xl bg-white" style={{maxHeight:"min(90vh, 90dvh)"}} onClick={e=> e.stopPropagation()} onError={e=> (e.currentTarget.style.display="none")} />
+            <button onClick={()=> setLightbox(false)} aria-label="Close" className="absolute top-4 right-4 w-11 h-11 min-h-[44px] min-w-[44px] rounded-full bg-white/90 text-slate-800 flex items-center justify-center text-xl font-bold hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">×</button>
+            <a href={imgSrc} download className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white text-sm font-semibold shadow min-h-[44px] flex items-center">Download</a>
           </div>
         )}
       </main>

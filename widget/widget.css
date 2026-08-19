@@ -1,9 +1,12 @@
 #bugaputa-root{all:initial;position:fixed;z-index:2147483647;font-family:Inter,system-ui,sans-serif}
 /* #bugaputa-btn is now styled inline via widget.js (edge feedback tab) — fallback only */
 #bugaputa-btn:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
-#bugaputa-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2147483647}
-#bugaputa-modal{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:20px;position:relative}
+#bugaputa-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(12px + env(safe-area-inset-bottom,0px));z-index:2147483647}
+#bugaputa-modal{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:90vh;max-height:90dvh;overflow:hidden;display:flex;flex-direction:column;min-height:0;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative;overscroll-behavior:contain}
 #bugaputa-modal h2{margin:0 0 4px;font-size:18px;font-weight:700;color:#0f172a}
+#bugaputa-modal-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:20px;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
+#bugaputa-form-wrap{display:block}
+#bugaputa-form{display:flex;flex-direction:column}
 #bugaputa-modal label{display:block;margin-top:12px;font-size:13px;font-weight:600;color:#334155}
 #bugaputa-modal textarea,#bugaputa-modal input[type=email],#bugaputa-modal input[type=text]{width:100%;margin-top:4px;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;box-sizing:border-box;font-family:inherit}
 #bugaputa-modal textarea:focus,#bugaputa-modal input:focus{outline:2px solid #a3e635;outline-offset:0;border-color:#a3e635}
@@ -12,7 +15,7 @@
 #bugaputa-preview img{max-width:100%;max-height:160px;border-radius:8px;border:1px solid #e2e8f0}
 #bugaputa-context{margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px;color:#475569;line-height:1.5}
 #bugaputa-consent{margin-top:10px;font-size:11px;color:#64748b;line-height:1.4}
-#bugaputa-actions{display:flex;gap:8px;margin-top:16px}
+#bugaputa-actions{display:flex;gap:8px;flex-shrink:0;padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #e2e8f0;background:#fff;flex-wrap:wrap}
 #bugaputa-actions button{flex:1;min-height:44px;border-radius:10px;border:none;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
 #bugaputa-submit{background:#0f172a;color:#fff}
 #bugaputa-submit:hover{background:#1e293b}
@@ -21,8 +24,7 @@
 #bugaputa-success{text-align:center;padding:24px 0}
 #bugaputa-success p{color:#16a34a;font-weight:600}
 #bugaputa-hp{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
-
-@media(max-width:360px){#bugaputa-modal{padding:16px}}
+@media(max-width:360px){#bugaputa-modal-body{padding:16px} #bugaputa-actions{padding-left:16px;padding-right:16px}}
 #bugaputa-btn svg{display:block;flex-shrink:0}
 /* chooser */
 #bugaputa-chooser{padding:4px 0}
