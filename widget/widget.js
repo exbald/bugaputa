@@ -107,6 +107,29 @@
   var pendingAnnotatedFile=null; // File from annotation export, to submit with form
   var capturedSnapshotHtml=null; // serialized DOM snapshot of the captured viewport
   var pendingSnapshotFile=null, pendingAnnotationsFile=null;
+  // Centralised attachment teardown — called on every close path and explicit removal.
+  // Failure retention is intentional: onError must NOT call this (retry needs the file).
+  function clearAttachmentState(){
+    var fi=document.getElementById('bugaputa-file');
+    if(fi) try{ fi.value=''; }catch(_){}
+    try{ var pv=document.getElementById('bugaputa-preview'); if(pv && pv._blobUrl){ URL.revokeObjectURL(pv._blobUrl); pv._blobUrl=null; } }catch(_){}
+    if(capturedBlobUrl){ try{ URL.revokeObjectURL(capturedBlobUrl); }catch(_){} capturedBlobUrl=null; }
+    capturedDataUrl=null; capturedDims=null; capturedSnapshotHtml=null; pendingSnapshotFile=null; pendingAnnotationsFile=null; pendingAnnotatedFile=null;
+    try{
+      var pv2=document.getElementById('bugaputa-preview');
+      if(pv2){
+        var rb2=document.getElementById('bugaputa-remove-screenshot');
+        var kids=Array.prototype.slice.call(pv2.childNodes);
+        for(var k=0;k<kids.length;k++){ if(kids[k]!==rb2) try{ pv2.removeChild(kids[k]); }catch(_){} }
+        pv2.style.color='';
+        if(pv2._blobUrl){ try{ URL.revokeObjectURL(pv2._blobUrl); }catch(_){} pv2._blobUrl=null; }
+      }
+      var lbl=document.getElementById('bugaputa-file-label');
+      if(lbl && lbl.firstChild && lbl.firstChild.nodeType===3) lbl.firstChild.textContent='Attach screenshot (optional)';
+      var rb=document.getElementById('bugaputa-remove-screenshot');
+      if(rb) rb.style.display='none';
+    }catch(_){}
+  }
   function trapFocus(e){
     if(!overlay) return;
     if(e.key==='Escape'){ onOverlayEsc(); return; }
@@ -124,9 +147,9 @@
     close();
   }
   function close(){
-    if(capturedBlobUrl){ URL.revokeObjectURL(capturedBlobUrl); capturedBlobUrl=null; }
-    capturedDataUrl=null; capturedDims=null;
-    capturedSnapshotHtml=null; pendingSnapshotFile=null; pendingAnnotationsFile=null;
+    // Ensures Cancel/X/Escape/backdrop/success do not leak stale attachment into next open()->showForm().
+    // onError intentionally does NOT call clearAttachmentState so retry keeps the file.
+    try{ clearAttachmentState(); }catch(_){}
     // cleanup annotate listeners if any
     cleanupAnnotate();
     var ed2=document.getElementById('bugaputa-annotate');
@@ -134,8 +157,6 @@
     // restore trigger button (hidden during capture)
     var b=document.getElementById('bugaputa-btn');
     if(b) b.style.display='';
-    // revoke preview blob URLs created by showForm (annotated file + file input)
-    try{ var _pv=document.getElementById('bugaputa-preview'); if(_pv && _pv._blobUrl){ URL.revokeObjectURL(_pv._blobUrl); _pv._blobUrl=null; } }catch(_){}
     // remove promoted footer if any before overlay teardown
     try{ var _fa=document.getElementById('bugaputa-actions'); if(_fa && _fa._inModalFooter) _fa.remove(); }catch(_){}
     var _prevY=0, _prevOv=''; try{ _prevY=overlay? (overlay._prevScrollY||0):0; _prevOv=overlay? (overlay._prevOverflow||'') : ''; }catch(_){}
@@ -172,6 +193,8 @@
   }
   // ---------- chooser + form (general feedback keeps one-click flow) ----------
   function open(){
+    // Defensive: ensure no stale attachment survives from a missed close().
+    try{ clearAttachmentState(); }catch(_){}
     lastFocus=document.activeElement;
     overlay=h('div',{id:'bugaputa-overlay','data-html2canvas-ignore':'true'});
     overlay.addEventListener('click', function(e){ if(e.target===overlay) close(); });
@@ -245,6 +268,16 @@
     var fileLabel=h('label',{text:'Attach screenshot (optional)',id:'bugaputa-file-label'});
     var fileInput=h('input',{type:'file',id:'bugaputa-file',accept:'image/png,image/jpeg,image/webp,image/gif'});
     var preview=h('div',{id:'bugaputa-preview'});
+    var removeBtn=h('button',{id:'bugaputa-remove-screenshot',type:'button','aria-label':'Remove screenshot',title:'Remove screenshot'});
+    removeBtn.innerHTML='<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6\"></path><path d=\"M10 11v6\"></path><path d=\"M14 11v6\"></path><path d=\"M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2\"></path></svg>';
+    removeBtn.style.display='none';
+    function hasAttachment(){ return !!(pendingAnnotatedFile || pendingSnapshotFile || (fileInput.files && fileInput.files[0])); }
+    function syncRemoveBtn(){ removeBtn.style.display = hasAttachment() ? '' : 'none'; }
+    removeBtn.addEventListener('click', function(){
+      try{ clearAttachmentState(); }catch(_){}
+      try{ fileInput.focus(); }catch(_){}
+    });
+    preview.appendChild(removeBtn);
     // if we have an annotated file, show it as preview and hide file input label text
     if(pendingAnnotatedFile){
       var blobUrl=URL.createObjectURL(pendingAnnotatedFile);
@@ -260,13 +293,17 @@
       // still carries the pixel-exact page capture
       preview.appendChild(h('div',{text:'Pixel-perfect page snapshot attached.',style:'font-size:11px;color:#64748b'}));
     }
+    syncRemoveBtn();
     fileInput.addEventListener('change', function(){
       // revoke previous annotated preview blob
       if(preview._blobUrl){ URL.revokeObjectURL(preview._blobUrl); preview._blobUrl=null; }
       // if user picks new file, clear pendingAnnotatedFile and use this
       if(fileInput.files[0]) pendingAnnotatedFile=null;
-      preview.innerHTML=''; var f=fileInput.files[0]; if(!f) return; if(f.size>5*1024*1024){ preview.textContent='File too large (max 5MB)'; preview.style.color='#dc2626'; return; } var img2=document.createElement('img'); img2.alt='Screenshot preview'; img2.src=URL.createObjectURL(f); preview.appendChild(img2);
+      Array.from(preview.children).forEach(function(ch){ if(ch!==removeBtn) ch.remove(); }); for(var _ii=preview.childNodes.length-1;_ii>=0;_ii--){ var _nn=preview.childNodes[_ii]; if(_nn.nodeType===3) preview.removeChild(_nn); } preview.style.color='';
+      var f=fileInput.files[0]; if(!f){ fileLabel.firstChild && (fileLabel.firstChild.textContent='Attach screenshot (optional)'); syncRemoveBtn(); return; } if(f.size>5*1024*1024){ try{ fileInput.value=''; }catch(_){} preview.textContent='File too large (max 5MB)'; preview.style.color='#dc2626'; preview.appendChild(removeBtn); syncRemoveBtn(); return; } var img2=document.createElement('img'); img2.alt='Screenshot preview'; img2.src=URL.createObjectURL(f); preview.appendChild(img2); preview.appendChild(removeBtn);
       preview._blobUrl=img2.src;
+      fileLabel.firstChild && (fileLabel.firstChild.textContent='Replace screenshot (optional)');
+      syncRemoveBtn();
     });
     fileLabel.appendChild(fileInput); fileLabel.appendChild(preview);
     var hpWrap=h('div',{id:'bugaputa-hp','aria-hidden':'true'});
@@ -318,6 +355,7 @@
       if(hasFile && !/^(image\/png|image\/jpeg|image\/webp|image\/gif)$/.test(hasFile.type)){ errBox.textContent='Invalid file type (png/jpeg/webp/gif only)'; errBox.style.display='block'; submitBtn.disabled=false; submitBtn.textContent='Send report'; return; }
       var url=apiUrl; if(url.startsWith('/') && script && script.src){ try{ var u=new URL(script.src); url=u.origin+url; }catch(_){} }
       function onSuccess(){ try{ var _fa2=document.getElementById('bugaputa-actions'); if(_fa2) _fa2.style.display='none'; }catch(_){} form.style.display='none'; success.style.display='block'; setTimeout(close, 2200); }
+      // onError intentionally does NOT clear attachment state — retry must keep the file.
       function onError(msg){ errBox.textContent=msg || 'Failed to send. Please try again.'; errBox.style.display='block'; submitBtn.disabled=false; submitBtn.textContent='Send report'; }
       if(hasFile || pendingSnapshotFile || pendingAnnotationsFile){
         var fd=new FormData(); fd.append('message', msg); if(email) fd.append('contactEmail', email); fd.append('pageUrl', location.href); fd.append('userAgent', navigator.userAgent); fd.append('viewport', window.innerWidth+'x'+window.innerHeight); fd.append('language', navigator.language||''); fd.append('website', hpInput.value); if(hasFile) fd.append('screenshot', hasFile); if(pendingSnapshotFile) fd.append('domSnapshot', pendingSnapshotFile); if(pendingAnnotationsFile) fd.append('annotations', pendingAnnotationsFile); if(projectKey) fd.append('projectKey', projectKey);
