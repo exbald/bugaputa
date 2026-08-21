@@ -209,7 +209,7 @@ router.delete("/:id", (req, res) => {
   const db = getDb();
   const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
   if (!row) {
-    res.status(404).json({ error: "Project not forth" });
+    res.status(404).json({ error: "Project not found" });
     return;
   }
   if (row.ownerId !== req.user!.id) {

@@ -36,7 +36,6 @@ function ProjectCard({
   onToggleMenu: () => void;
   onCloseMenu: () => void;
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
   const totalReports =
@@ -68,7 +67,7 @@ function ProjectCard({
           </div>
         </div>
 
-        <div className="relative flex-shrink-0" ref={menuRef}>
+        <div className="relative flex-shrink-0">
           <button
             ref={btnRef}
             type="button"
@@ -128,28 +127,18 @@ function ProjectCard({
       {/* optional summary row — only when backend provides aggregates */}
       {hasSummary && (
         <div className="mt-3 text-xs text-slate-500 leading-relaxed">
-          {totalReports !== undefined && (
-            <span>
-              {totalReports} {totalReports === 1 ? "report" : "reports"}
-            </span>
-          )}
-          {openReports !== undefined && totalReports !== undefined && (
-            <span className="mx-1 text-slate-300">·</span>
-          )}
-          {openReports !== undefined && totalReports === undefined && (
-            <span>{openReports} open</span>
-          )}
-          {openReports !== undefined && totalReports !== undefined && (
-            <span>{openReports} open</span>
-          )}
-          {lastReportAt && (
-            <>
-              {(totalReports !== undefined || openReports !== undefined) && (
-                <span className="mx-1 text-slate-300">·</span>
-              )}
-              <span>last {formatDate(lastReportAt)}</span>
-            </>
-          )}
+          {(() => {
+            const parts: string[] = [];
+            if (totalReports !== undefined) parts.push(`${totalReports} ${totalReports === 1 ? "report" : "reports"}`);
+            if (openReports !== undefined) parts.push(`${openReports} open`);
+            if (lastReportAt) parts.push(`last ${formatDate(lastReportAt)}`);
+            return parts.map((text, i) => (
+              <span key={i}>
+                {i > 0 && <span className="mx-1 text-slate-300">·</span>}
+                <span>{text}</span>
+              </span>
+            ));
+          })()}
         </div>
       )}
 
