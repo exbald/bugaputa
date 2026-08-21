@@ -22,9 +22,9 @@ describe("BugaputaWidget embed contract", () => {
   });
 
   it("all snippet emitters include data-api with production origin via constant", () => {
+    // Dashboard is intentionally not a snippet emitter — detail page owns key/snippet.
     const sources = [
       "../components/BugaputaWidget.tsx",
-      "../pages/Dashboard.tsx",
       "../pages/ProjectReports.tsx",
       "../pages/Landing.tsx",
     ];
@@ -36,10 +36,15 @@ describe("BugaputaWidget embed contract", () => {
       const hasLiteral = raw.includes(EXPECTED_API);
       expect(hasConstant || hasLiteral, `${rel} must reference CANONICAL_ORIGIN or origin`).toBe(true);
     }
-    for (const rel of ["../pages/Dashboard.tsx", "../pages/ProjectReports.tsx"]) {
+    for (const rel of ["../pages/ProjectReports.tsx"]) {
       const raw = fs.readFileSync(path.resolve(__dirname, rel), "utf8");
       expect(raw).toMatch(/CANONICAL_ORIGIN/);
     }
+    // Dashboard must not expose raw key/snippet — navigation-first card.
+    const dashRaw = fs.readFileSync(path.resolve(__dirname, "../pages/Dashboard.tsx"), "utf8");
+    expect(dashRaw).not.toMatch(/pk_live_/);
+    expect(dashRaw).not.toMatch(/Copy snippet/);
+    expect(dashRaw).not.toMatch(/View reports/);
     const landingRaw = fs.readFileSync(path.resolve(__dirname, "../pages/Landing.tsx"), "utf8");
     expect(landingRaw).toMatch(/CANONICAL_ORIGIN/);
 
