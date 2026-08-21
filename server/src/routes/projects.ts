@@ -25,12 +25,28 @@ function toProject(row: any) {
     widgetLabel: row.widget_label ?? WIDGET_DEFAULTS.label,
     widgetColor: row.widget_color ?? WIDGET_DEFAULTS.color,
     widgetPosition: row.widget_position ?? WIDGET_DEFAULTS.position,
+    // dashboard aggregates — 0/null when no reports; populated only on list query
+    totalReports: row.totalReports != null ? Number(row.totalReports) : 0,
+    openReports: row.openReports != null ? Number(row.openReports) : 0,
+    lastReportAt: row.lastReportAt ?? null,
   };
 }
 
 router.get("/", (req, res) => {
   const db = getDb();
-  const rows = db.prepare("SELECT * FROM projects WHERE ownerId = ? ORDER BY createdAt DESC").all(req.user!.id) as any[];
+  const rows = db
+    .prepare(
+      `SELECT projects.*,
+              COUNT(reports.id) AS totalReports,
+              COALESCE(SUM(CASE WHEN reports.status = 'open' THEN 1 ELSE 0 END), 0) AS openReports,
+              MAX(reports.createdAt) AS lastReportAt
+         FROM projects
+    LEFT JOIN reports ON reports.projectId = projects.id
+        WHERE projects.ownerId = ?
+     GROUP BY projects.id
+     ORDER BY projects.createdAt DESC`
+    )
+    .all(req.user!.id) as any[];
   res.json(rows.map(toProject));
 });
 
@@ -193,7 +209,7 @@ router.delete("/:id", (req, res) => {
   const db = getDb();
   const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
   if (!row) {
-    res.status(404).json({ error: "Project not forth" });
+    res.status(404).json({ error: "Project not found" });
     return;
   }
   if (row.ownerId !== req.user!.id) {

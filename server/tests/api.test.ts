@@ -153,6 +153,114 @@ describe("Bugaputa backend", () => {
     });
   });
 
+  // ---------- Project aggregates (GET /api/projects dashboard) ----------
+  describe("project aggregates", () => {
+    it("returns 0/0/null when project has no reports", async () => {
+      const { cookie } = await registerAndLogin("agg-empty@test.com");
+      const p = await request(app).post("/api/projects").set("Cookie", cookie).send({ name: "Empty Agg" });
+      expect(p.status).toBe(201);
+      const list = await request(app).get("/api/projects").set("Cookie", cookie);
+      expect(list.status).toBe(200);
+      const row = list.body.find((x: any) => x.id === p.body.id);
+      expect(row).toBeDefined();
+      expect(row.totalReports).toBe(0);
+      expect(row.openReports).toBe(0);
+      expect(row.lastReportAt).toBeNull();
+      // existing fields intact
+      expect(row.name).toBe("Empty Agg");
+      expect(row.publicKey).toMatch(/^pk_live_/);
+    });
+
+    it("single-query aggregates: total/open/lastReportAt per project (no N+1)", async () => {
+      const { cookie } = await registerAndLogin("agg-counts@test.com");
+      const pA = await request(app).post("/api/projects").set("Cookie", cookie).send({ name: "Agg A" });
+      const pB = await request(app).post("/api/projects").set("Cookie", cookie).send({ name: "Agg B" });
+      const pkA = pA.body.publicKey;
+      const pkB = pB.body.publicKey;
+
+      // A gets 3 reports (2 open, 1 resolved); B gets 1 open
+      for (let i = 0; i < 2; i++) {
+        const r = await request(app).post("/api/reports").send({
+          projectKey: pkA,
+          message: `Agg A open report ${i} with enough length`,
+          pageUrl: "https://example.com/a",
+        });
+        expect(r.status).toBe(201);
+      }
+      // third report then mark resolved
+      const r3 = await request(app).post("/api/reports").send({
+        projectKey: pkA,
+        message: "Agg A will be resolved report with enough length",
+        pageUrl: "https://example.com/a",
+      });
+      expect(r3.status).toBe(201);
+      const patched = await request(app).patch(`/api/reports/${r3.body.id}`).set("Cookie", cookie).send({ status: "resolved" });
+      expect(patched.status).toBe(200);
+
+      const rB = await request(app).post("/api/reports").send({
+        projectKey: pkB,
+        message: "Agg B open report with enough length",
+        pageUrl: "https://example.com/b",
+      });
+      expect(rB.status).toBe(201);
+
+      // Need timestamps to differ for lastReportAt assertion; wait a tick
+      await new Promise((r) => setTimeout(r, 10));
+
+      // Also mutate one more on B so lastReportAt ordering is deterministic
+      const rB2 = await request(app).post("/api/reports").send({
+        projectKey: pkB,
+        message: "Agg B second open report with enough length",
+        pageUrl: "https://example.com/b2",
+      });
+      expect(rB2.status).toBe(201);
+
+      const list = await request(app).get("/api/projects").set("Cookie", cookie);
+      expect(list.status).toBe(200);
+      const rowA = list.body.find((x: any) => x.id === pA.body.id);
+      const rowB = list.body.find((x: any) => x.id === pB.body.id);
+      expect(rowA.totalReports).toBe(3);
+      expect(rowA.openReports).toBe(2);
+      expect(rowA.lastReportAt).toBeTruthy();
+      expect(typeof rowA.lastReportAt).toBe("string");
+      expect(rowB.totalReports).toBe(2);
+      expect(rowB.openReports).toBe(2);
+      expect(rowB.lastReportAt).toBeTruthy();
+
+      // lastReportAt is ISO string and reflects most recent report, not creation order
+      expect(new Date(rowA.lastReportAt).toString()).not.toBe("Invalid Date");
+      expect(new Date(rowB.lastReportAt).toString()).not.toBe("Invalid Date");
+
+      // ordering still by createdAt DESC, aggregates don't break it
+      expect(list.body[0].createdAt >= list.body[1].createdAt).toBe(true);
+    });
+
+    it("GET /api/projects/:id still works and returns aggregate defaults", async () => {
+      const { cookie } = await registerAndLogin("agg-single@test.com");
+      const p = await request(app).post("/api/projects").set("Cookie", cookie).send({ name: "Single Agg" });
+      const single = await request(app).get(`/api/projects/${p.body.id}`).set("Cookie", cookie);
+      expect(single.status).toBe(200);
+      // single fetch has no JOIN — defaults via toProject should still be present
+      expect(single.body.totalReports).toBe(0);
+      expect(single.body.openReports).toBe(0);
+      expect(single.body.lastReportAt).toBeNull();
+    });
+
+    it("other user projects do not leak aggregates", async () => {
+      const { cookie: c1 } = await registerAndLogin("agg-leak1@test.com");
+      const { cookie: c2 } = await registerAndLogin("agg-leak2@test.com");
+      const p1 = await request(app).post("/api/projects").set("Cookie", c1).send({ name: "Leak Owner" });
+      await request(app).post("/api/reports").send({
+        projectKey: p1.body.publicKey,
+        message: "Leak test report with enough length",
+        pageUrl: "https://example.com/leak",
+      });
+      const list2 = await request(app).get("/api/projects").set("Cookie", c2);
+      expect(list2.status).toBe(200);
+      expect(list2.body.find((x: any) => x.id === p1.body.id)).toBeUndefined();
+    });
+  });
+
   // ---------- Public reports ----------
   describe("public reports", () => {
     let projectKey: string;
