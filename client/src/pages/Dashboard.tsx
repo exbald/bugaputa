@@ -266,13 +266,15 @@ export default function Dashboard() {
     e.preventDefault();
     if (!name.trim()) return;
     setCreating(true);
+    mutationVersionRef.current += 1;
     try {
       const p: unknown = await api.createProject(name.trim());
       const proj = (p as Record<string, unknown>).project ?? p;
       mutationVersionRef.current += 1;
-      setProjects((prev) => [proj as Project, ...prev]);
+      setProjects((prev) => [proj as Project, ...prev.filter((item) => item.id !== (proj as Project).id)]);
       setName("");
     } catch (e: unknown) {
+      mutationVersionRef.current += 1;
       const msg = e instanceof Error ? e.message : "Failed to create";
       setErr(msg);
     } finally {
@@ -281,11 +283,13 @@ export default function Dashboard() {
   };
   const del = async (id: string) => {
     if (!confirm("Delete this project and all its reports? This cannot be undone.")) return;
+    mutationVersionRef.current += 1;
     try {
       await api.deleteProject(id);
       mutationVersionRef.current += 1;
       setProjects((prev) => prev.filter((p) => p.id !== id));
     } catch (e: unknown) {
+      mutationVersionRef.current += 1;
       const msg = e instanceof Error ? e.message : "Failed to delete";
       setErr(msg);
     }

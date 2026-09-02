@@ -143,6 +143,8 @@ describe("presence helpers", () => {
       expect(raw).toMatch(/setInterval\(refresh, 60_000\)/);
       expect(raw).toMatch(/visibilitychange/);
       expect(raw).toMatch(/load\(false\)/);
+      expect(raw).toMatch(/mutationVersionRef\.current \+= 1/);
+      expect(raw).toMatch(/prev\.filter\(\(item\) => item\.id !==/);
     });
   });
 
