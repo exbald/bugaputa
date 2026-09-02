@@ -30,6 +30,7 @@ Open http://localhost:3000 — landing, login, dashboard. The widget is at `/wid
 | JWT_SECRET | dev-secret-change-me | must be set in prod |
 | UPLOAD_DIR | ./data/uploads | prod: `/app/data/uploads` |
 | CORS_ORIGINS | http://localhost:5173,http://localhost:3000 | |
+| TRUSTED_PROXY_IPS | 127.0.0.1,::1 | Comma-separated exact IPs of trusted reverse proxies allowed to supply `X-Forwarded-For`; set this to the Coolify/Traefik proxy container IP in production. Never use a whole private subnet. |
 
 See `.env.example`.
 

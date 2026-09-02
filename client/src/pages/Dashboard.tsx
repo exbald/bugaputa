@@ -238,7 +238,9 @@ export default function Dashboard() {
         setErr(msg);
       }
     } finally {
-      if (showLoading && requestVersion === requestVersionRef.current) setLoading(false);
+      // A newer silent refresh may supersede the initial foreground load; the
+      // newest request always owns completion of the loading state.
+      if (requestVersion === requestVersionRef.current) setLoading(false);
     }
   };
   useEffect(() => {
