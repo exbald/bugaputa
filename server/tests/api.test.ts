@@ -1160,10 +1160,14 @@ describe("Bugaputa backend", () => {
         socket: { remoteAddress: "198.51.100.20" },
         headers: { "x-forwarded-for": "203.0.113.99" },
       })).toBe("198.51.100.20");
+      const previousTrustedProxies = process.env.TRUSTED_PROXY_IPS;
+      process.env.TRUSTED_PROXY_IPS = "172.18.0.2";
       expect(getClientIp({
         socket: { remoteAddress: "172.18.0.2" },
         headers: { "x-forwarded-for": "spoofed, 198.51.100.30" },
       })).toBe("198.51.100.30");
+      if (previousTrustedProxies === undefined) delete process.env.TRUSTED_PROXY_IPS;
+      else process.env.TRUSTED_PROXY_IPS = previousTrustedProxies;
 
       clearPresenceDebounce();
       for (let i = 0; i < MAX_ORIGINS_PER_PROJECT + 5; i++) {

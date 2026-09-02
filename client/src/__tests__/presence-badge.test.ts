@@ -144,6 +144,7 @@ describe("presence helpers", () => {
       expect(raw).toMatch(/visibilitychange/);
       expect(raw).toMatch(/load\(false\)/);
       expect(raw).toMatch(/mutationVersionRef\.current \+= 1/);
+      expect(raw).toMatch(/requestVersion === requestVersionRef\.current/);
       expect(raw).toMatch(/prev\.filter\(\(item\) => item\.id !==/);
       expect(raw).toMatch(/disabled=\{loading \|\| creating\}/);
     });

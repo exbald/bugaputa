@@ -215,8 +215,10 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const mutationVersionRef = useRef(0);
+  const requestVersionRef = useRef(0);
 
   const load = async (showLoading = true) => {
+    const requestVersion = ++requestVersionRef.current;
     const mutationVersion = mutationVersionRef.current;
     if (showLoading) setLoading(true);
     setErr("");
@@ -226,12 +228,17 @@ export default function Dashboard() {
       const arr = Array.isArray(d)
         ? (d as Project[])
         : ((obj.projects ?? obj.items ?? []) as Project[]);
-      if (mutationVersion === mutationVersionRef.current) setProjects(arr);
+      if (
+        requestVersion === requestVersionRef.current &&
+        mutationVersion === mutationVersionRef.current
+      ) setProjects(arr);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to load";
-      setErr(msg);
+      if (requestVersion === requestVersionRef.current) {
+        const msg = e instanceof Error ? e.message : "Failed to load";
+        setErr(msg);
+      }
     } finally {
-      if (showLoading) setLoading(false);
+      if (showLoading && requestVersion === requestVersionRef.current) setLoading(false);
     }
   };
   useEffect(() => {
