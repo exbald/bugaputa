@@ -214,8 +214,10 @@ export default function Dashboard() {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const mutationVersionRef = useRef(0);
 
   const load = async (showLoading = true) => {
+    const mutationVersion = mutationVersionRef.current;
     if (showLoading) setLoading(true);
     setErr("");
     try {
@@ -224,7 +226,7 @@ export default function Dashboard() {
       const arr = Array.isArray(d)
         ? (d as Project[])
         : ((obj.projects ?? obj.items ?? []) as Project[]);
-      setProjects(arr);
+      if (mutationVersion === mutationVersionRef.current) setProjects(arr);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to load";
       setErr(msg);
@@ -267,6 +269,7 @@ export default function Dashboard() {
     try {
       const p: unknown = await api.createProject(name.trim());
       const proj = (p as Record<string, unknown>).project ?? p;
+      mutationVersionRef.current += 1;
       setProjects((prev) => [proj as Project, ...prev]);
       setName("");
     } catch (e: unknown) {
@@ -280,6 +283,7 @@ export default function Dashboard() {
     if (!confirm("Delete this project and all its reports? This cannot be undone.")) return;
     try {
       await api.deleteProject(id);
+      mutationVersionRef.current += 1;
       setProjects((prev) => prev.filter((p) => p.id !== id));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to delete";

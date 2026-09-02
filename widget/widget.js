@@ -1,16 +1,13 @@
 (function(){
-  // Bugaputa widget — lazy capture+annotation
   var script=document.currentScript||document.querySelector('script[data-project]');
   var projectKey=script&&script.getAttribute('data-project')||'';
   var API_BASE=((script&&script.getAttribute('data-api'))||'').replace(/\/+$/,'');
   var apiUrl=API_BASE?API_BASE+"/api/reports":"/api/reports";
   if(!projectKey){ console.warn('[Bugaputa] missing data-project'); }
   var cssHref=(API_BASE||'')+"/widget.css";
-  // avoid duplicate link
   if(!document.querySelector('link[href="'+cssHref+'"]')){
     var link=document.createElement('link'); link.rel='stylesheet'; link.href=cssHref; document.head.appendChild(link);
   }
-  // ---- edge feedback tab config ----
   var WIDGET_DEFAULTS={label:'Feedback',color:'#4f46e5',position:'right'};
   var WIDGET_POSITIONS=['left','right','bottom-left','bottom-right'];
   function isValidHex(c){ return typeof c==='string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(c.trim()); }
@@ -84,7 +81,7 @@
       // if already revealed (timeout won), keep stability — do not re-append / jump
     }).catch(function(){ if(!_revealed) revealOnce(); });
   })();
-  /* presence heartbeat */(function(){var I=5*60*1000,D=2000,k=projectKey?'bugaputa-presence-ts:'+projectKey:'',t=null;function o(){try{return!!projectKey&&(!script||script.getAttribute('data-bugaputa-unmounted')!=='true')}catch(_){return!1}}function b(){if(!o())return;try{var n=Date.now();if(k)try{var v=localStorage.getItem(k);if(v&&n-parseInt(v,10)<I)return}catch(_){}var h=(API_BASE||(script&&script.src?new URL(script.src).origin:''))+'/api/presence/heartbeat',d=JSON.stringify({project:projectKey,origin:location.hostname||''}),s=0;try{fetch(h,{method:'POST',headers:{'Content-Type':'application/json'},body:d,keepalive:!0,credentials:'omit'}).catch(function(){});s=1}catch(_){}if(!s&&navigator.sendBeacon)try{navigator.sendBeacon(h,d)}catch(_){}if(k)try{localStorage.setItem(k,''+n)}catch(_){}}catch(_){}}function s(){if(t)return;t=setInterval(function(){if(document.visibilityState!=='hidden')b()},I)}function c(){if(t)try{clearInterval(t)}catch(_){}t=null}function g(){if(!o())return;var f=function(){b();s()};try{typeof requestIdleCallback=='function'?requestIdleCallback(f,{timeout:D}):setTimeout(f,D)}catch(_){setTimeout(f,D)}}try{document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')c();else b(),s()})}catch(_){}try{setTimeout(g,0)}catch(_){}})();
+  /* presence heartbeat */(function(){var I=5*60*1000,D=2000,k=projectKey?'bugaputa-presence-ts:'+projectKey:'',t=null,m=null;function o(){try{return!!projectKey&&(!script||script.getAttribute('data-bugaputa-unmounted')!=='true')}catch(_){return!1}}function q(h,d){try{if(navigator.sendBeacon)navigator.sendBeacon(h,new Blob([d],{type:'application/json'}))}catch(_){}}function x(){c();try{document.removeEventListener('visibilitychange',l)}catch(_){}try{if(m)m.disconnect()}catch(_){}m=null}function b(){if(!o()){x();return}try{var n=Date.now();if(k)try{var v=localStorage.getItem(k);if(v&&n-parseInt(v,10)<I)return}catch(_){}var h=(API_BASE||(script&&script.src?new URL(script.src).origin:''))+'/api/presence/heartbeat',d=JSON.stringify({project:projectKey,origin:location.hostname||''});try{typeof fetch==='function'?fetch(h,{method:'POST',headers:{'Content-Type':'application/json'},body:d,keepalive:!0,credentials:'omit'}).catch(function(){q(h,d)}):q(h,d)}catch(_){q(h,d)}if(k)try{localStorage.setItem(k,''+n)}catch(_){}}catch(_){}}function s(){if(t||!o())return;t=setInterval(function(){if(!o())x();else if(document.visibilityState!=='hidden')b()},I)}function c(){if(t)try{clearInterval(t)}catch(_){}t=null}function l(){if(!o())x();else if(document.visibilityState==='hidden')c();else b(),s()}function g(){if(!o())return;var f=function(){b();s()};try{typeof requestIdleCallback==='function'?requestIdleCallback(f,{timeout:D}):setTimeout(f,D)}catch(_){setTimeout(f,D)}}try{document.addEventListener('visibilitychange',l)}catch(_){}try{if(script&&typeof MutationObserver==='function'){m=new MutationObserver(function(){if(!o())x()});m.observe(script,{attributes:!0,attributeFilter:['data-bugaputa-unmounted']})}}catch(_){}try{setTimeout(g,0)}catch(_){}})();
   function h(tag, attrs, children){
     var el=document.createElement(tag);
     if(attrs) Object.keys(attrs).forEach(function(k){

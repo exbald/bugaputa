@@ -153,6 +153,10 @@ describe("presence helpers", () => {
       expect(raw).toMatch(/\/api\/presence\/heartbeat/);
       expect(raw).toMatch(/keepalive:\s*!0|keepalive:\s*true/);
       expect(raw).toMatch(/sendBeacon/);
+      expect(raw).toMatch(/new Blob\(\[d\],\{type:'application\/json'\}\)/);
+      expect(raw).toMatch(/\.catch\(function\(\)\{q\(h,d\)\}\)/);
+      expect(raw).toMatch(/MutationObserver/);
+      expect(raw).toMatch(/removeEventListener\('visibilitychange',l\)/);
       expect(raw).toMatch(/bugaputa-presence-ts:/);
       expect(raw).toMatch(/5\s*\*\s*60\s*\*1000/);
       expect(raw).toMatch(/requestIdleCallback/);
