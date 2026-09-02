@@ -310,12 +310,13 @@ export default function Dashboard() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={loading || creating}
               placeholder="Project name"
               aria-label="Project name"
               className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white"
             />
             <button
-              disabled={creating || !name.trim()}
+              disabled={loading || creating || !name.trim()}
               className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 min-h-[44px] focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 transition"
             >
               Create

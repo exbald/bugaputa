@@ -1149,6 +1149,38 @@ describe("Bugaputa backend", () => {
       expect(report.status).toBe(201);
     });
 
+    it("caps persisted origins per project and ignores spoofed forwarding from untrusted peers", async () => {
+      const { publicKey, projectId } = await createProjectWithKey("presence-cap@test.com", "Presence Cap");
+      const { MAX_ORIGINS_PER_PROJECT, clearPresenceDebounce } = await import("../src/routes/presence.js");
+      const { getClientIp } = await import("../src/lib/ip.js");
+      const { getDb } = await import("../src/db.js");
+
+      expect(getClientIp({
+        ip: "198.51.100.20",
+        socket: { remoteAddress: "198.51.100.20" },
+        headers: { "x-forwarded-for": "203.0.113.99" },
+      })).toBe("198.51.100.20");
+      expect(getClientIp({
+        socket: { remoteAddress: "172.18.0.2" },
+        headers: { "x-forwarded-for": "spoofed, 198.51.100.30" },
+      })).toBe("198.51.100.30");
+
+      clearPresenceDebounce();
+      for (let i = 0; i < MAX_ORIGINS_PER_PROJECT + 5; i++) {
+        const heartbeat = await request(app)
+          .post("/api/presence/heartbeat")
+          .set("x-forwarded-for", `203.0.113.${i + 1}`)
+          .set("Origin", `https://origin-${i}.example.com`)
+          .send({ project: publicKey });
+        expect(heartbeat.status).toBe(204);
+      }
+
+      const count = (getDb()
+        .prepare("SELECT COUNT(*) AS count FROM widget_presence WHERE projectId = ?")
+        .get(projectId) as any).count;
+      expect(count).toBe(MAX_ORIGINS_PER_PROJECT);
+    });
+
     it("multiple origins: count distinct, lastSeenOrigin is origin of MAX(lastSeenAt)", async () => {
       const { clearPresenceDebounce } = await import("../src/routes/presence.js");
       clearPresenceDebounce();

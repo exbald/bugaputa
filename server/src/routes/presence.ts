@@ -6,6 +6,7 @@ import { rateLimitCheck } from "../lib/rateLimit.js";
 const router = Router();
 
 export const DEBOUNCE_MS = 60_000;
+export const MAX_ORIGINS_PER_PROJECT = 50;
 
 /**
  * In-memory debounce: projectId:origin -> timestamp of last DB write.
@@ -169,6 +170,19 @@ router.post("/heartbeat", (req, res) => {
     `INSERT INTO widget_presence(projectId, origin, lastSeenAt) VALUES(?,?,?)
      ON CONFLICT(projectId, origin) DO UPDATE SET lastSeenAt=excluded.lastSeenAt`
   ).run(project.id, origin, lastSeenAt);
+
+  // Public keys are embedded by design, so keep storage bounded even if a key
+  // is copied and used to submit many unique origin hints.
+  db.prepare(
+    `DELETE FROM widget_presence
+      WHERE projectId = ?
+        AND origin NOT IN (
+          SELECT origin FROM widget_presence
+           WHERE projectId = ?
+           ORDER BY lastSeenAt DESC, origin ASC
+           LIMIT ?
+        )`
+  ).run(project.id, project.id, MAX_ORIGINS_PER_PROJECT);
 
   debounceMap.set(debounceKey, now);
 
