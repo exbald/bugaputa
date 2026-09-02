@@ -76,6 +76,16 @@ function migrate(database: Db) {
     CREATE INDEX IF NOT EXISTS idx_projects_publicKey ON projects(publicKey);
     CREATE INDEX IF NOT EXISTS idx_reports_project ON reports(projectId);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+
+    CREATE TABLE IF NOT EXISTS widget_presence (
+      projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      origin TEXT NOT NULL,
+      lastSeenAt TEXT NOT NULL,
+      PRIMARY KEY(projectId, origin)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_widget_presence_project ON widget_presence(projectId);
+    CREATE INDEX IF NOT EXISTS idx_widget_presence_lastSeenAt ON widget_presence(lastSeenAt);
   `);
 
   // CREATE TABLE IF NOT EXISTS is a no-op on existing databases, so columns added

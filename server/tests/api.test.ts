@@ -962,4 +962,313 @@ describe("Bugaputa backend", () => {
       expect(servedImg.headers["content-type"]).toMatch(/image\/png/);
     });
   });
+
+  // ---------- Presence: heartbeat ingestion + projects aggregation ----------
+  describe("presence heartbeat & aggregation", () => {
+    // shared helpers
+    async function createProjectWithKey(email: string, name: string) {
+      const { cookie } = await registerAndLogin(email);
+      const p = await request(app).post("/api/projects").set("Cookie", cookie).send({ name });
+      return { cookie, projectId: p.body.id as string, publicKey: p.body.publicKey as string };
+    }
+
+    it("presence defaults: never / null / 0 when no heartbeat", async () => {
+      const { cookie, projectId } = await createProjectWithKey("presence-never@test.com", "Presence Never");
+      const list = await request(app).get("/api/projects").set("Cookie", cookie);
+      const row = list.body.find((x: any) => x.id === projectId);
+      expect(row.presenceStatus).toBe("never");
+      expect(row.lastSeenAt).toBeNull();
+      expect(row.lastSeenOrigin).toBeNull();
+      expect(row.presenceOriginCount).toBe(0);
+      // existing aggregates intact
+      expect(row.totalReports).toBe(0);
+    });
+
+    it("heartbeat stores hostname from Origin header, CORS headers present", async () => {
+      const { cookie, projectId, publicKey } = await createProjectWithKey("presence-origin@test.com", "Presence Origin");
+      const res = await request(app)
+        .post("/api/presence/heartbeat")
+        .set("Origin", "https://Example.COM")
+        .send({ project: publicKey });
+      expect(res.status).toBe(204);
+      expect(res.headers["access-control-allow-origin"]).toBe("*");
+      const list = await request(app).get("/api/projects").set("Cookie", cookie);
+      const row = list.body.find((x: any) => x.id === projectId);
+      expect(row.presenceStatus).toBe("connected");
+      expect(row.presenceOriginCount).toBe(1);
+      expect(row.lastSeenOrigin).toBe("example.com");
+      expect(row.lastSeenAt).toBeTruthy();
+    });
+
+    it("sanitizes body origin to hostname only (path/query stripped), lowercases", async () => {
+      const { cookie, projectId, publicKey } = await createProjectWithKey("presence-sanitize@test.com", "Presence Sanitize");
+      const res = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: publicKey, origin: "https://Example.COM/some/path?query=1#hash" });
+      expect(res.status).toBe(204);
+      const list = await request(app).get("/api/projects").set("Cookie", cookie);
+      const row = list.body.find((x: any) => x.id === projectId);
+      expect(row.lastSeenOrigin).toBe("example.com");
+      expect(row.presenceOriginCount).toBe(1);
+    });
+
+    it("uses Referer header when Origin absent, and buckets unknown when none valid", async () => {
+      const { cookie: c1, publicKey: pk1 } = await createProjectWithKey("presence-referer@test.com", "Presence Referer");
+      // Referer path
+      const r1 = await request(app)
+        .post("/api/presence/heartbeat")
+        .set("Referer", "https://referer.example.net/page?q=1")
+        .send({ project: pk1 });
+      expect(r1.status).toBe(204);
+      let list = await request(app).get("/api/projects").set("Cookie", c1);
+      let row = list.body.find((x: any) => x.publicKey === pk1);
+      expect(row.lastSeenOrigin).toBe("referer.example.net");
+
+      // Unknown bucket: invalid origin -> stored as unknown, but exposed as null
+      const { cookie: c2, publicKey: pk2 } = await createProjectWithKey("presence-unknown@test.com", "Presence Unknown");
+      const r2 = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: pk2, origin: "not-a-hostname" });
+      expect(r2.status).toBe(204);
+      list = await request(app).get("/api/projects").set("Cookie", c2);
+      row = list.body.find((x: any) => x.publicKey === pk2);
+      // unknown is hidden from UI => null, but status is connected and count is 1
+      expect(row.presenceStatus).toBe("connected");
+      expect(row.lastSeenOrigin).toBeNull();
+      expect(row.presenceOriginCount).toBe(1);
+      expect(row.lastSeenAt).toBeTruthy();
+    });
+
+    it("accepts x-project-key header fallback, and invalid key -> 400", async () => {
+      const { publicKey } = await createProjectWithKey("presence-headerkey@test.com", "Presence HdrKey");
+      const ok = await request(app)
+        .post("/api/presence/heartbeat")
+        .set("x-project-key", publicKey)
+        .send({ origin: "example.com" });
+      expect(ok.status).toBe(204);
+
+      const bad = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: "pk_live_invalid9999999999" });
+      expect(bad.status).toBe(400);
+
+      const missing = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({});
+      expect(missing.status).toBe(400);
+
+      const objectKey = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: {} });
+      expect(objectKey.status).toBe(400);
+
+      const arrayKey = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: [publicKey] });
+      expect(arrayKey.status).toBe(400);
+
+      const oversizedKey = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: "x".repeat(129) });
+      expect(oversizedKey.status).toBe(400);
+    });
+
+    it("OPTIONS preflight returns CORS 204", async () => {
+      const res = await request(app).options("/api/presence/heartbeat");
+      expect([200, 204]).toContain(res.status);
+      expect(res.headers["access-control-allow-origin"]).toBe("*");
+      expect(res.headers["access-control-allow-methods"]).toMatch(/POST/);
+      expect(res.headers["access-control-allow-headers"]).toMatch(/x-project-key/i);
+    });
+
+    it("debounce: second heartbeat within 60s does not bump lastSeenAt", async () => {
+      const { clearPresenceDebounce } = await import("../src/routes/presence.js");
+      clearPresenceDebounce();
+      const { cookie, publicKey } = await createProjectWithKey("presence-debounce@test.com", "Presence Debounce");
+      const { getDb } = await import("../src/db.js");
+      const db = getDb();
+
+      const r1 = await request(app)
+        .post("/api/presence/heartbeat")
+        .set("Origin", "https://debounce.example.com")
+        .send({ project: publicKey });
+      expect(r1.status).toBe(204);
+      const projId = (db.prepare("SELECT id FROM projects WHERE publicKey = ?").get(publicKey) as any).id;
+      const row1 = db.prepare("SELECT lastSeenAt FROM widget_presence WHERE projectId=? AND origin=?").get(projId, "debounce.example.com") as any;
+      const ts1 = row1.lastSeenAt;
+
+      // Immediate second hit -> debounced (204) but timestamp unchanged
+      const r2 = await request(app)
+        .post("/api/presence/heartbeat")
+        .set("Origin", "https://debounce.example.com")
+        .send({ project: publicKey });
+      expect(r2.status).toBe(204);
+      const row2 = db.prepare("SELECT lastSeenAt FROM widget_presence WHERE projectId=? AND origin=?").get(projId, "debounce.example.com") as any;
+      expect(row2.lastSeenAt).toBe(ts1);
+
+      // Different origin is not debounced
+      const r3 = await request(app)
+        .post("/api/presence/heartbeat")
+        .set("Origin", "https://other.example.com")
+        .send({ project: publicKey });
+      expect(r3.status).toBe(204);
+      const row3 = db.prepare("SELECT lastSeenAt FROM widget_presence WHERE projectId=? AND origin=?").get(projId, "other.example.com") as any;
+      expect(row3).toBeTruthy();
+
+      clearPresenceDebounce();
+    });
+
+    it("presence telemetry cannot exhaust the report submission quota", async () => {
+      const { publicKey } = await createProjectWithKey("presence-quota@test.com", "Presence Quota");
+      const ip = "203.0.113.55";
+
+      for (let i = 0; i < 20; i++) {
+        const heartbeat = await request(app)
+          .post("/api/presence/heartbeat")
+          .set("x-forwarded-for", ip)
+          .set("Origin", `https://host-${i}.example.com`)
+          .send({ project: publicKey });
+        expect(heartbeat.status).toBe(204);
+      }
+
+      const limitedHeartbeat = await request(app)
+        .post("/api/presence/heartbeat")
+        .set("x-forwarded-for", ip)
+        .set("Origin", "https://host-21.example.com")
+        .send({ project: publicKey });
+      expect(limitedHeartbeat.status).toBe(429);
+
+      const report = await request(app)
+        .post("/api/reports")
+        .set("x-forwarded-for", ip)
+        .send({
+          projectKey: publicKey,
+          message: "A genuine report after presence telemetry",
+          pageUrl: "https://example.com/report",
+        });
+      expect(report.status).toBe(201);
+    });
+
+    it("caps persisted origins per project and ignores spoofed forwarding from untrusted peers", async () => {
+      const { publicKey, projectId } = await createProjectWithKey("presence-cap@test.com", "Presence Cap");
+      const { MAX_ORIGINS_PER_PROJECT, clearPresenceDebounce } = await import("../src/routes/presence.js");
+      const { getClientIp } = await import("../src/lib/ip.js");
+      const { getDb } = await import("../src/db.js");
+
+      expect(getClientIp({
+        ip: "198.51.100.20",
+        socket: { remoteAddress: "198.51.100.20" },
+        headers: { "x-forwarded-for": "203.0.113.99" },
+      })).toBe("198.51.100.20");
+      const previousTrustedProxies = process.env.TRUSTED_PROXY_IPS;
+      process.env.TRUSTED_PROXY_IPS = "172.18.0.2";
+      expect(getClientIp({
+        socket: { remoteAddress: "172.18.0.2" },
+        headers: { "x-forwarded-for": "spoofed, 198.51.100.30" },
+      })).toBe("198.51.100.30");
+      if (previousTrustedProxies === undefined) delete process.env.TRUSTED_PROXY_IPS;
+      else process.env.TRUSTED_PROXY_IPS = previousTrustedProxies;
+
+      clearPresenceDebounce();
+      for (let i = 0; i < MAX_ORIGINS_PER_PROJECT + 5; i++) {
+        const heartbeat = await request(app)
+          .post("/api/presence/heartbeat")
+          .set("x-forwarded-for", `203.0.113.${i + 1}`)
+          .set("Origin", `https://origin-${i}.example.com`)
+          .send({ project: publicKey });
+        expect(heartbeat.status).toBe(204);
+      }
+
+      const count = (getDb()
+        .prepare("SELECT COUNT(*) AS count FROM widget_presence WHERE projectId = ?")
+        .get(projectId) as any).count;
+      expect(count).toBe(MAX_ORIGINS_PER_PROJECT);
+    });
+
+    it("multiple origins: count distinct, lastSeenOrigin is origin of MAX(lastSeenAt)", async () => {
+      const { clearPresenceDebounce } = await import("../src/routes/presence.js");
+      clearPresenceDebounce();
+      const { cookie, publicKey } = await createProjectWithKey("presence-multi@test.com", "Presence Multi");
+      const { getDb } = await import("../src/db.js");
+      const db = getDb();
+
+      // First origin
+      await request(app).post("/api/presence/heartbeat").set("Origin", "https://a.example.com").send({ project: publicKey });
+      clearPresenceDebounce();
+      // Sleep a tiny bit so timestamps differ (SQLite stores ISO millis)
+      await new Promise((r) => setTimeout(r, 10));
+      // Second origin later -> should become MAX
+      await request(app).post("/api/presence/heartbeat").set("Origin", "https://b.example.com").send({ project: publicKey });
+
+      const { cookie: c } = await (async () => {
+        // re-login to get cookie for listing
+        const login = await request(app).post("/api/auth/login").send({ email: "presence-multi@test.com", password: "password123" });
+        return { cookie: login.headers["set-cookie"]?.[0] || cookie };
+      })();
+      const list = await request(app).get("/api/projects").set("Cookie", c);
+      const row = list.body.find((x: any) => x.publicKey === publicKey);
+      expect(row.presenceOriginCount).toBe(2);
+      expect(row.lastSeenOrigin).toBe("b.example.com");
+
+      // Same origin again should not increase count
+      clearPresenceDebounce();
+      await request(app).post("/api/presence/heartbeat").set("Origin", "https://b.example.com").send({ project: publicKey });
+      // Need fresh read; debounce would have blocked last write, but we cleared so it writes same origin
+      const list2 = await request(app).get("/api/projects").set("Cookie", c);
+      const row2 = list2.body.find((x: any) => x.publicKey === publicKey);
+      expect(row2.presenceOriginCount).toBe(2);
+
+      clearPresenceDebounce();
+    });
+
+    it("inactive after threshold: 11 min old heartbeat => inactive", async () => {
+      const { clearPresenceDebounce } = await import("../src/routes/presence.js");
+      const { ACTIVE_THRESHOLD_MS } = await import("../src/routes/projects.js");
+      clearPresenceDebounce();
+      const { cookie, publicKey } = await createProjectWithKey("presence-inactive@test.com", "Presence Inactive");
+      const { getDb } = await import("../src/db.js");
+      const db = getDb();
+
+      await request(app).post("/api/presence/heartbeat").set("Origin", "https://inactive.example.com").send({ project: publicKey });
+      const projId = (db.prepare("SELECT id FROM projects WHERE publicKey = ?").get(publicKey) as any).id;
+      // Make it stale by backdating
+      const staleIso = new Date(Date.now() - ACTIVE_THRESHOLD_MS - 60_000).toISOString();
+      db.prepare("UPDATE widget_presence SET lastSeenAt=? WHERE projectId=?").run(staleIso, projId);
+
+      const list = await request(app).get("/api/projects").set("Cookie", cookie);
+      const row = list.body.find((x: any) => x.publicKey === publicKey);
+      expect(row.presenceStatus).toBe("inactive");
+      expect(row.lastSeenAt).toBe(staleIso);
+      expect(row.lastSeenOrigin).toBe("inactive.example.com");
+      expect(row.presenceOriginCount).toBe(1);
+
+      // Within threshold => connected
+      const freshIso = new Date(Date.now() - 60_000).toISOString();
+      db.prepare("UPDATE widget_presence SET lastSeenAt=? WHERE projectId=?").run(freshIso, projId);
+      const list2 = await request(app).get("/api/projects").set("Cookie", cookie);
+      const row2 = list2.body.find((x: any) => x.publicKey === publicKey);
+      expect(row2.presenceStatus).toBe("connected");
+    });
+
+    it("non-breaking: existing fields still identical + localhost/IP dev origins allowed", async () => {
+      const { cookie, publicKey } = await createProjectWithKey("presence-compat@test.com", "Presence Compat");
+      // localhost origin
+      const r1 = await request(app).post("/api/presence/heartbeat").send({ project: publicKey, origin: "localhost" });
+      expect(r1.status).toBe(204);
+      // IP literal
+      const { clearPresenceDebounce } = await import("../src/routes/presence.js");
+      clearPresenceDebounce();
+      const r2 = await request(app).post("/api/presence/heartbeat").send({ project: publicKey, origin: "192.168.1.10" });
+      expect(r2.status).toBe(204);
+
+      const list = await request(app).get("/api/projects").set("Cookie", cookie);
+      const row = list.body.find((x: any) => x.publicKey === publicKey);
+      expect(row.name).toBe("Presence Compat");
+      expect(row.publicKey).toBe(publicKey);
+      expect(typeof row.totalReports).toBe("number");
+      expect(typeof row.openReports).toBe("number");
+      // presence fields present
+      expect(["never", "connected", "inactive"]).toContain(row.presenceStatus);
+    });
+  });
 });
