@@ -139,6 +139,10 @@ describe("presence helpers", () => {
       expect(raw).toMatch(/min-h-\[44px\]/);
       expect(raw).toMatch(/min-w-\[44px\]/);
       expect(raw).toMatch(/flex items-start justify-between gap-2/);
+      // Presence and relative recency refresh without a full page reload.
+      expect(raw).toMatch(/setInterval\(refresh, 60_000\)/);
+      expect(raw).toMatch(/visibilitychange/);
+      expect(raw).toMatch(/load\(false\)/);
     });
   });
 

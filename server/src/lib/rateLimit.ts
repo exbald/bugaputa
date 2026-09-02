@@ -3,11 +3,12 @@ import type { Request, Response, NextFunction } from "express";
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 20;
 
-// key: `${ip}:${projectId}`
+// key: `${namespace}:${ip}:${projectId}` so telemetry cannot exhaust the
+// report-submission quota.
 const buckets = new Map<string, number[]>();
 
-export function rateLimitCheck(ip: string, projectId: string): boolean {
-  const key = `${ip}:${projectId}`;
+export function rateLimitCheck(ip: string, projectId: string, namespace = "reports"): boolean {
+  const key = `${namespace}:${ip}:${projectId}`;
   const now = Date.now();
   const timestamps = buckets.get(key) ?? [];
   const recent = timestamps.filter((t) => now - t < WINDOW_MS);

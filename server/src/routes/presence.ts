@@ -12,9 +12,19 @@ export const DEBOUNCE_MS = 60_000;
  * Prevents DB thrashing from high-traffic sites sending a heartbeat on every page view.
  */
 const debounceMap = new Map<string, number>();
+let lastDebounceSweep = 0;
 
 export function clearPresenceDebounce() {
   debounceMap.clear();
+  lastDebounceSweep = 0;
+}
+
+function sweepExpiredDebounceEntries(now: number) {
+  if (now - lastDebounceSweep < DEBOUNCE_MS) return;
+  for (const [key, timestamp] of debounceMap) {
+    if (now - timestamp >= DEBOUNCE_MS) debounceMap.delete(key);
+  }
+  lastDebounceSweep = now;
 }
 
 /**
@@ -107,14 +117,21 @@ router.use((req, res, next) => {
 router.post("/heartbeat", (req, res) => {
   setCors(res);
 
-  // projectKey from JSON body field `project` (primary) or x-project-key header (fallback)
-  const projectKey =
-    (req.body?.project as string) ||
-    (req.headers["x-project-key"] as string) ||
-    "";
-
-  if (!projectKey) {
-    res.status(400).json({ error: "Missing project key" });
+  // Body field is primary; the header is a fallback. Reject arrays/objects and
+  // oversized strings before passing the value to better-sqlite3.
+  const bodyProject = req.body?.project;
+  const headerProject = req.headers["x-project-key"];
+  const rawProject =
+    bodyProject !== undefined && bodyProject !== null && bodyProject !== ""
+      ? bodyProject
+      : headerProject;
+  if (typeof rawProject !== "string") {
+    res.status(400).json({ error: "Invalid project key" });
+    return;
+  }
+  const projectKey = rawProject.trim();
+  if (!projectKey || projectKey.length > 128) {
+    res.status(400).json({ error: "Invalid project key" });
     return;
   }
 
@@ -128,10 +145,9 @@ router.post("/heartbeat", (req, res) => {
     return;
   }
 
-  // Rate limit: per-IP+project — reuses the same 20/min bucket as reports.
-  // Documented: presence shares the reports rate limit bucket (20/min per IP+project).
+  // Presence telemetry has its own quota and can never block report submission.
   const ip = getClientIp(req as any);
-  if (!rateLimitCheck(ip, project.id)) {
+  if (!rateLimitCheck(ip, project.id, "presence")) {
     res.status(429).json({ error: "Rate limit exceeded. Try again later." });
     return;
   }
@@ -140,8 +156,9 @@ router.post("/heartbeat", (req, res) => {
 
   // Debounce: if same projectId:origin was written <60s ago, skip DB write
   const debounceKey = `${project.id}:${origin}`;
-  const lastWrite = debounceMap.get(debounceKey);
   const now = Date.now();
+  sweepExpiredDebounceEntries(now);
+  const lastWrite = debounceMap.get(debounceKey);
   if (lastWrite !== undefined && now - lastWrite < DEBOUNCE_MS) {
     res.status(204).end();
     return;

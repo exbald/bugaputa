@@ -1056,6 +1056,21 @@ describe("Bugaputa backend", () => {
         .post("/api/presence/heartbeat")
         .send({});
       expect(missing.status).toBe(400);
+
+      const objectKey = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: {} });
+      expect(objectKey.status).toBe(400);
+
+      const arrayKey = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: [publicKey] });
+      expect(arrayKey.status).toBe(400);
+
+      const oversizedKey = await request(app)
+        .post("/api/presence/heartbeat")
+        .send({ project: "x".repeat(129) });
+      expect(oversizedKey.status).toBe(400);
     });
 
     it("OPTIONS preflight returns CORS 204", async () => {
@@ -1101,6 +1116,37 @@ describe("Bugaputa backend", () => {
       expect(row3).toBeTruthy();
 
       clearPresenceDebounce();
+    });
+
+    it("presence telemetry cannot exhaust the report submission quota", async () => {
+      const { publicKey } = await createProjectWithKey("presence-quota@test.com", "Presence Quota");
+      const ip = "203.0.113.55";
+
+      for (let i = 0; i < 20; i++) {
+        const heartbeat = await request(app)
+          .post("/api/presence/heartbeat")
+          .set("x-forwarded-for", ip)
+          .set("Origin", `https://host-${i}.example.com`)
+          .send({ project: publicKey });
+        expect(heartbeat.status).toBe(204);
+      }
+
+      const limitedHeartbeat = await request(app)
+        .post("/api/presence/heartbeat")
+        .set("x-forwarded-for", ip)
+        .set("Origin", "https://host-21.example.com")
+        .send({ project: publicKey });
+      expect(limitedHeartbeat.status).toBe(429);
+
+      const report = await request(app)
+        .post("/api/reports")
+        .set("x-forwarded-for", ip)
+        .send({
+          projectKey: publicKey,
+          message: "A genuine report after presence telemetry",
+          pageUrl: "https://example.com/report",
+        });
+      expect(report.status).toBe(201);
     });
 
     it("multiple origins: count distinct, lastSeenOrigin is origin of MAX(lastSeenAt)", async () => {

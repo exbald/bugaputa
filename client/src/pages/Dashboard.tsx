@@ -215,8 +215,8 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setErr("");
     try {
       const d: unknown = await api.listProjects();
@@ -229,11 +229,20 @@ export default function Dashboard() {
       const msg = e instanceof Error ? e.message : "Failed to load";
       setErr(msg);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
   useEffect(() => {
-    load();
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load(false);
+    };
+    const timer = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, []);
 
   // close overflow on outside click / Esc
