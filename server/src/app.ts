@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.js";
 import projectRoutes from "./routes/projects.js";
 import reportRoutes from "./routes/reports.js";
 import widgetConfigRoutes from "./routes/widgetConfig.js";
+import presenceRoutes from "./routes/presence.js";
 import { CANONICAL_ORIGIN, LEGACY_ORIGIN, canonicalRedirectMiddleware } from "./lib/canonical.js";
 
 // If the app was previously using /data/app.db (pre-fix volume path),
@@ -170,6 +171,7 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
   app.use("/api/widget-config", widgetConfigRoutes);
   app.use("/api/projects", projectRoutes);
   app.use("/api/reports", reportRoutes);
+  app.use("/api/presence", presenceRoutes);
 
   // Static serving for client build if present
   const clientDist = path.resolve("client/dist");

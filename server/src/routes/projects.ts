@@ -4,13 +4,44 @@ import { getDb, generateId, nowIso, WIDGET_DEFAULTS } from "../db.js";
 import { projectCreateSchema, paginationSchema, widgetSettingsSchema } from "../lib/validators.js";
 import { authMiddleware } from "../middleware/auth.js";
 
+export const ACTIVE_THRESHOLD_MS = 10 * 60 * 1000;
+
 const router = Router();
 
 // All project routes require auth
 router.use(authMiddleware);
 
+function computePresenceFields(row: any) {
+  const presenceLastSeenAt: string | null = row.presenceLastSeenAt ?? null;
+  const rawCount = row.presenceOriginCount;
+  const presenceOriginCount: number = rawCount != null ? Number(rawCount) : 0;
+  const rawOrigin: string | null = row.presenceLastSeenOrigin ?? null;
+
+  let presenceStatus: "never" | "connected" | "inactive" = "never";
+  if (presenceLastSeenAt) {
+    const age = Date.now() - new Date(presenceLastSeenAt).getTime();
+    presenceStatus = age <= ACTIVE_THRESHOLD_MS ? "connected" : "inactive";
+  }
+
+  // Do not expose "unknown" bucket to UI
+  const lastSeenOrigin = rawOrigin === "unknown" ? null : rawOrigin;
+  // When never, force nulls/0
+  const finalLastSeenAt = presenceStatus === "never" ? null : presenceLastSeenAt;
+  const finalLastSeenOrigin = presenceStatus === "never" ? null : lastSeenOrigin;
+  const finalCount = presenceStatus === "never" ? 0 : presenceOriginCount;
+
+  return {
+    presenceStatus,
+    lastSeenAt: finalLastSeenAt,
+    lastSeenOrigin: finalLastSeenOrigin,
+    presenceOriginCount: finalCount,
+    // legacy aliases for tolerance: also expose as presenceLastSeenAt etc if needed
+  };
+}
+
 function toProject(row: any) {
   if (!row) return null;
+  const presence = computePresenceFields(row);
   return {
     id: row.id,
     ownerId: row.ownerId,
@@ -25,12 +56,36 @@ function toProject(row: any) {
     widgetLabel: row.widget_label ?? WIDGET_DEFAULTS.label,
     widgetColor: row.widget_color ?? WIDGET_DEFAULTS.color,
     widgetPosition: row.widget_position ?? WIDGET_DEFAULTS.position,
+    // dashboard aggregates — 0/null when no reports; populated only on list query
+    totalReports: row.totalReports != null ? Number(row.totalReports) : 0,
+    openReports: row.openReports != null ? Number(row.openReports) : 0,
+    lastReportAt: row.lastReportAt ?? null,
+    // presence aggregates
+    presenceStatus: presence.presenceStatus,
+    lastSeenAt: presence.lastSeenAt,
+    lastSeenOrigin: presence.lastSeenOrigin,
+    presenceOriginCount: presence.presenceOriginCount,
   };
 }
 
 router.get("/", (req, res) => {
   const db = getDb();
-  const rows = db.prepare("SELECT * FROM projects WHERE ownerId = ? ORDER BY createdAt DESC").all(req.user!.id) as any[];
+  const rows = db
+    .prepare(
+      `SELECT projects.*,
+              COUNT(reports.id) AS totalReports,
+              COALESCE(SUM(CASE WHEN reports.status = 'open' THEN 1 ELSE 0 END), 0) AS openReports,
+              MAX(reports.createdAt) AS lastReportAt,
+              (SELECT MAX(lastSeenAt) FROM widget_presence WHERE projectId = projects.id) AS presenceLastSeenAt,
+              (SELECT COUNT(DISTINCT origin) FROM widget_presence WHERE projectId = projects.id) AS presenceOriginCount,
+              (SELECT origin FROM widget_presence WHERE projectId = projects.id ORDER BY lastSeenAt DESC LIMIT 1) AS presenceLastSeenOrigin
+         FROM projects
+    LEFT JOIN reports ON reports.projectId = projects.id
+        WHERE projects.ownerId = ?
+     GROUP BY projects.id
+     ORDER BY projects.createdAt DESC`
+    )
+    .all(req.user!.id) as any[];
   res.json(rows.map(toProject));
 });
 
@@ -63,7 +118,17 @@ router.get("/:id", (req, res) => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
-  res.json(toProject(row));
+  // Enrich single-project fetch with presence aggregates (same shape as list)
+  const presenceRow = db
+    .prepare(
+      `SELECT
+         (SELECT MAX(lastSeenAt) FROM widget_presence WHERE projectId = ?) AS presenceLastSeenAt,
+         (SELECT COUNT(DISTINCT origin) FROM widget_presence WHERE projectId = ?) AS presenceOriginCount,
+         (SELECT origin FROM widget_presence WHERE projectId = ? ORDER BY lastSeenAt DESC LIMIT 1) AS presenceLastSeenOrigin`
+    )
+    .get(row.id, row.id, row.id) as any;
+  const enriched = { ...row, ...presenceRow };
+  res.json(toProject(enriched));
 });
 
 // PATCH /:id — generic project update (currently only widget settings, per spec)
@@ -104,7 +169,15 @@ router.patch("/:id", (req, res) => {
   values.push(req.params.id);
   db.prepare(`UPDATE projects SET ${fields.join(", ")} WHERE id = ?`).run(...values);
   const updated = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
-  res.json(toProject(updated));
+  const presenceRow = db
+    .prepare(
+      `SELECT
+         (SELECT MAX(lastSeenAt) FROM widget_presence WHERE projectId = ?) AS presenceLastSeenAt,
+         (SELECT COUNT(DISTINCT origin) FROM widget_presence WHERE projectId = ?) AS presenceOriginCount,
+         (SELECT origin FROM widget_presence WHERE projectId = ? ORDER BY lastSeenAt DESC LIMIT 1) AS presenceLastSeenOrigin`
+    )
+    .get(updated.id, updated.id, updated.id) as any;
+  res.json(toProject({ ...updated, ...presenceRow }));
 });
 
 // PATCH widget settings — owner only (alias for PATCH /:id, kept for backwards compat)
@@ -145,7 +218,15 @@ router.patch("/:id/widget-settings", (req, res) => {
   values.push(req.params.id);
   db.prepare(`UPDATE projects SET ${fields.join(", ")} WHERE id = ?`).run(...values);
   const updated = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
-  res.json(toProject(updated));
+  const presenceRow = db
+    .prepare(
+      `SELECT
+         (SELECT MAX(lastSeenAt) FROM widget_presence WHERE projectId = ?) AS presenceLastSeenAt,
+         (SELECT COUNT(DISTINCT origin) FROM widget_presence WHERE projectId = ?) AS presenceOriginCount,
+         (SELECT origin FROM widget_presence WHERE projectId = ? ORDER BY lastSeenAt DESC LIMIT 1) AS presenceLastSeenOrigin`
+    )
+    .get(updated.id, updated.id, updated.id) as any;
+  res.json(toProject({ ...updated, ...presenceRow }));
 });
 
 // Also support PUT /:id/widget-settings for convenience
@@ -186,14 +267,22 @@ router.put("/:id/widget-settings", (req, res) => {
   values.push(req.params.id);
   db.prepare(`UPDATE projects SET ${fields.join(", ")} WHERE id = ?`).run(...values);
   const updated = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
-  res.json(toProject(updated));
+  const presenceRow = db
+    .prepare(
+      `SELECT
+         (SELECT MAX(lastSeenAt) FROM widget_presence WHERE projectId = ?) AS presenceLastSeenAt,
+         (SELECT COUNT(DISTINCT origin) FROM widget_presence WHERE projectId = ?) AS presenceOriginCount,
+         (SELECT origin FROM widget_presence WHERE projectId = ? ORDER BY lastSeenAt DESC LIMIT 1) AS presenceLastSeenOrigin`
+    )
+    .get(updated.id, updated.id, updated.id) as any;
+  res.json(toProject({ ...updated, ...presenceRow }));
 });
 
 router.delete("/:id", (req, res) => {
   const db = getDb();
   const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(req.params.id) as any;
   if (!row) {
-    res.status(404).json({ error: "Project not forth" });
+    res.status(404).json({ error: "Project not found" });
     return;
   }
   if (row.ownerId !== req.user!.id) {
