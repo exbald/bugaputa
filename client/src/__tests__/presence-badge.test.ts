@@ -130,9 +130,15 @@ describe("presence helpers", () => {
       // layout: badge between name (flex-1) and Delete, flex-shrink-0
       expect(raw).toMatch(/flex-1 min-w-0/);
       expect(raw).toMatch(/flex-shrink-0/);
-      // grid stays md:grid-cols-2
+      // grid stays md:grid-cols-2 with explicit mobile track + containment
       expect(raw).toMatch(/md:grid-cols-2/);
-      expect(raw).toMatch(/flex items-start justify-between gap-3/);
+      expect(raw).toMatch(/grid-cols-1/);
+      expect(raw).toMatch(/min-w-0/);
+      expect(raw).toMatch(/overflow-hidden/);
+      // Delete action is 44px touch target and row flex is constrained
+      expect(raw).toMatch(/min-h-\[44px\]/);
+      expect(raw).toMatch(/min-w-\[44px\]/);
+      expect(raw).toMatch(/flex items-start justify-between gap-2/);
     });
   });
 
