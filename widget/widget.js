@@ -1,12 +1,5 @@
 (function(){
-  // Bugaputa widget — chooser + capture + annotation (lazy)
-  // Capture engine: modern-screenshot 4.x MIT (SVG foreignObject — the browser itself
-  //   rasterizes the cloned DOM, so text metrics, gradients and modern CSS come out
-  //   pixel-accurate), with html2canvas 1.4.1 MIT as automatic fallback (its from-scratch
-  //   canvas renderer misplaces text baselines by several px and drops placeholders,
-  //   but degrades more gracefully under exotic CSP).
-  //   Annotations: custom canvas/SVG, avoids heavy editor deps (tldraw/fabric ~500KB).
-  //   License MIT — no Ybug proprietary code. Lazy-loaded only after explicit capture consent.
+  // Bugaputa widget — lazy capture+annotation
   var script=document.currentScript||document.querySelector('script[data-project]');
   var projectKey=script&&script.getAttribute('data-project')||'';
   var API_BASE=((script&&script.getAttribute('data-api'))||'').replace(/\/+$/,'');
@@ -91,6 +84,7 @@
       // if already revealed (timeout won), keep stability — do not re-append / jump
     }).catch(function(){ if(!_revealed) revealOnce(); });
   })();
+  /* presence heartbeat */(function(){var I=5*60*1000,D=2000,k=projectKey?'bugaputa-presence-ts:'+projectKey:'',t=null;function o(){try{return!!projectKey&&(!script||script.getAttribute('data-bugaputa-unmounted')!=='true')}catch(_){return!1}}function b(){if(!o())return;try{var n=Date.now();if(k)try{var v=localStorage.getItem(k);if(v&&n-parseInt(v,10)<I)return}catch(_){}var h=(API_BASE||(script&&script.src?new URL(script.src).origin:''))+'/api/presence/heartbeat',d=JSON.stringify({project:projectKey,origin:location.hostname||''}),s=0;try{fetch(h,{method:'POST',headers:{'Content-Type':'application/json'},body:d,keepalive:!0,credentials:'omit'}).catch(function(){});s=1}catch(_){}if(!s&&navigator.sendBeacon)try{navigator.sendBeacon(h,d)}catch(_){}if(k)try{localStorage.setItem(k,''+n)}catch(_){}}catch(_){}}function s(){if(t)return;t=setInterval(function(){if(document.visibilityState!=='hidden')b()},I)}function c(){if(t)try{clearInterval(t)}catch(_){}t=null}function g(){if(!o())return;var f=function(){b();s()};try{typeof requestIdleCallback=='function'?requestIdleCallback(f,{timeout:D}):setTimeout(f,D)}catch(_){setTimeout(f,D)}}try{document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')c();else b(),s()})}catch(_){}try{setTimeout(g,0)}catch(_){}})();
   function h(tag, attrs, children){
     var el=document.createElement(tag);
     if(attrs) Object.keys(attrs).forEach(function(k){
