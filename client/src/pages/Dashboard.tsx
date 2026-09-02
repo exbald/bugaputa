@@ -59,7 +59,7 @@ function PresenceBadge({ project }: { project: Project }) {
       role="status"
       aria-label={tooltip}
       title={tooltip}
-      className={`inline-flex flex-shrink-0 max-w-[150px] items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium leading-none whitespace-nowrap ${badgeClasses}`}
+      className={`inline-flex flex-shrink-0 max-w-[180px] items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium leading-none whitespace-nowrap ${badgeClasses}`}
     >
       <span
         aria-hidden="true"
