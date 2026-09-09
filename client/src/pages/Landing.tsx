@@ -280,7 +280,7 @@ function MiniInboxVisual() {
 
 export default function Landing() {
   return (
-    <div className="min-h-screen flex flex-col bg-white text-slate-900 selection:bg-lime-200 selection:text-slate-900">
+    <div className="min-h-screen w-full flex flex-col bg-white text-slate-900 selection:bg-lime-200 selection:text-slate-900">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-slate-900 focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-400"
