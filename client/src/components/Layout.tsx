@@ -9,7 +9,7 @@ export function TopNav(){
   const [open,setOpen]=useState(false);
   useEffect(()=>{ if(user) (api.listProjects() as Promise<any>).then((d:any)=> setProjects(Array.isArray(d)?d:(d.projects||d.items||[]))).catch(()=>{}); },[user]);
   return (
-    <header className="sticky top-0 z-30 bg-slate-900 text-white border-b border-slate-800">
+    <header className="sticky top-0 z-30 w-full bg-slate-900 text-white border-b border-slate-800">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         <Link to={user?"/dashboard":"/"} className="flex items-center gap-2 font-bold tracking-tight text-lg">
           <img src="/bugaputa-logo.svg" alt="" className="w-7 h-7" /> Bugaputa
