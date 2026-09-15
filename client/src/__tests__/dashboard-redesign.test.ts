@@ -116,6 +116,27 @@ describe("Dashboard redesign — search, sort, summary, composer, rows", () => {
     expect(cancelSlice).toMatch(/newProjectBtnRef\.current\?\.focus\(\)/);
   });
 
+  it("composer disabled while creating: New project disclosure not toggleable mid-flight", () => {
+    const raw = readDashboard();
+    // P2 4011671234: disclosure must be disabled while creating so error not lost when panel collapses
+    const btnIdx = raw.indexOf('ref={newProjectBtnRef}');
+    expect(btnIdx, "newProjectBtnRef missing").toBeGreaterThan(-1);
+    const slice = raw.slice(Math.max(0, btnIdx - 300), btnIdx + 800);
+    expect(slice).toMatch(/disabled=\{creating\}/);
+  });
+
+  it("header disclosure: switcher and account use plain disclosure not dialog semantics", () => {
+    const layout = fs.readFileSync(path.resolve(__dirname, "../components/Layout.tsx"), "utf8");
+    // Panels are disclosure navigation, not dialogs - should not claim aria-haspopup dialog
+    expect(layout).not.toMatch(/aria-haspopup="dialog"/);
+    expect(layout).not.toMatch(/aria-haspopup="menu"/);
+    // Should use aria-controls linking trigger to panel
+    expect(layout).toMatch(/aria-controls="project-switcher-panel"/);
+    expect(layout).toMatch(/aria-controls="account-panel"/);
+    expect(layout).toMatch(/id="project-switcher-panel"/);
+    expect(layout).toMatch(/id="account-panel"/);
+  });
+
   it("loading announces with sr-only text inside live region", () => {
     const raw = readDashboard();
     const skelIdx = raw.indexOf("DashboardSkeleton");

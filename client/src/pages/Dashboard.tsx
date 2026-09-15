@@ -428,13 +428,15 @@ export default function Dashboard() {
             <button
               ref={newProjectBtnRef}
               type="button"
+              disabled={creating}
               onClick={() => {
+                if (creating) return;
                 setComposerOpen((v) => !v);
                 setComposerErr("");
               }}
               aria-expanded={composerOpen}
               aria-controls="new-project-composer"
-              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-xl bg-lime-500 text-slate-900 text-sm font-semibold hover:bg-lime-400 active:bg-lime-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 transition shrink-0 shadow-sm"
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-xl bg-lime-500 text-slate-900 text-sm font-semibold hover:bg-lime-400 active:bg-lime-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 transition shrink-0 shadow-sm disabled:opacity-60"
             >
               <span aria-hidden className="text-base leading-none">
                 +

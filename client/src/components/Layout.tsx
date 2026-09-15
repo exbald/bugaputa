@@ -64,8 +64,8 @@ export function TopNav() {
                   ref={switcherBtnRef}
                   type="button"
                   aria-label="Project switcher"
-                  aria-haspopup="dialog"
                   aria-expanded={open}
+                  aria-controls="project-switcher-panel"
                   onClick={() => { setOpen((v) => !v); setAccountOpen(false); }}
                   onKeyDown={(e) => { if (e.key === "Escape") { setOpen(false); switcherBtnRef.current?.focus(); } }}
                   className="inline-flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-3 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 transition"
@@ -76,6 +76,7 @@ export function TopNav() {
                 </button>
                 {open && (
                   <div
+                    id="project-switcher-panel"
                     aria-label="Project switcher"
                     className="absolute right-0 sm:left-0 sm:right-auto mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-20"
                     onClick={(e) => e.stopPropagation()}
@@ -111,8 +112,8 @@ export function TopNav() {
                   ref={accountBtnRef}
                   type="button"
                   aria-label="Account menu"
-                  aria-haspopup="dialog"
                   aria-expanded={accountOpen}
+                  aria-controls="account-panel"
                   onClick={() => { setAccountOpen((v) => !v); setOpen(false); }}
                   onKeyDown={(e) => { if (e.key === "Escape") { setAccountOpen(false); accountBtnRef.current?.focus(); } }}
                   className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] pl-1.5 pr-2.5 py-1 rounded-full border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 transition"
@@ -127,6 +128,7 @@ export function TopNav() {
                 </button>
                 {accountOpen && (
                   <div
+                    id="account-panel"
                     aria-label="Account"
                     className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-20 py-1"
                   >
