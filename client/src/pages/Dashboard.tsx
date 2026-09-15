@@ -222,6 +222,7 @@ function WorkspaceRow({
 function DashboardSkeleton() {
   return (
     <div className="mt-6 space-y-3" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading projects…</span>
       {[0, 1, 2].map((i) => (
         <div
           key={i}
@@ -513,6 +514,7 @@ export default function Dashboard() {
                       setComposerOpen(false);
                       setName("");
                       setComposerErr("");
+                      newProjectBtnRef.current?.focus();
                     }}
                     disabled={creating}
                     className="min-h-[44px] px-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 disabled:opacity-50"

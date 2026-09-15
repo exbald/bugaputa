@@ -98,6 +98,26 @@ describe("Dashboard redesign — search, sort, summary, composer, rows", () => {
     expect(regionSlice).toMatch(/newProjectBtnRef/);
   });
 
+  it("composer Cancel: restores focus to New project disclosure", () => {
+    const raw = readDashboard();
+    const cancelIdx = raw.indexOf("Cancel");
+    expect(cancelIdx, "Cancel button missing").toBeGreaterThan(-1);
+    // Cancel onClick must return focus to disclosure (already required for Escape)
+    const cancelSlice = raw.slice(Math.max(0, cancelIdx - 1200), cancelIdx + 600);
+    expect(cancelSlice).toMatch(/newProjectBtnRef\.current\?\.focus\(\)/);
+  });
+
+  it("loading announces with sr-only text inside live region", () => {
+    const raw = readDashboard();
+    const skelIdx = raw.indexOf("DashboardSkeleton");
+    expect(skelIdx, "DashboardSkeleton missing").toBeGreaterThan(-1);
+    const skelSlice = raw.slice(skelIdx, skelIdx + 1500);
+    expect(skelSlice).toMatch(/sr-only/);
+    expect(skelSlice).toMatch(/Loading projects/);
+    expect(skelSlice).toMatch(/aria-busy/);
+    expect(skelSlice).toMatch(/aria-live/);
+  });
+
   it("loading uses skeleton, not lone text", () => {
     const raw = readDashboard();
     expect(raw).toMatch(/DashboardSkeleton/);
