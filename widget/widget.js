@@ -26,18 +26,14 @@
   var widgetConfig={
     label: _initialLabel||WIDGET_DEFAULTS.label,
     color: _initialColor||WIDGET_DEFAULTS.color,
-    position: _initialPos||WIDGET_DEFAULTS.position
+    position: _initialPos||WIDGET_DEFAULTS.position,
+    videoCaptureEnabled:false
   };
-  // deferred atomic reveal: don't paint a visible #bugaputa-btn until
-  // final config is resolved or a bounded timeout fires (<=2000ms).
-  // Fast-path when all data-* attrs present → no wait.
   var _revealed=false, _revealTimer=null;
   var WIDGET_REVEAL_TIMEOUT_MS=1500;
   function revealOnce(){
     if(_revealed) return;
-    // SPA owners can explicitly cancel a pending reveal during route cleanup.
     // Do not infer cancellation from script removal alone: loader libraries
-    // commonly discard a loaded script tag while expecting its effects to live.
     if(script&&script.getAttribute('data-bugaputa-unmounted')==='true'){
       if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
       return;
@@ -50,7 +46,6 @@
     if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
     try{ document.body.appendChild(createTrigger()); }catch(_){}
   }
-  // fetch fallback for any missing field when we have a projectKey
   (function fetchWidgetConfig(){
     var needFetch=(!_initialLabel||!_initialColor||!_initialPos);
     if(!needFetch||!projectKey) return;
@@ -60,23 +55,22 @@
       if(script&&script.src){ try{ base=new URL(script.src).origin; }catch(_){} }
       cfgUrl=(base||'')+"/api/widget-config?project="+encodeURIComponent(projectKey);
     }catch(_){ return; }
-    // Bounded fallback: reveal with defaults if fetch hasn't completed in time
     _revealTimer=setTimeout(function(){ if(!_revealed) revealOnce(); }, WIDGET_REVEAL_TIMEOUT_MS);
-    // fetch from public /api/widget-config (CORS *, no auth)
     fetch(cfgUrl).then(function(r){
       if(!r.ok) throw new Error(String(r.status));
       return r.json();
     }).then(function(d){
       if(!d||typeof d!=='object'){ if(!_revealed) revealOnce(); return; }
-      // server may return widget_* or label/color/position keys
       var fetchedLabel=sanitizeLabel(d.widget_label||d.widgetLabel||d.label||null);
       var fetchedColor=d.widget_color||d.widgetColor||d.color||null;
       if(!isValidHex(fetchedColor)) fetchedColor=null; else fetchedColor=fetchedColor.trim();
       var fetchedPos=d.widget_position||d.widgetPosition||d.position||null;
       if(WIDGET_POSITIONS.indexOf((fetchedPos||'').trim())===-1) fetchedPos=null; else fetchedPos=(fetchedPos||'').trim();
+      var fetchedVideo=typeof d.videoCaptureEnabled==='boolean'?d.videoCaptureEnabled: (typeof d.video_capture_enabled==='boolean'?d.video_capture_enabled:false);
       if(!_initialLabel&&fetchedLabel) widgetConfig.label=fetchedLabel;
       if(!_initialColor&&fetchedColor) widgetConfig.color=fetchedColor;
       if(!_initialPos&&fetchedPos) widgetConfig.position=fetchedPos;
+      widgetConfig.videoCaptureEnabled=!!fetchedVideo;
       if(!_revealed) revealOnce();
       // if already revealed (timeout won), keep stability — do not re-append / jump
     }).catch(function(){ if(!_revealed) revealOnce(); });
@@ -95,11 +89,14 @@
   }
   var overlay=null, lastFocus=null;
   var capturedBlobUrl=null, capturedDataUrl=null, capturedDims=null;
-  var pendingAnnotatedFile=null; // File from annotation export, to submit with form
-  var capturedSnapshotHtml=null; // serialized DOM snapshot of the captured viewport
+  var pendingAnnotatedFile=null;
+  var capturedSnapshotHtml=null;
   var pendingSnapshotFile=null, pendingAnnotationsFile=null;
-  // Centralised attachment teardown — called on every close path and explicit removal.
-  // Failure retention is intentional: onError must NOT call this (retry needs the file).
+  var pendingVideoFile=null, pendingVideoUrl=null, videoCleanupTimer=null;
+  function cleanupVideoAttachment(){ if(pendingVideoUrl){ try{ URL.revokeObjectURL(pendingVideoUrl); }catch(_){} pendingVideoUrl=null; } pendingVideoFile=null; if(videoCleanupTimer){ try{ clearTimeout(videoCleanupTimer); }catch(_){} videoCleanupTimer=null; } var vp=document.getElementById('bugaputa-video-preview'); if(vp){ try{ var kids=Array.prototype.slice.call(vp.childNodes); for(var _vi=0;_vi<kids.length;_vi++){ var n=kids[_vi]; if(n.id==='bugaputa-remove-video') continue; try{ vp.removeChild(n); }catch(_){} } }catch(_){} } var vs=document.getElementById('bugaputa-video-status'); if(vs){ vs.style.display='none'; vs.textContent=''; } }
+  function isVideoEnabled(){ return !!widgetConfig.videoCaptureEnabled; }
+  // seam for MediaRecorder lifecycle (next card will implement startVideoCapture -> getDisplayMedia + MediaRecorder)
+  function startVideoCapture(opts){ /* T6 will lazy-load widget/video-capture.js via loadScript */ return null; }
   function clearAttachmentState(){
     var fi=document.getElementById('bugaputa-file');
     if(fi) try{ fi.value=''; }catch(_){}
@@ -120,6 +117,8 @@
       var rb=document.getElementById('bugaputa-remove-screenshot');
       if(rb) rb.style.display='none';
     }catch(_){}
+    try{ cleanupVideoAttachment(); }catch(_){}
+    }catch(_){}
   }
   function trapFocus(e){
     if(!overlay) return;
@@ -132,30 +131,26 @@
     else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
   }
   function onOverlayEsc(){
-    // If annotation editor open, confirm discard; else close chooser/form
     var ed=document.getElementById('bugaputa-annotate');
     if(ed){ requestDiscard(); return; }
+    var vp=document.getElementById('bugaputa-video-pane');
+    if(vp && vp.style.display!=='none'){ vp.style.display='none'; var ch=document.getElementById('bugaputa-chooser'); if(ch) ch.style.display='block'; var bv=document.getElementById('bugaputa-choose-video'); var bc=document.getElementById('bugaputa-choose-screenshot'); try{ (bv&&bv.style.display!=='none'?bv:bc).focus(); }catch(_){} return; }
     close();
   }
   function close(){
-    // Ensures Cancel/X/Escape/backdrop/success do not leak stale attachment into next open()->showForm().
     // onError intentionally does NOT call clearAttachmentState so retry keeps the file.
     try{ clearAttachmentState(); }catch(_){}
-    // cleanup annotate listeners if any
     cleanupAnnotate();
     var ed2=document.getElementById('bugaputa-annotate');
     if(ed2){ try{ if(ed2._cleanup) ed2._cleanup(); }catch(_){} ed2.remove(); document.body.style.overflow=''; }
-    // restore trigger button (hidden during capture)
     var b=document.getElementById('bugaputa-btn');
     if(b) b.style.display='';
-    // remove promoted footer if any before overlay teardown
     try{ var _fa=document.getElementById('bugaputa-actions'); if(_fa && _fa._inModalFooter) _fa.remove(); }catch(_){}
     var _prevY=0, _prevOv=''; try{ _prevY=overlay? (overlay._prevScrollY||0):0; _prevOv=overlay? (overlay._prevOverflow||'') : ''; }catch(_){}
     if(overlay){ overlay.remove(); overlay=null; document.removeEventListener('keydown', trapFocus); document.body.style.overflow=_prevOv; try{ if(_prevY) window.scrollTo(0,_prevY); }catch(_){} if(lastFocus) try{ lastFocus.focus(); }catch(_){} }
     else { document.body.style.overflow=''; }
   }
   function cleanupAnnotate(){
-    // called on close; individual editor cleans its listeners
     var ed=document.getElementById('bugaputa-annotate');
     if(ed && ed._cleanup) try{ ed._cleanup(); }catch(_){}
   }
@@ -166,25 +161,19 @@
     if(count>0){
       if(!confirm('Discard your annotations? This cannot be undone.')) return;
     }
-    // return to chooser
     if(capturedBlobUrl){ URL.revokeObjectURL(capturedBlobUrl); capturedBlobUrl=null; }
     capturedDataUrl=null; capturedDims=null; pendingAnnotatedFile=null;
     capturedSnapshotHtml=null; pendingSnapshotFile=null; pendingAnnotationsFile=null;
     cleanupAnnotate();
     ed.remove();
-    // overlay remains open — keep body locked; cleanup reset it so re-lock
     document.body.style.overflow='hidden';
-    // restore overlay chooser
     if(overlay){
       overlay.style.display='flex';
-      // re-trap focus
       var first=overlay.querySelector('button, [href], input, textarea');
       if(first) first.focus();
     }
   }
-  // ---------- chooser + form (general feedback keeps one-click flow) ----------
   function open(){
-    // Defensive: ensure no stale attachment survives from a missed close().
     try{ clearAttachmentState(); }catch(_){}
     lastFocus=document.activeElement;
     overlay=h('div',{id:'bugaputa-overlay','data-html2canvas-ignore':'true'});
@@ -192,21 +181,43 @@
     var modal=h('div',{id:'bugaputa-modal',role:'dialog','aria-modal':'true','aria-label':'Report a bug','data-html2canvas-ignore':'true'});
     var closeBtn=h('button',{text:'\u00D7','aria-label':'Close',style:'position:absolute;right:12px;top:12px;background:none;border:none;font-size:22px;cursor:pointer;color:#64748b;min-width:44px;min-height:44px'});
     closeBtn.addEventListener('click', close);
-    // chooser
     var chooser=h('div',{id:'bugaputa-chooser'});
     var chTitle=h('h2',{text:'How would you like to report?'});
     var chSub=h('p',{text:'Choose the feedback type that fits your issue.',style:'font-size:13px;color:#64748b;margin-top:4px'});
-    var btnCapture=h('button',{id:'bugaputa-choose-capture',type:'button',text:'Capture and annotate this page'});
-    btnCapture.setAttribute('aria-label','Capture and annotate this page');
+    var btnCapture=h('button',{id:'bugaputa-choose-screenshot',type:'button',text:'Screenshot \u2014 Capture and annotate'});
+    btnCapture.setAttribute('aria-label','Screenshot \u2014 Capture and annotate this page');
     btnCapture.title='Capture a screenshot and add annotations';
+    var btnVideo=h('button',{id:'bugaputa-choose-video',type:'button',text:'Record video \u2014 Up to 60s'});
+    btnVideo.setAttribute('aria-label','Record video \u2014 Record your screen (up to 60s)');
+    btnVideo.title='Record your screen (up to 60s)';
     var btnGeneral=h('button',{id:'bugaputa-choose-general',type:'button',text:'General feedback'});
     btnGeneral.setAttribute('aria-label','General feedback');
     btnGeneral.title='Send a message without a screenshot';
     var chooserActions=h('div',{id:'bugaputa-chooser-actions'});
+    if(isVideoEnabled()) chooserActions.appendChild(btnVideo);
     chooserActions.appendChild(btnCapture); chooserActions.appendChild(btnGeneral);
+    // ensure video button respects flag on later config updates
+    try{ btnVideo.style.display=isVideoEnabled()?'':'none'; }catch(_){}
     chooser.appendChild(chTitle); chooser.appendChild(chSub); chooser.appendChild(chooserActions);
-    // consent/capture loading area (hidden until capture chosen)
     var capturePane=h('div',{id:'bugaputa-capture-pane',style:'display:none'});
+    var videoPane=h('div',{id:'bugaputa-video-pane',style:'display:none'});
+    var videoConsent=h('div',{id:'bugaputa-video-consent'});
+    videoConsent.innerHTML='<strong style="display:block;font-size:13px;margin-bottom:6px">Before you record</strong><p style="font-size:12px;color:#475569;line-height:1.5">We will record only the visible screen or tab you choose. Your browser will ask for permission. Cross-origin iframes may appear blank. Microphone is off unless you enable it. You will see a recording indicator while active.</p>';
+    var videoMicChk=h('input',{id:'bugaputa-video-mic',type:'checkbox',style:'margin:0;cursor:pointer'});
+    var videoMicLbl=h('label',{style:'display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:#334155;cursor:pointer;user-select:none'},[videoMicChk,h('span',{text:'Include microphone (off by default)'})]);
+    var videoDontChk=h('input',{id:'bugaputa-video-dont-show',type:'checkbox',style:'margin:0;cursor:pointer'});
+    var videoDontLbl=h('label',{style:'display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#64748b;cursor:pointer;user-select:none'},[videoDontChk,h('span',{text:"Don't show this again"})]);
+    var videoStartBtn=h('button',{id:'bugaputa-video-start',type:'button',text:'Start recording'});
+    videoStartBtn.setAttribute('aria-label','Start recording');
+    var videoBackBtn=h('button',{id:'bugaputa-video-back',type:'button',text:'Back'});
+    var videoStatus=h('div',{id:'bugaputa-video-status',style:'display:none;margin-top:10px;font-size:12px',role:'status','aria-live':'polite'});
+    var videoPreview=h('div',{id:'bugaputa-video-preview',style:'margin-top:10px'});
+    var videoFallbackInput=h('input',{id:'bugaputa-video-file',type:'file',accept:'video/webm,video/mp4',style:'display:none;margin-top:8px'});
+    var videoFallbackLbl=h('label',{id:'bugaputa-video-file-label',style:'display:none;margin-top:8px;font-size:11px;color:#64748b'},[h('span',{text:'Or upload a video (webm/mp4 \u226425MB)'}), videoFallbackInput]);
+    var videoRow=h('div',{style:'display:flex;gap:8px;margin-top:12px'});
+    videoRow.appendChild(videoStartBtn); videoRow.appendChild(videoBackBtn);
+    videoPane.appendChild(videoConsent); videoPane.appendChild(videoMicLbl); videoPane.appendChild(videoDontLbl); videoPane.appendChild(videoRow); videoPane.appendChild(videoStatus); videoPane.appendChild(videoPreview); videoPane.appendChild(videoFallbackLbl);
+
     var consent=h('div',{id:'bugaputa-consent-box'});
     consent.innerHTML='<strong style="display:block;font-size:13px;margin-bottom:6px">Before you capture</strong><p style="font-size:12px;color:#475569;line-height:1.5">We will capture only the visible part of this page you are seeing. Cross-origin iframes or protected video may appear blank. No passwords or form values are collected. You can annotate the screenshot before sending.</p><p style="font-size:11px;color:#94a3b8;margin-top:8px">Limits: cross-origin iframes, video/canvas may appear blank. You can still upload an image manually if capture fails.</p>';
     var dontShowChk=h('input',{id:'bugaputa-dont-show-consent',type:'checkbox',style:'margin:0;cursor:pointer'});var dontShowLbl=h('label',{style:'display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:#64748b;cursor:pointer;user-select:none'},[dontShowChk,h('span',{text:"Don't show this again"})]);capBtn=h('button',{id:'bugaputa-do-capture',type:'button',text:'Capture this page'});
@@ -216,31 +227,38 @@
     capRow.appendChild(capBtn); capRow.appendChild(capBack);
     var capStatus=h('div',{id:'bugaputa-cap-status',style:'display:none;margin-top:10px;font-size:12px',role:'status','aria-live':'polite'});
     capturePane.appendChild(consent); capturePane.appendChild(dontShowLbl); capturePane.appendChild(capRow); capturePane.appendChild(capStatus);
-    // Scroll ownership: only the body scrolls; header (closeBtn) and footer (actions) stay fixed.
     var modalBody=h('div',{id:'bugaputa-modal-body'});
     modal.appendChild(closeBtn);
     modal.appendChild(modalBody);
     modalBody.appendChild(chooser);
     modalBody.appendChild(capturePane);
-    // form container (for general feedback and for annotated submit)
+    modalBody.appendChild(videoPane);
     var formWrap=h('div',{id:'bugaputa-form-wrap',style:'display:none'});
     modalBody.appendChild(formWrap);
-    // lock page scroll while dialog is open; store position for restore
     try{ overlay._prevScrollY=window.scrollY||window.pageYOffset||0; overlay._prevOverflow=document.body.style.overflow; }catch(_){}
     document.body.style.overflow='hidden';
     overlay.appendChild(modal); document.body.appendChild(overlay); document.addEventListener('keydown', trapFocus);
-    // focus first chooser button
     setTimeout(function(){ btnCapture.focus(); }, 50);
-    // chooser handlers
-    btnGeneral.addEventListener('click', function(){ chooser.style.display='none'; capturePane.style.display='none'; showForm(null); });
+    btnGeneral.addEventListener('click', function(){ chooser.style.display='none'; capturePane.style.display='none'; videoPane.style.display='none'; showForm(null); });
     btnCapture.addEventListener('click', function(){
-      chooser.style.display='none';
+      chooser.style.display='none'; videoPane.style.display='none';
       if(localStorage.getItem('bugaputa-skip-consent')){ doCapture(capStatus, formWrap, chooser, capturePane); } else { capturePane.style.display='block'; capBtn.focus(); }
     });
+    btnVideo.addEventListener('click', function(){
+      chooser.style.display='none'; capturePane.style.display='none';
+      if(localStorage.getItem('bugaputa-skip-video-consent')){ videoPane.style.display='block'; videoStartBtn.focus(); }
+      else { videoPane.style.display='block'; videoStartBtn.focus(); }
+    });
     capBack.addEventListener('click', function(){ capturePane.style.display='none'; chooser.style.display='block'; btnCapture.focus(); });
+    videoBackBtn.addEventListener('click', function(){ videoPane.style.display='none'; chooser.style.display='block'; var toFocus=isVideoEnabled()?btnVideo:btnCapture; try{ toFocus.focus(); }catch(_){} });
+    videoStartBtn.addEventListener('click', function(){
+      if(videoDontChk&&videoDontChk.checked) try{ localStorage.setItem('bugaputa-skip-video-consent','1'); }catch(_){}
+      videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Ready to record \u2014 browser will ask for permission. (Recording not yet implemented in this build)';
+      // seam: next card will call startVideoCapture({micEnabled: !!videoMicChk.checked})
+      if(typeof startVideoCapture==='function') try{ startVideoCapture({micEnabled: !!videoMicChk.checked}); }catch(_){}
+    });
     capBtn.addEventListener('click', function(){ if(dontShowChk&&dontShowChk.checked) localStorage.setItem('bugaputa-skip-consent','1'); doCapture(capStatus, formWrap, chooser, capturePane); });
-    // store refs for later re-entry
-    overlay._chooser=chooser; overlay._capturePane=capturePane; overlay._formWrap=formWrap;
+    overlay._chooser=chooser; overlay._capturePane=capturePane; overlay._videoPane=videoPane; overlay._formWrap=formWrap;
   }
   function showForm(prefill){
     var wrap=overlay._formWrap || document.getElementById('bugaputa-form-wrap');
@@ -269,26 +287,20 @@
       try{ fileInput.focus(); }catch(_){}
     });
     preview.appendChild(removeBtn);
-    // if we have an annotated file, show it as preview and hide file input label text
     if(pendingAnnotatedFile){
       var blobUrl=URL.createObjectURL(pendingAnnotatedFile);
       var img=document.createElement('img'); img.alt='Annotated screenshot preview'; img.src=blobUrl;
       preview.appendChild(img);
       var hint=h('div',{text:'Annotated screenshot ready — you can replace it by choosing another file.',style:'font-size:11px;color:#64748b;margin-top:6px'});
       preview.appendChild(hint);
-      // revoke on next file change or close; store for revoke
       preview._blobUrl=blobUrl;
       fileLabel.firstChild && (fileLabel.firstChild.textContent='Replace screenshot (optional)');
     } else if(pendingSnapshotFile){
-      // snapshot-only (rasterizer unavailable): nothing to preview, but the report
-      // still carries the pixel-exact page capture
       preview.appendChild(h('div',{text:'Pixel-perfect page snapshot attached.',style:'font-size:11px;color:#64748b'}));
     }
     syncRemoveBtn();
     fileInput.addEventListener('change', function(){
-      // revoke previous annotated preview blob
       if(preview._blobUrl){ URL.revokeObjectURL(preview._blobUrl); preview._blobUrl=null; }
-      // if user picks new file, clear pendingAnnotatedFile and use this
       if(fileInput.files[0]) pendingAnnotatedFile=null;
       Array.from(preview.children).forEach(function(ch){ if(ch!==removeBtn) ch.remove(); }); for(var _ii=preview.childNodes.length-1;_ii>=0;_ii--){ var _nn=preview.childNodes[_ii]; if(_nn.nodeType===3) preview.removeChild(_nn); } preview.style.color='';
       var f=fileInput.files[0]; if(!f){ fileLabel.firstChild && (fileLabel.firstChild.textContent='Attach screenshot (optional)'); syncRemoveBtn(); return; } if(f.size>5*1024*1024){ try{ fileInput.value=''; }catch(_){} preview.textContent='File too large (max 5MB)'; preview.style.color='#dc2626'; preview.appendChild(removeBtn); syncRemoveBtn(); return; } var img2=document.createElement('img'); img2.alt='Screenshot preview'; img2.src=URL.createObjectURL(f); preview.appendChild(img2); preview.appendChild(removeBtn);
@@ -314,10 +326,7 @@
     var success=h('div',{id:'bugaputa-success',style:'display:none'}); success.innerHTML='<p>Thanks! Report sent.</p><p style="font-size:13px;color:#64748b;margin-top:4px">We will look into it shortly.</p>';
     var errBox=h('div',{id:'bugaputa-error',style:'display:none'}); errBox.setAttribute('role','alert'); errBox.setAttribute('aria-live','polite');
     form.appendChild(msgLabel); form.appendChild(emailLabel); form.appendChild(fileLabel); form.appendChild(hpWrap); form.appendChild(ctx); form.appendChild(consent); form.appendChild(errBox);
-    // Footer actions live outside the scrollable body so they are always visible (viewport-bounded shell)
-    // Keep form content in the scroll area, promote footer to modal root.
     submitBtn.setAttribute('form','bugaputa-form');
-    // keep Enter in textarea/email submitting the form even after footer promotion
     submitBtn.addEventListener('click', function(e){
       if(submitBtn.form!==form){ e.preventDefault(); try{ if(typeof form.requestSubmit==='function') form.requestSubmit(); else form.dispatchEvent(new Event('submit',{cancelable:true})); }catch(_){ try{ form.dispatchEvent(new Event('submit',{cancelable:true})); }catch(_2){} } }
     });
@@ -340,7 +349,6 @@
       if(hpInput.value){ close(); return; }
       if(hasError) return;
       submitBtn.disabled=true; submitBtn.textContent='Sending...';
-      // determine file: pendingAnnotatedFile takes precedence over fileInput
       var hasFile = pendingAnnotatedFile ? pendingAnnotatedFile : (fileInput.files && fileInput.files[0] ? fileInput.files[0] : null);
       if(hasFile && hasFile.size>5*1024*1024){ errBox.textContent='File too large (max 5MB)'; errBox.style.display='block'; submitBtn.disabled=false; submitBtn.textContent='Send report'; return; }
       if(hasFile && !/^(image\/png|image\/jpeg|image\/webp|image\/gif)$/.test(hasFile.type)){ errBox.textContent='Invalid file type (png/jpeg/webp/gif only)'; errBox.style.display='block'; submitBtn.disabled=false; submitBtn.textContent='Send report'; return; }
@@ -357,12 +365,6 @@
       }
     });
   }
-  // ---------- capture ----------
-  // The capture must reproduce exactly what the user sees in the viewport.
-  // Primary engine: modern-screenshot (SVG foreignObject — browser-native rasterization).
-  // Because the SVG clone has no scroll state, position:fixed and stuck position:sticky
-  // elements would land at their static/document position; before cloning we tag them
-  // with their current viewport-derived placement and re-anchor the clones.
   function scriptBase(){
     var base='';
     if(script && script.src){ try{ var u=new URL(script.src); base=u.origin; }catch(_){} }
@@ -376,8 +378,6 @@
     document.head.appendChild(s);
   }
   function pageBackgroundColor(){
-    // transparent body over styled html (or neither) — pick the first real color so
-    // uncovered areas match the page instead of flashing white on dark sites
     try{
       var cands=[document.body, document.documentElement];
       for(var i=0;i<cands.length;i++){
@@ -387,9 +387,6 @@
     }catch(_){}
     return '#ffffff';
   }
-  // Tag fixed/stuck-sticky elements and empty placeholder fields on the live DOM
-  // (data attributes only — no visual change), returning an untag function.
-  // The clone hook reads the tags and adjusts the cloned nodes.
   function prepareCaptureFixups(sx, sy){
     var tagged=[];
     var els=document.querySelectorAll('*');
@@ -414,8 +411,6 @@
         el.setAttribute('data-bugaputa-fix', JSON.stringify({kind:'fixed', left:r.left+sx, top:r.top+sy, w:r.width, h:r.height}));
         tagged.push(el);
       } else if(cs.position==='sticky'){
-        // delta between where the element is now (possibly stuck) and its static spot;
-        // toggling position is restored synchronously, so nothing paints in between
         var r2=el.getBoundingClientRect();
         var prevPos=el.style.position;
         el.style.position='static';
@@ -451,14 +446,10 @@
       var t=clone.style.transform && clone.style.transform!=='none' ? clone.style.transform+' ' : '';
       clone.style.transform=t+'translate('+f.dx+'px,'+f.dy+'px)';
     } else if(f.kind==='placeholder'){
-      // the clone's empty field renders its placeholder natively, but the inlined
-      // computed color/-webkit-text-fill-color from the element paints it in full
-      // text color — repaint it with the real ::placeholder color
       var phc=f.color||'#9ca3af';
       clone.style.color=phc;
       clone.style.setProperty('-webkit-text-fill-color', phc);
       if(engine==='legacy'){
-        // html2canvas draws values but never placeholders — inject the text
         var ph=clone.getAttribute('placeholder')||'';
         try{ clone.value=ph; }catch(_){}
         if(clone.tagName==='TEXTAREA') clone.textContent=ph;
@@ -467,15 +458,6 @@
     }
     clone.removeAttribute('data-bugaputa-fix');
   }
-  // ---------- DOM snapshot (primary capture) ----------
-  // Rasterizing the page re-renders it outside the real document context, which is
-  // why captures drift: generic font keywords (system-ui, ui-sans-serif) don't
-  // resolve there, and platform UI fonts like macOS San Francisco aren't
-  // addressable by any CSS name, so text re-wraps and layouts look "smushed".
-  // Instead we serialize a sanitized clone of the DOM; a real browser engine
-  // renders it back (sandboxed iframe here and in the dashboard), which is
-  // pixel-exact by construction on every OS and browser. The raster image is kept
-  // as a best-effort flattened artifact only.
   var SNAPSHOT_MAX_HTML=8*1024*1024, SNAPSHOT_MAX_GZ=2*1024*1024;
   var REDACT_NAME_RE=/pass|secret|token|card|cvc|ssn/i;
   function snapshotRedact(el){
@@ -493,9 +475,6 @@
     div.style.cssText='width:'+Math.round(r.width)+'px;height:'+Math.round(r.height)+'px;background:#f1f5f9;'+(dashed?'border:1px dashed #cbd5e1;':'');
     return div;
   }
-  // Walk live and cloned trees in lockstep (they are structurally identical until
-  // we start mutating) so each clone can be given the live node's runtime state:
-  // form values, canvas pixels, masked text. Serialization alone would lose all of it.
   function snapshotCopyState(live, cloned, doc){
     var lc=live.children, cc=cloned.children;
     for(var i=lc.length-1;i>=0;i--){
@@ -551,8 +530,6 @@
         continue;
       }
       if(l.scrollTop || l.scrollLeft){
-        // Recorded for future use: the viewer iframe runs without scripts, and CSS
-        // cannot restore scroll offsets, so inner scroll positions aren't replayed.
         if(l.scrollTop) c.setAttribute('data-bugaputa-scroll-top', String(Math.round(l.scrollTop)));
         if(l.scrollLeft) c.setAttribute('data-bugaputa-scroll-left', String(Math.round(l.scrollLeft)));
       }
@@ -601,8 +578,6 @@
       }
     }
   }
-  // Inline every stylesheet we can read. This also captures CSSOM-only rules
-  // (styled-components, insertRule) that outerHTML would serialize as empty.
   function inlineSameOriginSheets(root){
     var sheets=document.styleSheets;
     var clonedLinks=root.querySelectorAll('link[rel~="stylesheet" i]');
@@ -620,7 +595,7 @@
         }
         continue;
       }
-      if(!rules) continue; // cross-origin: leave the (absolutized) <link> in place
+      if(!rules) continue;
       var href=sheet.href||'';
       for(var c=0;c<clonedLinks.length;c++){
         var link=clonedLinks[c];
@@ -638,8 +613,6 @@
       }
     }
   }
-  // Pin the clone to the captured viewport: same translate trick the raster path
-  // uses, so a vw x vh frame shows exactly what the user saw — no scripts needed.
   function anchorSnapshotViewport(root, sx, sy, vw, vh, scale){
     var head=root.querySelector('head');
     if(!head){ head=root.ownerDocument.createElement('head'); root.insertBefore(head, root.firstChild); }
@@ -654,11 +627,6 @@
     root.setAttribute('data-bugaputa-url', location.href);
     try{ root.setAttribute('data-bugaputa-ts', new Date().toISOString()); }catch(_){}
   }
-  // A sandboxed iframe has an opaque origin, so any resource served with
-  // Cross-Origin-Resource-Policy: same-origin (or blocked by the host page's CSP)
-  // fails to load inside it — images render broken. Inlining them as data: URIs
-  // makes the snapshot self-contained, so it renders identically in the editor, in
-  // the dashboard, and years later even if the site has changed.
   var SNAPSHOT_INLINE_BUDGET=3*1024*1024, SNAPSHOT_INLINE_MAX=768*1024, SNAPSHOT_INLINE_MS=6000;
   function fetchAsDataUri(url, cb){
     try{
@@ -679,7 +647,6 @@
   }
   function inlineSnapshotResources(root, cb){
     if(typeof fetch==='undefined' || typeof FileReader==='undefined'){ cb(); return; }
-    // collect every URL worth inlining, de-duplicated so shared assets fetch once
     var jobs={};
     function want(url){
       if(!url || /^(data:|about:|blob:|#)/i.test(url)) return;
@@ -692,8 +659,6 @@
         var src=el.getAttribute('src');
         var list=want(src);
         if(list) list.push(function(uri){ el.setAttribute('src', uri); el.removeAttribute('srcset'); el.removeAttribute('sizes'); });
-        // srcset candidates would re-request the network copy; the inlined src wins
-        // only if srcset is dropped, which we do above when the src inlines
       })(imgs[i]);
     }
     var styles=root.querySelectorAll('style');
@@ -756,7 +721,6 @@
       sanitizeSnapshot(clone);
       absolutizeSnapshotUrls(clone);
       inlineSameOriginSheets(clone);
-      // same fixed/sticky re-anchoring the raster path applies to its clone
       applyCloneFixup(clone);
       var marked=clone.querySelectorAll('[data-bugaputa-fix]');
       for(var i=0;i<marked.length;i++) applyCloneFixup(marked[i]);
@@ -767,7 +731,6 @@
       cb(null);
       return;
     }
-    // resource inlining is async (network/cache reads) and always settles
     inlineSnapshotResources(clone, function(){
       var html=null;
       try{ html=serializeSnapshot(clone); }
@@ -789,13 +752,6 @@
       cb(new File([html], 'snapshot.html', {type:'text/html'}));
     }catch(_){ cb(null); }
   }
-  // Chrome quirk: inside the SVG image used for rasterization, generic font
-  // keywords (system-ui, ui-sans-serif, -apple-system, BlinkMacSystemFont,
-  // ui-monospace) fall back to the browser default font instead of the real UI
-  // font. The default (Arial-class) has different metrics, so text overflows its
-  // pinned boxes and wraps — captures look "smushed". Concrete family names
-  // resolve correctly, so we detect which installed font the generic actually
-  // renders as (by width measurement) and pin it in the clone's inlined styles.
   function fontProbe(){
     var cvs=document.createElement('canvas');
     var ctx=cvs.getContext('2d');
@@ -806,19 +762,11 @@
     };
   }
   function fontAvailable(measure, name, refs){
-    // an unavailable family falls back to the appended generic, measuring
-    // identical to that generic alone — compare against two generics so a
-    // coincidental width tie can't false-positive
     var c='"'+name+'"';
     var viaMono=measure(c+', monospace'), viaSerif=measure(c+', serif');
     return (viaMono[0]!==refs.mono[0]||viaMono[1]!==refs.mono[1]) && (viaSerif[0]!==refs.serif[0]||viaSerif[1]!==refs.serif[1]);
   }
   function resolveGenericFont(measure, generic, candidates, refs){
-    // Returns {name, exact}. Exact match = the candidate the generic actually
-    // renders as. When the platform UI font is not name-addressable at all
-    // (macOS San Francisco), fall back to the metrically-closest available
-    // candidate — in the SVG raster context an unresolved generic degrades to
-    // the default font anyway, so the nearest addressable font is never worse.
     try{
       var target=measure(generic);
       var best=null;
@@ -855,13 +803,6 @@
     };
     return _fontPins;
   }
-  // Decide the pin for one font-family stack (cached per unique stack string):
-  // - stack has no generic alias -> nothing to fix
-  // - alias resolves to an exact addressable font -> always pin it
-  // - no exact match (e.g. macOS SF): if the stack already lists an available
-  //   concrete family, the natural fallthrough is at least as good — leave it;
-  //   if the stack is generics-only, pin the metrically-nearest font so text
-  //   doesn't degrade to the engine default
   function stackPin(pins, ff){
     var cache=pins.stackCache;
     if(ff in cache) return cache[ff];
@@ -896,8 +837,6 @@
     }
   }
   function captureScale(vw, vh){
-    // full devicePixelRatio so the capture matches the screen 1:1 (phones are 2.6-3x);
-    // clamp so no canvas dimension can exceed conservative mobile limits
     var scale=Math.min(window.devicePixelRatio||1, 3);
     var maxDim=4096;
     var largest=Math.max(vw, vh)||1;
@@ -916,8 +855,6 @@
       if(!blob){ onErr(new Error('toBlob failed')); return; }
       if(capturedBlobUrl) URL.revokeObjectURL(capturedBlobUrl);
       capturedBlobUrl=URL.createObjectURL(blob);
-      // Snapshot mode already opened the editor; the raster is only the flattened
-      // export artifact, so hand it over instead of opening a second editor.
       var ed=document.getElementById('bugaputa-annotate');
       if(ed && ed._onRaster){ ed._onRaster(canvas, capturedBlobUrl); return; }
       openAnnotateEditor(capturedBlobUrl, dataUrl, canvas, formWrap, chooser, capturePane);
@@ -927,23 +864,18 @@
     statusEl.style.display='block';
     statusEl.textContent='Preparing capture…';
     statusEl.style.color='#475569';
-    // hide widget button and overlay temporarily for capture
     var btn=document.getElementById('bugaputa-btn');
     var prevBtnDisplay=btn?btn.style.display:'';
     var prevOverlayDisplay=overlay?overlay.style.display:'';
     if(btn) btn.style.display='none';
     if(overlay) overlay.style.display='none';
     function fail(err){
-      // With a snapshot in hand the editor is already open and usable; a raster
-      // failure only costs the flattened PNG, so don't derail the user with it.
       if(capturedSnapshotHtml){ console.warn('[Bugaputa] raster capture unavailable, snapshot only', err); return; }
       handleCaptureError(err, statusEl, formWrap, chooser, capturePane, btn, prevBtnDisplay, prevOverlayDisplay);
     }
     function ignoreFilter(el){
       return !(el.getAttribute && el.getAttribute('data-html2canvas-ignore')!==null);
     }
-    // fallback path: html2canvas re-renders the DOM itself; text baselines drift a
-    // few px, but it works under CSPs that block SVG data: images
     function captureLegacy(){
       function run(){
         try{
@@ -964,8 +896,6 @@
             windowWidth: vw, windowHeight: vh,
             scrollX: sx, scrollY: sy,
             onclone: function(clonedDoc){
-              // html2canvas scrolls its clone iframe itself, so fixed/sticky are
-              // already right — only the placeholder fixup applies here
               var fixed=clonedDoc.querySelectorAll('[data-bugaputa-fix]');
               for(var i=0;i<fixed.length;i++){
                 var raw=fixed[i].getAttribute('data-bugaputa-fix');
@@ -986,7 +916,6 @@
     }
     function captureModern(){
       statusEl.textContent='Capturing…';
-      // one frame so the hidden overlay/button are out of the rendered view
       setTimeout(function(){
         var ms=window.modernScreenshot;
         if(!ms || !ms.domToCanvas){ captureLegacy(); return; }
@@ -1003,13 +932,9 @@
               scale: scale,
               width: vw,
               height: vh,
-              // shift the clone so the scrolled viewport lands in the output box —
-              // keeps the canvas viewport-sized instead of rendering the whole page
               style: { transform: 'translate('+(-sx)+'px,'+(-sy)+'px)' },
               filter: ignoreFilter,
               backgroundColor: pageBackgroundColor(),
-              // onCloneNode fires with the finished clone tree, after the library has
-              // inlined computed styles — fixups applied here can't be overwritten
               onCloneNode: function(root){
                 if(root && root.querySelectorAll){
                   applyCloneFixup(root);
@@ -1034,10 +959,6 @@
         });
       }, 160);
     }
-    // Snapshot first: it is the pixel-exact artifact and needs the page untouched.
-    // When it succeeds the editor opens immediately over a live-rendered iframe and
-    // the raster runs behind it, so a slow or failing rasterizer can no longer
-    // block (or distort) the report.
     statusEl.textContent='Capturing…';
     var snapSx=Math.round(window.scrollX||window.pageXOffset||0), snapSy=Math.round(window.scrollY||window.pageYOffset||0);
     var snapVw=window.innerWidth, snapVh=window.innerHeight;
@@ -1045,7 +966,6 @@
     function startRaster(){
       if(window.modernScreenshot){ captureModern(); return; }
       loadScript(scriptBase()+'/modern-screenshot.min.js', captureModern, function(){
-        // modern-screenshot unavailable (blocked/missing) — go straight to fallback
         captureLegacy();
       });
     }
@@ -1066,11 +986,8 @@
     statusEl.style.display='block';
     statusEl.style.color='#dc2626';
     statusEl.textContent=(err&&err.message?err.message:'Capture failed')+' — you can still send feedback with an image upload below.';
-    // offer fallback: show form with file input
-    // restore widget chrome
     if(btn) btn.style.display=prevBtnDisplay||'';
     if(overlay) overlay.style.display=prevOverlayDisplay||'flex';
-    // hide capturePane? keep visible but show fallback action
     var fallbackBtn=document.getElementById('bugaputa-fallback-upload');
     if(!fallbackBtn){
       fallbackBtn=h('button',{id:'bugaputa-fallback-upload',type:'button',text:'Continue with image upload'});
@@ -1084,13 +1001,10 @@
       fallbackBtn.focus();
     }
   }
-  // ---------- annotation editor ----------
   function openAnnotateEditor(blobUrl, dataUrl, capCanvas, formWrap, chooser, capturePane){
-    // hide chooser/capturePane, show full-screen editor
     if(overlay) overlay.style.display='none';
     document.body.style.overflow='hidden';
     var ed=h('div',{id:'bugaputa-annotate','data-html2canvas-ignore':'true',role:'dialog','aria-modal':'true','aria-label':'Annotate screenshot'});
-    // palette
     var PALETTE=['#ef4444','#f59e0b','#22c55e','#3b82f6','#ec4899'];
     var state={
       tool:'select',
@@ -1125,7 +1039,6 @@
       renderAll();
       updateUndoRedo();
     }
-    // header
     var header=h('div',{id:'bugaputa-ann-header'});
     var hTitle=h('div',{text:'Annotate screenshot',style:'font-weight:700;font-size:14px'});
     var paletteWrap=h('div',{id:'bugaputa-palette'});
@@ -1144,25 +1057,17 @@
     btnDone.setAttribute('aria-label','Done and continue to form');
     hdrActions.appendChild(btnCancel); hdrActions.appendChild(btnDone);
     header.appendChild(hTitle); header.appendChild(paletteWrap); header.appendChild(hdrActions);
-    // canvas area
     var stage=h('div',{id:'bugaputa-ann-stage'});
-    // capture image as background
     var bgImg=h('img',{id:'bugaputa-ann-bg',alt:'Captured page',src:blobUrl||''});
     var canvasWrap=h('div',{id:'bugaputa-ann-canvas-wrap'});
     var cvs=document.createElement('canvas');
     cvs.id='bugaputa-ann-canvas';
-    // Model stays in CSS viewport space; display is fitted with contain (never upscale above 1:1)
     cvs.width=capturedDims.cssW;
     cvs.height=capturedDims.cssH;
-    // CSS size is driven by fitted wrap bounds (100% of wrap); no inline px that would force overflow
     cvs.style.width='100%';
     cvs.style.height='100%';
     bgImg.style.width='100%';
     bgImg.style.height='100%';
-    // Snapshot mode: the background is the page itself, re-rendered natively by the
-    // browser inside a locked-down iframe (no scripts, opaque origin) at the exact
-    // captured viewport size, then CSS-scaled to fit. This is what makes the
-    // annotated view pixel-identical to what the reporter saw.
     var frame=null;
     if(capturedSnapshotHtml){
       frame=document.createElement('iframe');
@@ -1181,7 +1086,6 @@
     canvasWrap.appendChild(bgImg);
     canvasWrap.appendChild(cvs);
     stage.appendChild(canvasWrap);
-    // bottom pill toolbar
     var toolbar=h('div',{id:'bugaputa-ann-toolbar',role:'toolbar','aria-label':'Annotation tools'});
     var tools=[
       {id:'select',label:'Select / move',icon:'👆'},
@@ -1246,14 +1150,11 @@
     ed.appendChild(stage);
     ed.appendChild(toolbar);
     document.body.appendChild(ed);
-    // Fit wrap to available stage with contain, never upscale beyond 1:1
     function applyFit(){
-      // stage content box available (respect padding)
       var cs=getComputedStyle(stage);
       var padL=parseFloat(cs.paddingLeft)||0, padR=parseFloat(cs.paddingRight)||0, padT=parseFloat(cs.paddingTop)||0, padB=parseFloat(cs.paddingBottom)||0;
       var availW=Math.max(0, stage.clientWidth - padL - padR);
       var availH=Math.max(0, stage.clientHeight - padT - padB);
-      // fallback to rect-based if client is 0 during initial layout
       if(availW<10 || availH<10){
         var r=stage.getBoundingClientRect();
         availW=Math.max(0, r.width - padL - padR);
@@ -1267,11 +1168,8 @@
       var h=Math.max(1, Math.floor(capturedDims.cssH * scale));
       canvasWrap.style.width=w+'px';
       canvasWrap.style.height=h+'px';
-      // The iframe renders at true captured size and is scaled down to the fitted
-      // box, so its layout never re-flows (that is the whole point of the snapshot).
       if(frame) frame.style.transform='scale('+(w/capturedDims.cssW)+')';
     }
-    // initial fit next frame (after layout) and on resize
     requestAnimationFrame(function(){ applyFit(); requestAnimationFrame(applyFit); });
     var _ro=null;
     if(typeof ResizeObserver!=='undefined'){
@@ -1280,25 +1178,19 @@
     }
     var _onWinResize=function(){ applyFit(); };
     window.addEventListener('resize', _onWinResize);
-    // cleanup additions chained below
     var _applyFitCleanup=function(){
       window.removeEventListener('resize', _onWinResize);
       if(_ro) try{ _ro.disconnect(); }catch(_){}
     };
-    // expose count for discard confirm
     ed._annCount=function(){ return state.annotations.length; };
-    // Background raster arriving after the editor opened (snapshot mode): keep it
-    // for the flattened export only — the iframe stays the visual background.
     ed._onRaster=function(canvas, blobUrl2){
       capCanvas=canvas;
       if(blobUrl2 && !frame){ bgImg.src=blobUrl2; bgImg.style.display=''; }
     };
-    // focus trap for editor
     function edTrap(e){
       if(e.key==='Escape'){ e.preventDefault(); requestDiscard(); return; }
       if(e.key==='Delete' || e.key==='Backspace'){
         if(state.selectedId){
-          // don't interfere when typing in prompt; prompt is modal so safe
           e.preventDefault();
           pushUndo();
           state.annotations=state.annotations.filter(function(a){ return a.id!==state.selectedId; });
@@ -1316,12 +1208,8 @@
     }
     document.addEventListener('keydown', edTrap);
     ed._cleanup=function(){ document.removeEventListener('keydown', edTrap); document.body.style.overflow=''; try{ _applyFitCleanup(); }catch(_){} };
-    // canvas drawing
     var ctx=cvs.getContext('2d');
     var dpr=window.devicePixelRatio||1;
-    // We draw annotations in CSS pixels; on export we multiply by dpr.
-    // Scale canvas backing for crispness?
-    // Keep backing = CSS size * dpr for preview, but we already have CSS size equal to viewport. For simplicity keep 1x for editor, export will re-render at DPR.
     function cssPoint(e){
       var rect=cvs.getBoundingClientRect();
       if(!rect.width || !rect.height) return {x:0,y:0};
@@ -1329,7 +1217,6 @@
       var sy=capturedDims.cssH / rect.height;
       var x=(e.clientX - rect.left) * sx;
       var y=(e.clientY - rect.top) * sy;
-      // clamp to model bounds
       x=Math.max(0, Math.min(capturedDims.cssW, x));
       y=Math.max(0, Math.min(capturedDims.cssH, y));
       return {x:x, y:y};
@@ -1345,7 +1232,6 @@
         for(var wi=0;wi<words.length;wi++){
           var w=words[wi];
           if(!w) continue;
-          // break overly long word
           if(ctx2.measureText(w).width>maxW){
             if(cur){ out.push(cur); cur=''; }
             var curW='';
@@ -1444,7 +1330,6 @@
     var drawing=null, dragging=null, dragOff=null;
     function renderAll(){
       ctx.clearRect(0,0,cvs.width,cvs.height);
-      // draw annotations
       state.annotations.forEach(function(a){
         var isSel=a.id===state.selectedId;
         ctx.save();
@@ -1461,7 +1346,7 @@
         } else if(a.type==='pen'){
           if(a.points.length<2) { ctx.beginPath(); ctx.arc(a.points[0][0],a.points[0][1],2,0,Math.PI*2); ctx.fill(); }
           else { ctx.beginPath(); ctx.moveTo(a.points[0][0],a.points[0][1]); for(var i=1;i<a.points.length;i++) ctx.lineTo(a.points[i][0],a.points[i][1]); ctx.stroke(); }
-          if(isSel){ // bbox
+          if(isSel){
             var xs=a.points.map(function(p){return p[0]}), ys=a.points.map(function(p){return p[1]});
             var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs), minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys);
             ctx.setLineDash([6,4]); ctx.strokeStyle='#0f172a'; ctx.strokeRect(minX-4,minY-4,maxX-minX+8,maxY-minY+8); ctx.setLineDash([]);
@@ -1479,11 +1364,9 @@
             ctx.setLineDash([6,4]); ctx.strokeStyle='#0f172a'; ctx.strokeRect(tClampX-4,tClampY-2,tMaxLineW+8,tLines.length*16+4); ctx.setLineDash([]);
           }
         } else if(a.type==='pin'){
-          // circle with number
           ctx.beginPath(); ctx.arc(a.x,a.y,14,0,Math.PI*2); ctx.fillStyle=a.color; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
           ctx.fillStyle='#fff'; ctx.font='bold 12px Inter, system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(a.n), a.x, a.y);
           ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-          // comment bubble multi-line wrapped
           if(a.text){
             ctx.font='12px Inter, system-ui';
             var pinLines=wrapText(a.text, ctx, 220);
@@ -1518,7 +1401,6 @@
         c.setLineDash([6,4]); c.strokeStyle='#0f172a'; c.strokeRect(Math.min(x1,x2)-4,Math.min(y1,y2)-4,Math.abs(x2-x1)+8,Math.abs(y2-y1)+8); c.setLineDash([]);
       }
     }
-    // pointer events unified
     var isPointerDown=false;
     cvs.addEventListener('pointerdown', function(e){
       cvs.setPointerCapture(e.pointerId);
@@ -1545,7 +1427,6 @@
             hit.x=dragClampX; hit.y=dragClampY;
           }
           dragOff={x: pt.x - hit.x, y: pt.y - hit.y};
-          // for rect/arrow need offset for both points
           if(hit.type==='rect' || hit.type==='arrow'){
             dragOff.x2=pt.x - hit.x2; dragOff.y2=pt.y - hit.y2;
           }
@@ -1574,14 +1455,12 @@
         var cmt=prompt('Pin comment (plain text, max 180 chars):','');
         if(cmt===null) return;
         cmt=String(cmt).slice(0,180);
-        // allow empty comment
         pushUndo();
         state.annotations.push({id:genId(), type:'pin', x:pt.x, y:pt.y, text:cmt.trim(), color:state.color, n: state.nextPin++});
         state.selectedId=state.annotations[state.annotations.length-1].id;
         renderAll();
         return;
       }
-      // pen/rect/arrow start
       pushUndo();
       isPointerDown=true;
       if(state.tool==='pen'){
@@ -1612,19 +1491,10 @@
           }
           dragging.x=nx; dragging.y=ny;
         } else if(dragging.type==='rect' || dragging.type==='arrow'){
-          // move shape so origin follows pointer offset
-          // actually we stored offset from hit point to shape origin; for simplicity move both points by delta of pointer
-          // compute delta since last move
-          // Instead: move shape so that origin follows pointer offset
-          // We have dragOff as pt0 - origin; so new origin = pt - dragOff
-          // For rect/arrow we need to move both points together
-          // simpler: track last pt and delta
-          // fallback: use stored delta per frame: compute new x = pt.x - dragOff.x, new x2 = pt.x - dragOff.x2 etc. but dragOff.x2 is pt0 - x2, so x2 = pt.x - dragOff.x2 gives correct
           dragging.x=pt.x - dragOff.x;
           dragging.y=pt.y - dragOff.y;
           dragging.x2=pt.x - dragOff.x2;
           dragging.y2=pt.y - dragOff.y2;
-          // clamp rect/arrow so whole shape stays in canvas
           var rMinX=Math.min(dragging.x, dragging.x2), rMaxX=Math.max(dragging.x, dragging.x2);
           var rMinY=Math.min(dragging.y, dragging.y2), rMaxY=Math.max(dragging.y, dragging.y2);
           var shiftX=0, shiftY=0;
@@ -1632,9 +1502,7 @@
           if(rMinY<0) shiftY=-rMinY; else if(rMaxY>cvs.height) shiftY=cvs.height - rMaxY;
           dragging.x+=shiftX; dragging.x2+=shiftX; dragging.y+=shiftY; dragging.y2+=shiftY;
         } else if(dragging.type==='pen'){
-          // translate all points by pointer delta using stored offsets (pt0 -> points)
           for(var i=0;i<dragging.points.length;i++){ dragging.points[i][0]=pt.x + dragOff.pts[i][0]; dragging.points[i][1]=pt.y + dragOff.pts[i][1]; }
-          // clamp pen points inside canvas bounds
           var pMinX=Infinity, pMaxX=-Infinity, pMinY=Infinity, pMaxY=-Infinity;
           for(var pp=0;pp<dragging.points.length;pp++){ if(dragging.points[pp][0]<pMinX) pMinX=dragging.points[pp][0]; if(dragging.points[pp][0]>pMaxX) pMaxX=dragging.points[pp][0]; if(dragging.points[pp][1]<pMinY) pMinY=dragging.points[pp][1]; if(dragging.points[pp][1]>pMaxY) pMaxY=dragging.points[pp][1]; }
           var sX=0,sY=0; if(pMinX<0) sX=-pMinX; else if(pMaxX>cvs.width) sX=cvs.width-pMaxX; if(pMinY<0) sY=-pMinY; else if(pMaxY>cvs.height) sY=cvs.height-pMaxY;
@@ -1659,12 +1527,9 @@
         dragging=null;
       }
       if(drawing){
-        // finalize
         if(drawing.type==='pen' && drawing.points.length<2){
-          // single dot is okay
         }
         if((drawing.type==='rect' || drawing.type==='arrow') && Math.hypot(drawing.x2-drawing.x, drawing.y2-drawing.y)<6){
-          // too small, remove
           state.annotations=state.annotations.filter(function(a){return a.id!==drawing.id;});
         } else {
           state.selectedId=drawing.id;
@@ -1677,11 +1542,7 @@
     cvs.addEventListener('pointerup', endPointer);
     cvs.addEventListener('pointercancel', endPointer);
     cvs.addEventListener('pointerleave', function(e){ if(isPointerDown) endPointer(e); });
-    // Done/Cancel handled below; drawing undo is pushed at pointerdown (before mutation)
-    // Done/Cancel handlers
     btnCancel.addEventListener('click', function(){ requestDiscard(); });
-    // Replay annotations onto any 2D context already scaled to CSS coordinates.
-    // Used twice: once for the transparent overlay, once for the flattened export.
     function drawAnnotationsTo(octx, cssW){
       state.annotations.forEach(function(a){
         octx.save();
@@ -1690,8 +1551,7 @@
         else if(a.type==='arrow'){ octx.beginPath(); octx.moveTo(a.x,a.y); octx.lineTo(a.x2,a.y2); octx.stroke(); var ang=Math.atan2(a.y2-a.y,a.x2-a.x); var len=14; octx.beginPath(); octx.moveTo(a.x2,a.y2); octx.lineTo(a.x2-len*Math.cos(ang-Math.PI/6), a.y2-len*Math.sin(ang-Math.PI/6)); octx.lineTo(a.x2-len*Math.cos(ang+Math.PI/6), a.y2-len*Math.sin(ang+Math.PI/6)); octx.closePath(); octx.fill(); }
         else if(a.type==='pen'){ if(a.points.length>=2){ octx.beginPath(); octx.moveTo(a.points[0][0],a.points[0][1]); for(var i=1;i<a.points.length;i++) octx.lineTo(a.points[i][0],a.points[i][1]); octx.stroke(); } else if(a.points.length===1){ octx.beginPath(); octx.arc(a.points[0][0],a.points[0][1],2,0,Math.PI*2); octx.fill(); } }
         else if(a.type==='text'){ octx.font='14px Inter, system-ui, sans-serif'; octx.fillStyle=a.color;
-          (function(){ var tcsW=Math.max(120, cssW - a.x - 12); var oMax=0; // measure wrap to clamp
-            // simple word wrap mirroring wrapText inline (uses octx)
+          (function(){ var tcsW=Math.max(120, cssW - a.x - 12); var oMax=0;
             var paras=String(a.text||'').split('\n'); var wLines=[];
             for(var pi=0;pi<paras.length;pi++){ var para=paras[pi]; if(!para){ wLines.push(''); continue; } var words=para.split(/\s+/); var cur=''; for(var wi=0;wi<words.length;wi++){ var w=words[wi]; if(!w) continue; if(octx.measureText(w).width>tcsW){ if(cur){ wLines.push(cur); cur=''; } var curW=''; for(var ci=0;ci<w.length;ci++){ var testW=curW+w[ci]; if(octx.measureText(testW).width>tcsW && curW){ wLines.push(curW); curW=w[ci]; } else curW=testW; } if(curW) cur=curW; continue; } var test=cur?cur+' '+w:w; if(octx.measureText(test).width<=tcsW) cur=test; else { if(cur) wLines.push(cur); cur=w; } } if(cur) wLines.push(cur); else if(!wLines.length||wLines[wLines.length-1]!=='') wLines.push(''); }
             if(!wLines.length) wLines.push('');
@@ -1706,8 +1566,6 @@
     btnDone.addEventListener('click', function(){
       var exportScale=capturedDims.dpr|| (window.devicePixelRatio||1);
       var cssW=cvs.width, cssH=cvs.height;
-      // 1) annotations-only overlay, transparent, drawn at device resolution so it
-      //    composites cleanly over the natively-rendered snapshot in the dashboard
       var layer=document.createElement('canvas');
       layer.width=Math.round(cssW*exportScale);
       layer.height=Math.round(cssH*exportScale);
@@ -1717,7 +1575,6 @@
       function finish(){
         cleanupAnnotate();
         ed.remove();
-        // done via overlay -> form, keep body locked for the restored dialog
         document.body.style.overflow='hidden';
         if(overlay) overlay.style.display='flex';
         chooser.style.display='none'; capturePane.style.display='none';
@@ -1725,7 +1582,6 @@
         if(capturedBlobUrl){ URL.revokeObjectURL(capturedBlobUrl); capturedBlobUrl=null; }
       }
       function withFlattened(next){
-        // 2) flattened PNG — best effort; only possible when the raster succeeded
         var background=(capCanvas && capCanvas.width) ? capCanvas : (frame ? null : bgImg);
         if(!background){ next(); return; }
         var out=document.createElement('canvas');
@@ -1745,7 +1601,6 @@
           pendingAnnotationsFile=new File([layerBlob], 'annotations.png', {type:'image/png'});
         }
         withFlattened(function(){
-          // 3) the pixel-exact artifact
           gzipSnapshotFile(capturedSnapshotHtml, function(file){
             pendingSnapshotFile=file;
             if(!pendingAnnotatedFile && !pendingSnapshotFile){ alert('Failed to export image'); return; }
@@ -1754,7 +1609,6 @@
         });
       }, 'image/png');
     });
-    // double-click to edit text/pin
     cvs.addEventListener('dblclick', function(e){
       var pt=cssPoint(e);
       var hit=hitTest(pt);
@@ -1776,15 +1630,12 @@
         renderAll();
       }
     });
-    // initial render
     renderAll();
-    // prevent scroll while editing (touch)
     function prevent(e){ e.preventDefault(); }
     stage.addEventListener('touchmove', prevent, {passive:false});
     ed._cleanupExtra=function(){ stage.removeEventListener('touchmove', prevent); };
     var origCleanup=ed._cleanup;
     ed._cleanup=function(){ origCleanup(); if(ed._cleanupExtra) ed._cleanupExtra(); };
-    // focus Done
     setTimeout(function(){ btnDone.focus(); }, 50);
   }
   function createTrigger(){
@@ -1803,7 +1654,6 @@
       title: label,
       'data-html2canvas-ignore':'true'
     });
-    // accessible name fallback if label empty
     if(!label) btn.setAttribute('aria-label','Feedback');
     var tabStyle='position:fixed;z-index:2147483640;display:flex;align-items:center;justify-content:center;cursor:pointer;'+
       'background:'+color+';color:#fff;border:none;padding:0;margin:0;'+
@@ -1824,14 +1674,12 @@
       btn.setAttribute('style', tabStyle);
       btn.textContent=label;
     } else {
-      // Bottom horizontal pill — compact, width = text + padding, height 36px.
       var bottomSide=isBottomRight?'right:20px;':'left:20px;';
       tabStyle+='bottom:0;'+bottomSide+'border-radius:8px 8px 0 0;'+
         'padding:10px 18px;min-height:36px;box-sizing:border-box;';
       btn.setAttribute('style', tabStyle);
       btn.textContent=label;
     }
-    // hover interactions (transform + brightness)
     var hoverTransformVertical=isRight?'translateY(-50%) translateX(-4px)':'translateY(-50%) translateX(4px)';
     if(isLeft) hoverTransformVertical='translateY(-50%) rotate(180deg) translateX(4px)';
     var baseTransform=vertical?(isLeft?'translateY(-50%) rotate(180deg)':'translateY(-50%)'):'' ;
@@ -1851,14 +1699,12 @@
     btn.addEventListener('mouseleave', onLeave);
     btn.addEventListener('focus', onEnter);
     btn.addEventListener('blur', onLeave);
-    // keyboard activation
     btn.addEventListener('keydown', function(e){
       if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){
         e.preventDefault();
         open();
       }
     });
-    // focus-visible outline via inline fallback
     btn.addEventListener('focus', function(){ btn.style.outline='2px solid #fff'; btn.style.outlineOffset='2px'; });
     btn.addEventListener('blur', function(){ btn.style.outline=''; btn.style.outlineOffset=''; });
     btn.addEventListener('click', open);
@@ -1875,24 +1721,17 @@
       revealOnce();
       return;
     }
-    // needFetch but no projectKey → no remote config possible, reveal with defaults
     var needFetch=(!_initialLabel||!_initialColor||!_initialPos);
     if(needFetch&&!projectKey){
       if(!document.body){ setTimeout(mount, 50); return; }
       revealOnce();
       return;
     }
-    // needFetch && has projectKey: fetchWidgetConfig already scheduled the
-    // bounded timeout + fetch. Ensure reveal even if body wasn't ready at
-    // timer creation — poll until body exists, then let revealOnce append.
-    // If fetch path wasn't entered (shouldn't happen), fall back to timer.
     if(!_revealed&&!_revealTimer){
       _revealTimer=setTimeout(function(){ if(!_revealed) revealOnce(); }, WIDGET_REVEAL_TIMEOUT_MS);
     }
     if(!document.body){ setTimeout(mount, 50); return; }
-    // body ready: reveal will be triggered by fetch success / catch / timeout
     if(_revealed) return;
-    // nothing else to do — waiting for fetch or timeout (already scheduled)
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 })();
