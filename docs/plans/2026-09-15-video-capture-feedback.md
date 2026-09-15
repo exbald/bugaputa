@@ -18,7 +18,7 @@ Success criteria:
 - A reporter completes Record video in <60s on a supported desktop browser and the dashboard shows a playable `<video controls>` with correct duration/mime/size.
 - On unsupported browsers the widget never dead-ends: a clearly labeled fallback (file upload or Screenshot / General feedback) is offered.
 - Every rejected request (validation, honeypot, bad key, rate limit, oversized) cleans up temp files — no disk leak.
-- Widget base IIFE stays <30KB gzipped; video support is lazy-loaded.
+- Widget base IIFE stays <30KB gzipped (30,720 bytes ceiling); video support is lazy-loaded. Base chooser wiring must land only after reclaiming >=1.5KB gzipped headroom (target: base <=29KB / 29,696 bytes gzipped) so the ceiling is not breached. Enforced by a RED size test against the measured 30,547-byte baseline.
 
 ---
 
@@ -45,7 +45,7 @@ widget/widget.js (vanilla IIFE, <30KB gzipped base)
 server (Express + SQLite + multer + helmet)
   ├─ DB: reports.videoPath, reports.videoMime, reports.videoDurationMs (nullable, additive migration)
   ├─ POST /api/reports: accept new multipart field "video" alongside existing ones; validate mime+magic bytes+size+duration; random filename; cleanup on every early exit; insert row
-  ├─ GET /uploads/:filename: Range support + correct Content-Type for video; keep existing html/gz "attachment" behavior for snapshots
+  ├─ GET /uploads/:filename: (images/snapshots only, public) + authenticated GET /api/reports/:id/video (owner-only, Range) for video; keep html/gz "attachment" behavior
   ├─ DELETE /api/reports/:id: remove video artifact too
   └─ per-project feature flag: projects.videoCaptureEnabled boolean (default false, per project)
 
@@ -137,12 +137,12 @@ infra
 | Magic-byte validation | WebM: first 4 bytes `0x1A 0x45 0xDF 0xA3` (EBML). MP4: `ftyp` at bytes 4–7. Reject otherwise (400, no 500). | Read first 12 bytes via `fs.readSync`; same cleanup-before-respond pattern as screenshot path. |
 | Filename | `randomUUID() + extFromMime(mime)` where ext map `video/webm→.webm`, `video/mp4→.mp4`. | Matches `server/src/routes/reports.ts:41–49` random filename pattern. |
 | Max size | **25MB** (26,214,400 bytes). | Balances 60s of 720p vp9 (~2–8MB typical, worst ~20MB) with Coolify volume safety. Image cap stays 5MB; snapshot 8MB. Multer global limit is `MAX_SNAPSHOT_BYTES` (8MB) today — must be raised to `MAX_VIDEO_BYTES` (25MB) as the global `fileSize` is the largest artifact. Per-image 5MB check stays; per-video 25MB check added (section 6). |
-| Max duration | **60 seconds**, enforced client-side (auto-stop at 60s + pre-upload check) AND server-side (read duration via lightweight probe or accept client-reported duration with server cap; reject >65s with 400). Server duration probe via file header parse (webm duration element or mp4 mvhd) is best-effort — if unparsable, accept but flag `videoDurationMs=NULL` and rely on size guard. | Client is authoritative for UX; server size guard is authoritative for storage. |
-| Rate limit | Same `20/min/IP/project` enforced via `rateLimitCheck(ip, project.id)` (`server/src/lib/rateLimit.ts`). Video does not get a separate bucket in MVP. | Telemetry (`presence` namespace) stays isolated, per `server/src/routes/presence.ts:151`. |
+| Max duration | **60 seconds client auto-stop; server enforcement is explicit and tested.** Client auto-stops at 60s and pre-upload validates duration. Server enforces via a tested header parser for WebM (EBML `Duration` element with `TimecodeScale`) and MP4 (`mvhd` timescale/duration box) — reject >61s with 413/400. If the header is unparsable/corrupt/truncated, do NOT claim enforcement: accept the file as a **manual fallback upload**, store `videoDurationMs=NULL`, and enforce only the byte cap (25MB). Document in the API that duration guarantee applies to in-widget recordings and to parser-supported webm/mp4; manual uploads beyond 60s that bypass the parser are capped by bytes, not duration, until robust probing (e.g. `ffprobe` sidecar) exists. Do not call a best-effort check an enforced maximum. | Client is authoritative for UX; server size guard is authoritative for storage; server duration probe covers the two allowlisted containers when parse succeeds. |
+| Rate limit | **Separate video-upload limiter** plus existing report limiter. Keep `20/min/IP/project` for `POST /api/reports` without video; add `video` namespace limiter `5/min/IP/project` (recommended default: 5 video uploads per 60s window, 429 with `Retry-After`) enforced in `reports.ts` when `video` is present. Add per-project storage guard: `SELECT COALESCE(SUM(videoSizeBytes or file size),0) FROM reports WHERE projectId=?` or filesystem `du` check, soft cap **1GB per project** (recommended) → 413 `Project storage quota exceeded` when exceeded. Ensure every rejected multipart temp file is deleted via `cleanupUploads` before 429/413. Telemetry (`presence` namespace) stays isolated. Include alert threshold: log and alert at 75% of per-project quota. | Namespace isolation prevents video abuse from starving text reports and prevents storage exhaustion at 25MB × 20/min = 500MB/min. |
 | Cleanup | Every early exit (honeypot, zod 400, bad projectKey 400, rate-limit 429, multer error, mime/size/magic failure) calls `cleanupUploads(req)` before responding. | Existing `cleanupUploads` at `reports.ts:89–101` iterates `req.files[key]` and `req.file`. Extend to include `video` key (already generic). |
 | Delete | `DELETE /api/reports/:id` removes video file from `UPLOAD_DIR` (and legacy fallback) if present. | Mirrors screenshot/snapshot deletion loop at `reports.ts:293–301`. |
-| Access | Keep `/uploads/:filename` public (no auth) for MVP, matching screenshot behavior. Video is not more sensitive than screenshot in bug context. Auth-gated video can be a post-MVP hardening. | Note: snapshot .html served as `application/octet-stream` attachment + `nosniff` stays; video served with correct Content-Type and Range. |
-| Range | Video playback requires HTTP Range. `res.sendFile` supports Range automatically, but verify `Accept-Ranges: bytes` is set and `helmet` does not strip it. Add explicit test `GET /uploads/:video` with `Range: bytes=0-1023` expects 206. | |
+| Access | **Owner-authenticated, Range-capable route for video; screenshots stay public.** `GET /api/reports/:id/video` (auth required, `authMiddleware`, owner check via `report.projectId → project.ownerId`) streams `videoPath` inline with `videoMime`, `Accept-Ranges: bytes`, and `Range: bytes=` → 206 support. Alternative if strictly cleaner in this codebase: short-lived signed URL minted by the same owner check (`GET /api/reports/:id/video-url` returns `{url, expiresAt}` with HMAC token TTL ~15m, served by `GET /uploads/video/:token` with signature verification) — pick one and keep the other out of the MVP. Do NOT expose video via unauthenticated `GET /uploads/:filename` by UUID guess. Legacy image/snapshot routes `GET /uploads/:filename` remain public and unchanged for screenshots/snapshots. | Note: snapshot .html served as `application/octet-stream` attachment + `nosniff` stays; video served with correct Content-Type and Range on the authenticated route. Dashboard and tests must use the authenticated route. Explain cookie behavior in §6.3. |
+| Range | Video playback requires HTTP Range on the authenticated route. `res.sendFile` (or streaming `createReadStream` with `Range` parsing) supports Range, but verify `Accept-Ranges: bytes` is set and `helmet` does not strip it. Add explicit test `GET /api/reports/:id/video` with `Cookie: jwt=…` + `Range: bytes=0-1023` expects 206. Unauthenticated `GET /api/reports/:id/video` must 401/403 and must not leak existence (treat as 404 or 403 consistently). | |
 | CSP | Add `mediaSrc: ["'self'", "blob:", "data:"]` to `helmet.contentSecurityPolicy.directives` in `server/src/app.ts:56–77`. `frameSrc 'self'` stays; video is `<video src>`, not a frame. | Current CSP lacks `mediaSrc`, so `defaultSrc 'self'` would block `blob:` video preview if served via CSP header. |
 | Migration compat | All new columns nullable; old rows return `videoPath: null` and dashboard hides video card. `GET /api/reports/:id` and `GET /api/projects/:projectId/reports` include new fields (null when absent). Widget works whether flag on or off. | |
 
@@ -174,7 +174,7 @@ infra
 
 | Area | Current reference | Change |
 |------|-------------------|--------|
-| Size guard | `widget/widget.js` gzipped 30547 bytes (near 30KB budget) — `terminal` check in §4 | Keep base IIFE <30KB by **lazy-loading** video module. New file `widget/video-capture.js` (or `client/public/video-capture.js`) loaded only when Record video chosen. Base widget adds ~1KB (chooser third button + wiring). |
+| Size guard | `widget/widget.js` 107,110 bytes raw / **30,547 bytes gzipped** at commit `4461019` against 30,720-byte ceiling → **173 bytes headroom**. Adding a third chooser button + wiring naively costs ~0.9–1.2KB gzipped and would breach the ceiling. | Reclaim >=1.5–2.0KB gzipped headroom **before** adding chooser wiring so the base stays <=29,696 bytes (29KB). Strategy (quantified, additive): (a) dead-code/whitespace trim in the IIFE preamble + presence dedupe ~0.3KB; (b) shorten long string literals / collapse repeated selectors in the injected CSS template ~0.4KB; (c) move snapshot-only helpers behind the existing lazy-loader guard so the base no longer bundles unused capture-engine shims ~0.4KB; (d) micro-minify `createWidgetConfig` label/color/position coercion helpers ~0.2KB; total ~1.3–1.7KB reclaimed, target 29.0–29.3KB base. Video-capture code lives in `widget/video-capture.js` (lazy-loaded via `loadScript(base+"/video-capture.js")`, never inlined). Base+lazy chunk combined is informational only; only the base is gated at 30,720. CI RED test: `gzip -c widget/widget.js | wc -c` must be <=29696 after reclaim and <=30720 unconditionally; existing baseline asserted as 30547 in `widget-mirror-and-size` test. If reclaim misses target, the plan explicitly justifies a budget change (e.g. 32KB ceiling) with a measured before/after `gzip -c` report — do not silently breach. |
 | Chooser | `widget/widget.js:196–243` defines `#bugaputa-chooser` with `#bugaputa-choose-capture` + `#bugaputa-choose-general` and handlers at `:235–241` | Extend to 3 buttons: `#bugaputa-choose-screenshot` (renamed from capture), `#bugaputa-choose-video`, `#bugaputa-choose-general`. Add CSS for `#bugaputa-choose-video` (distinct but neutral — perhaps `background:#fff;border:1px dashed #cbd5e1` or same as screenshot secondary). All buttons get `aria-label`, `min-height:48px`, `focus-visible` ring. |
 | Capture panes | `widget/widget.js:209–218` capturePane + consentBox + capBtn/capBack + capStatus | Split into `#bugaputa-screenshot-pane` (existing consentBox, behavior unchanged) and `#bugaputa-video-pane` (new). Video pane contains: consent copy, `Include microphone` checkbox (`#bugaputa-video-mic`), `Start recording` button, status div `#bugaputa-video-status`, fallback file input `#bugaputa-video-file` (hidden until unsupported/denied). |
 | State vars | `widget/widget.js:96–103` — `capturedBlobUrl`, `capturedDataUrl`, `capturedDims`, `pendingAnnotatedFile`, `capturedSnapshotHtml`, `pendingSnapshotFile`, `pendingAnnotationsFile` | Add: `pendingVideoFile: File\|null`, `pendingVideoUrl: string\|null`, `pendingVideoMeta: {mime:string,durationMs:number,sizeBytes:number}\|null`, `activeStream: MediaStream\|null`, `mediaRecorder: MediaRecorder\|null`, `videoChunks: BlobPart[]`, `videoTimer: number\|null`, `videoElapsedMs: number`, `videoStartTs: number`. |
@@ -249,7 +249,7 @@ Changes file-by-file deltas:
 | `upload` limits | Raise `fileSize` to `MAX_VIDEO_BYTES` (largest artifact). `files` limit from 3 to 4 (screenshot, domSnapshot, annotations, video). |
 | `fileFilter` | Branch: `if (IMAGE_FIELDS.has(...)) allowed=ALLOWED_MIME; else if (VIDEO_FIELDS.has(...)) allowed=VIDEO_MIME or baseMime∈VIDEO_MIME (strip codecs); else allowed=SNAPSHOT_MIME;` Normalize `file.mimetype.split(";")[0].trim().toLowerCase()` before checking. |
 | `pickedFiles` | Add `video: UploadedFile\|null`. |
-| Per-file caps | Keep screenshot/annotations 5MB loop, add `if (files.video && size>MAX_VIDEO_BYTES) cleanup+400`. Also magic-byte check function `validateVideoMagic(file.path, mime)` called here (read first 12 bytes, check EBML or ftyp). On fail, cleanup+400. Optional duration probe: try `getVideoDurationMs(file.path, mime)` (lightweight header parse) — if > 60_000+1000 grace, reject 400 with "Video too long (max 60s)". If duration unparsable, allow (size guard remains). |
+| Per-file caps | Keep screenshot/annotations 5MB loop, add `if (files.video && size>MAX_VIDEO_BYTES) cleanup+413/400 ("File too large — max 25MB")`. Magic-byte check `validateVideoMagic(file.path, mime)` (read first 12 bytes, check EBML `1A45DFA3` or `ftyp` at 4–7) — on fail cleanup+400. Duration probe `probeVideoDurationMs(file.path, mime)` (WebM Duration/TimecodeScale and MP4 mvhd) — if parsed and >61_000ms reject 400 ("Video too long — max 60s"); if unparsable store `videoDurationMs=NULL` and accept subject to 25MB byte cap (honest split guarantee: duration enforcement only when parser succeeds; manual fallback capped by bytes). Also enforce video namespace rate limit (5/min/IP/project → 429 with Retry-After) and per-project 1GB quota → 413 before insert; every rejection deletes temp files via `cleanupUploads`. |
 | Insert | Extend `INSERT INTO reports (..., videoPath, videoMime, videoDurationMs)` values `(..., videoPath, videoMime, videoDurationMs)`. |
 | DELETE | Extend deletion loop to include `report.videoPath`. |
 | Response shape | `POST /` still returns `{id}` 201; `GET /:id` and `GET /projects/:id/reports` automatically return new columns via `SELECT *`. No change there but tests assert new fields. |
@@ -311,29 +311,32 @@ And ensure `listProjects`/`getProject` types include `videoCaptureEnabled`.
 
 - Add `VideoViewer` component (parallel to `SnapshotViewer` at lines 16–78) or inline:
 ```tsx
-function VideoViewer({src, mime}:{src:string; mime:string|null}) {
+function VideoViewer({reportId, mime}:{reportId:string; mime:string|null}) {
+  const src = `/api/reports/${reportId}/video`;
   const [err,setErr]=useState("");
   const [loading,setLoading]=useState(true);
   return (
     <div className="mt-3">
       {loading && <div className="text-sm text-slate-400">Loading video…</div>}
       {err ? (
-        <div role="alert" className="border rounded-xl p-4 bg-red-50 text-red-700 text-sm">{err} — <a href={src} download className="underline">Download</a></div>
+        <div role="alert" className="border rounded-xl p-4 bg-red-50 text-red-700 text-sm">{err} — <a href={`${src}?download=1`} className="underline">Download</a></div>
       ) : null}
-      <video controls preload="metadata" playsInline crossOrigin="anonymous"
+      {/* same-origin cookie supplies httpOnly JWT; no crossOrigin needed */}
+      <video controls preload="metadata" playsInline
         onLoadedMetadata={()=>setLoading(false)}
         onError={()=>{ setErr("This browser cannot play this video"); setLoading(false); }}
         className="w-full rounded-xl border bg-black max-h-[480px]">
         <source src={src} type={mime||undefined} />
       </video>
-      <a href={src} download className="mt-2 inline-block text-sm text-lime-600 hover:underline">Download</a>
+      <a href={`${src}?download=1`} className="mt-2 inline-block text-sm text-lime-600 hover:underline">Download</a>
     </div>
   );
 }
 ```
+Same-origin cookie behavior: dashboard and API share origin (`bugaputa.com`), so `<video src="/api/reports/:id/video">` sends the httpOnly JWT cookie automatically (SameSite=Lax). No CORS, no `crossOrigin="anonymous"` (which would omit cookies). If the deployment ever serves dashboard from a different origin, switch to `crossOrigin="use-credentials"` and `fetch(..., {credentials: 'include'})` → `blob:` URL path. `Download` triggers the same authenticated route with `?download=1` → `Content-Disposition: attachment`.
 - In main render: above SnapshotViewer block, insert:
 ```tsx
-{ vidSrc && (<div className="bg-white border rounded-2xl p-5"><h2 className="font-semibold text-sm">Screen recording</h2><VideoViewer src={vidSrc} mime={report.videoMime||null} /><p className="mt-2 text-xs text-slate-400">{report.videoMime} · {report.videoDurationMs? Math.round(report.videoDurationMs/1000)+"s":""} · Download keeps the original file.</p></div>)}
+{ report.videoPath && (<div className="bg-white border rounded-2xl p-5"><h2 className="font-semibold text-sm">Screen recording</h2><VideoViewer reportId={report.id} mime={report.videoMime||null} /><p className="mt-2 text-xs text-slate-400">{report.videoMime} · {report.videoDurationMs? Math.round(report.videoDurationMs/1000)+"s":""} · Download keeps the original file.</p></div>)}
 ```
 - Keep screenshot card label as `snapshotPath ? "Flattened image" : "Screenshot"` — unchanged.
 
@@ -343,7 +346,7 @@ function VideoViewer({src, mime}:{src:string; mime:string|null}) {
 - `server/src/lib/ip.ts` — unchanged.
 - `server/src/middleware/auth.ts` — unchanged.
 - `client/src/App.tsx`, `client/src/pages/Dashboard.tsx` — no video changes in MVP (list already via ProjectReports).
-- `README.md` — update API table row for `POST /api/reports` to document `video` field (25MB, webm/mp4, 60s) and `/uploads/:filename` Range note. Out of scope for planning branch commit but flagged for follow-up PR.
+- `README.md` — update API table row for `POST /api/reports` to document `video` field (25MB, webm/mp4, 60s) and authenticated `GET /api/reports/:id/video` Range note (screenshots stay on `GET /uploads/:filename`). Out of scope for planning branch commit but flagged for follow-up PR.
 
 ---
 
@@ -407,16 +410,24 @@ Existing `SELECT * FROM reports` will now include:
 ```
 Old rows have `videoPath:null, videoMime:null, videoDurationMs:null`.
 
-### 6.3 Serving — `GET /uploads/:filename`
+### 6.3 Serving
 
-| Filename suffix | Content-Type | Content-Disposition | Notes |
-|-----------------|--------------|---------------------|-------|
-| `.html`, `.html.gz` | `application/octet-stream` | `attachment; filename="…"` plus `X-Content-Type-Options: nosniff` | unchanged — prevents HTML execution |
-| `.png/.jpg/.webp/.gif` | `image/*` | inline | unchanged |
-| `.webm` **(new)** | `video/webm` | inline | support `Range: bytes=` → 206 |
-| `.mp4` **(new)** | `video/mp4` | inline | support `Range: bytes=` → 206 |
+#### 6.3.1 Legacy public `GET /uploads/:filename` (unchanged for screenshots/snapshots)
 
-Legacy fallback `/data/uploads` kept.
+| Filename suffix | Content-Type | Content-Disposition | Auth | Notes |
+|-----------------|--------------|---------------------|------|-------|
+| `.html`, `.html.gz` | `application/octet-stream` | `attachment; filename="…"` plus `X-Content-Type-Options: nosniff` | none (public) | unchanged — prevents HTML execution |
+| `.png/.jpg/.webp/.gif` | `image/*` | inline | none (public) | unchanged |
+
+Legacy fallback `/data/uploads` kept. **Video is NOT served here in the hardened MVP.**
+
+#### 6.3.2 Video `GET /api/reports/:id/video` (new — owner-authenticated, Range-capable)
+
+`GET /api/reports/:id/video` — requires `authMiddleware` (httpOnly JWT cookie), checks `report.projectId → project.ownerId === req.user.id`, then streams `report.videoPath` inline with `Content-Type: <videoMime>`, `Accept-Ranges: bytes`, `Cache-Control: private, max-age=60`, `X-Content-Type-Options: nosniff`. Supports `Range: bytes=0-1023` → 206 with `Content-Range`. Unauthenticated → 401; non-owner → 404 (do not leak existence) or 403. `DELETE /api/reports/:id` removes the video file and future `GET .../video` is 404.
+
+Same-origin cookie behavior: `<video src="/api/reports/:id/video">` on the dashboard origin (`bugaputa.com`) sends the httpOnly JWT cookie automatically (same-origin, `SameSite=Lax` cookie, no `crossOrigin` needed; keep `crossOrigin="anonymous"` off for cookie-authenticated video or set `crossOrigin="use-credentials"` only if CORS is involved — on same origin, plain `<video controls src="/api/reports/:id/video">` includes cookies). `Download` is `GET /api/reports/:id/video` with `?download=1` → `Content-Disposition: attachment; filename="…"` or a `fetch` with credentials → `blob:` URL. CSP `media-src` must allow same-origin video (see §5.5). If a signed-URL alternative is chosen, the mint endpoint is also owner-authenticated and tokens are HMAC-SHA256 with `expiresAt`, TTL ~15m, single-use optional.
+
+Add `HEAD /api/reports/:id/video` mirroring headers (optional).
 
 ### 6.4 Projects — `PATCH /api/projects/:id`
 
@@ -508,7 +519,7 @@ Invariants:
 | Cross-origin frames | `getDisplayMedia` shares whatever the display surface shows; cross-origin iframes appear as rendered in that surface (browser decides blanking). No extra exposure beyond what the user sees. |
 | Malicious media | MIME + magic-byte validation blocks polyglot uploads; `helmet` + `nosniff` + allowlist `Content-Type` prevents sniffed execution. Video never rendered as `srcdoc`. |
 | Path traversal | `path.basename` + `randomUUID()` filenames — same as screenshot path (`reports.ts:41, path.basename getUploadDir`). No user filename retained. |
-| Resource exhaustion | 25MB per video, 60s duration, 20/min/IP/project, `MAX_ORIGINS_PER_PROJECT` analog not needed; monitor upload volume. |
+| Resource exhaustion | 25MB per video, 60s auto-stop, 5/min/IP/project video limiter + 20/min/IP/project report limiter, per-project 1GB soft storage cap (413), `MAX_ORIGINS_PER_PROJECT` analog not needed; monitor upload volume + quota alerts. Rejected temp files always deleted before 429/413. |
 | CSP | Add `media-src 'self' blob: data:`; keep `img-src 'self' data: blob: https:` for snapshots; `frame-src 'self'` etc unchanged. |
 | Honeypot | Video upload on honeypot request must be deleted before fake 201, same as screenshots (`reports.ts:161–167` pattern). |
 | No secrets in repo | Fixtures are synthetic tiny buffers; no customer data, no `.env` values committed. |
@@ -530,15 +541,15 @@ Each task is small, test-first, and independently verifiable. Order matters — 
 - Change `server/src/routes/reports.ts` (constants, storage.filename, limits, fileFilter, pickedFiles, per-file caps, magic check).
 - Helper `validateVideoMagic` and lightweight `mimeToExt` extension.
 - Tests: `server/tests/api.test.ts` new `describe("video upload")`:
-  - accepts `video/webm` (.webm) and `video/mp4` (.mp4) with valid magic, file on disk, random filename, GET /uploads serves with correct content-type, Range 206 works.
+  - accepts `video/webm` (.webm) and `video/mp4` (.mp4) with valid magic, file on disk, random filename; authenticated GET /api/reports/:id/video serves with correct content-type (derived from allowlisted mime, not client header) and Range 206 works; unauthenticated GET is 401/404.
   - accepts codec-suffixed mime `video/webm;codecs=vp9` maps to .webm.
   - rejects `text/plain`, `application/octet-stream` spoof, invalid magic (400 not 500), oversize >25MB (400), unexpected field `evil` (400), no leak on honeypot/bad key/rate-limit/short message (countUploadFiles before==after), delete cleans up video, snapshot .html still served as attachment not video.
 - Verify: `npm --workspace=server run test -- --reporter=verbose`.
 
-### T3 — Backend: CSP media-src + /uploads Range for video
+### T3 — Backend: CSP media-src + authenticated video Range
 
 - Change `server/src/app.ts` CSP and upload handler.
-- Tests: assert `GET /` CSP header contains `media-src` with `blob:`; `GET /uploads/<video>` returns `Accept-Ranges: bytes`; `GET /uploads/<video> Range: bytes=0-1023` returns 206 with `Content-Range`.
+- Tests: assert `GET /` CSP header contains `media-src` with `blob:`; authenticated `GET /api/reports/:id/video` returns `Accept-Ranges: bytes` and `Cache-Control: private`; same route with `Range: bytes=0-1023` returns 206 with `Content-Range`; unauthenticated request is 401 and non-owner is 404.
 - Verify: same test command plus manual `curl -i -H "Range: bytes=0-5"`.
 
 ### T4 — Backend: projects flag + widget-config inclusion
@@ -604,8 +615,8 @@ Run from repo root (`/home/hermes/workspaces/bugaputa-video-plan`) or the task w
 | `gzip -c widget/widget.js | wc -c` | `≤ 30720` (30KB). |
 | `gzip -c widget/widget.js widget/video-capture.js 2>/dev/null | wc -c` | Baseline noted; `video-capture.js` gzipped ≤ 8192 (8KB) target; base alone still ≤30KB. |
 | `curl -s http://localhost:3000/health | jq .` | `{"ok":true}`. |
-| `curl -i http://localhost:3000/uploads/<video>.webm -H "Range: bytes=0-1023"` | `206 Partial Content` with `Content-Range: bytes 0-1023/<total>` and `Accept-Ranges: bytes`. |
-| `./scripts/smoke.sh http://localhost:3000` | `register → create project → public submit (x-project-key) → list reports (assert 1)` pass. Video smoke extended: `POST /api/reports` with `video` attach → 201 → `GET /uploads/<video>` 200 video/webm. |
+| `curl -i http://localhost:3000/api/reports/<id>/video -H "Cookie: jwt=<token>" -H "Range: bytes=0-1023"` | `206 Partial Content` with `Content-Range: bytes 0-1023/<total>` and `Accept-Ranges: bytes`; without cookie → 401. |
+| `./scripts/smoke.sh http://localhost:3000` | `register → create project → public submit (x-project-key) → list reports (assert 1)` pass. Video smoke extended: `POST /api/reports` with `video` attach → 201 → authenticated `GET /api/reports/<id>/video` 200 video/webm (and 401 without auth). |
 | `git status` on planning branch | Only `docs/plans/2026-09-15-video-capture-feedback.md` staged; no other diff. Commit as `docs: plan first-class video capture feedback`. |
 
 ---
@@ -656,28 +667,32 @@ See §12.3 for isolation requirements.
 - Dashboard owners opt in per project via Widget settings toggle. Widget reads flag via `GET /api/widget-config?project=…` includes `videoCaptureEnabled`.
 - Embeds on sites without flag show the 2-way chooser (no Record video) — zero behavior change for existing tenants.
 
-### 12.2 Canary isolation (required)
+### 12.2 Canary isolation (required — precedes merge)
 
-Do NOT reuse the production Coolify app for canary. Provision:
+Do NOT reuse the production Coolify app for canary. Provision an **isolated feature-branch canary** before any merge to `main`:
 
-- New Coolify Application `bugaputa-video-canary` pointing at the feature branch SHA, with:
-  - Separate volume (e.g. `bugaputa-video-canary-data` → `/app/data` in container), so canary uploads and SQLite do not contaminate production.
+- New Coolify Application `bugaputa-video-canary` pointing at the **feature-branch SHA** (not `main`), with:
+  - Separate volume (e.g. `bugaputa-video-canary-data` → `/app/data`), so canary uploads and SQLite do not contaminate production.
   - Separate domain (e.g. `video-canary.bugaputa.com`), valid TLS, health check `GET /health`.
   - Environment copies `DATABASE_URL=/app/data/app.db`, `UPLOAD_DIR=/app/data/uploads`, `JWT_SECRET` (new random), `CORS_ORIGINS` etc from production but NOT sharing the volume.
 - Keep production (`bugaputa.com`, app `811qw6y4gh56npcm5hzqblmk`) running `main` untouched during canary.
+- Canary is the **first** real headed permission test surface. No merge until canary allow+deny pass.
 
-### 12.3 Promote
+### 12.3 Promote (only after canary acceptance)
 
-Only after canary acceptance (headed allow+deny, dashboard playback, Range, snapshot regression green) and product sign-off:
+Order is enforced: implementation → current-head CI + `github-actions[bot]`/`opencode-pr-review` bot review → **isolated feature-branch canary with headed allow AND deny tests** → final integration review → **merge to `main`** → Coolify auto-deploys `main` to production → production verification.
 
-- Merge feature branch to `main` via `meta-reviewer` draft PR → Nik approval → merge (never direct-push to default branch).
+Only after canary acceptance (headed allow+deny, dashboard playback, Range, snapshot regression green):
+
+- `meta-reviewer` ensures CI is green and `github-actions[bot]`/`opencode-pr-review` checks are passing on the feature branch HEAD; headed canary evidence (allow+deny logs + network traces) is attached to the PR.
+- Merge feature branch to `main` via `meta-reviewer` draft PR when those gates are green — **Meta Team has autonomy to merge; do not wait for a manual Nik approval**. `Nik` merges only if he chooses to, not as a required gate. Never direct-push to default/protected branch.
 - Coolify auto-deploys `main` to production; verify `GET /health`, `GET /api/health`, dashboard, and `widget.js` still serve.
 - Gradually enable `videoCaptureEnabled` per project (owner toggle); do not bulk-enable.
 
 ### 12.4 Rollback
 
-- **Code rollback:** `gh api repos/exbald/bugaputa/commits/<prev>` or Coolify rollback to tag `18630dd` / prior SHA `4461019` (see `t_01ea6518` rollback_sha). One-click rollback reverts widget and API together.
-- **Data rollback:** new columns are nullable — rolling back code leaves them inert. No data loss. Reports with `videoPath` will have their video hidden by old code but remain on disk and become visible again on re-deploy. No migration to undo.
+- **Code rollback:** capture the exact `origin/main` SHA **immediately before merge** (e.g. `git fetch origin && git rev-parse origin/main` and record it in the merge PR description and deploy notes). That SHA is the only valid rollback target for this release — do not use stale hardcoded SHAs (prior plan draft SHAs are not valid for a future release). Coolify rollback = redeploy that recorded SHA; `gh api` verification of the commit must match. One-click rollback reverts widget and API together.
+- **Data rollback:** new columns/report fields are nullable — rolling back code leaves them inert. No data loss. Reports with `videoPath` will have their video hidden by old code but remain on disk and become visible again on re-deploy. No migration to undo. Keep `videoCaptureEnabled` flag off (nullable → 0) as the data-plane rollback.
 - **Flag rollback:** set `videoCaptureEnabled=0` for all projects via `UPDATE projects SET videoCaptureEnabled=0` (or dashboard toggle). Widget chooser reverts to 2-way on next `widget-config` fetch (no embed change needed).
 - **Storage:** if volume bloat is the trigger, keep `UPLOAD_DIR` files but gate new uploads via flag; no automatic deletion.
 
@@ -712,13 +727,13 @@ Only after canary acceptance (headed allow+deny, dashboard playback, Range, snap
 |---|----------|---------|---------------------|
 | Q1 | Single video vs multiple videos per report? | Could allow 2 clips; adds complexity | **Single `video` per report in MVP.** Multi-video is post-MVP (array field + carousel). |
 | Q2 | Poster/thumbnail generation? | Extract first frame server-side (ffmpeg) vs client blob poster. | **Defer poster.** Use icon + duration badge in list and first-frame via `<video>` in detail without extra file. |
-| Q3 | Duration enforcement: client vs server? | Client can lie; server probing mp4/webm duration is non-trivial. | **Client 60s auto-stop + server size guard is authoritative; server duration probe is best-effort (reject only if clearly >65s).** |
+| Q3 | Duration enforcement: client vs server? | Client can lie; server probing mp4/webm duration is non-trivial. | **Client 60s auto-stop is UX; server parses WebM Duration + MP4 mvhd and rejects >61s when parse succeeds, otherwise stores NULL and caps by bytes. No best-effort called an enforced maximum — API docs state the split guarantee explicitly.** |
 | Q4 | Audio default? | Hosts may not want any audio captured. | **Microphone off default; explicit opt-in checkbox; this is scope-set.** |
 | Q5 | File upload alternative: allow .mov / .avi? | Users may upload screen recordings from elsewhere. | **No — only webm/mp4 allowlist.** .mov is mp4-variant but mime `video/quicktime` is a new allowlist entry with magic `ftypqt  ` — defer. |
 | Q6 | Per-project flag vs global env flag? | Simpler global switch. | **Per-project `videoCaptureEnabled`** (already specced) — global env would block per-tenant canary. |
 | Q7 | Should video reports count in `totalReports` / `openReports` aggregates? | Dashboard aggregates `SELECT COUNT(*) FROM reports …` | **Yes — video reports are reports.** No separate count. |
 | Q8 | Retention/delivery after delete? | Should video be soft-deleted? | **Hard delete on `DELETE /api/reports/:id`** — same as screenshots (303 in reports.ts). Soft-delete is post-MVP. |
-| Q9 | Range auth — should `/uploads/:video` be auth-gated? | Public URL leaks report content. | **Public for MVP (matches screenshot).** Consider signed URLs or auth-cookie gate as hardening later. |
+| Q9 | Video auth — should video be public by UUID? | Screen recordings are more privacy-sensitive than screenshots (mic, tab content). | **Owner-authenticated `GET /api/reports/:id/video` with Range (hardened MVP).** Keep screenshots/snapshots on public `/uploads/:filename`. Same-origin httpOnly cookie supplies auth to `<video>`; alternative is a short-lived HMAC signed URL minted by the same owner check (TTL ~15m). |
 | Q10 | Combined max: screenshot + video + snapshot in one report? | Could exceed per-request size. | **Allow all three/four together** (files:3→4, fileSize 25MB guard, per-image 5MB + per-video 25MB). A combined report is legitimate (video + snapshot for searchable text). |
 
 No question blocks MVP — each has a default above. Revisit only if user contradicts a default.
@@ -729,95 +744,81 @@ No question blocks MVP — each has a default above. Revisit only if user contra
 
 Map to real Hermes profiles: `meta-backend`, `meta-frontend`, `meta-reviewer`, `meta-devops`. No card may combine the entire lifecycle — split into focused lanes so review/bot-review/browser-QA/merge/deploy each have a separate card.
 
-### 15.1 Suggested lanes (sequential where dependent, parallel where safe)
+### 15.1 Suggested lanes (sequential where dependent, parallel where safe) — 14 cards, exact accounting
 
 ```
-T-do-plan  (done: this file) ─┬─► [BE-1] Backend migration + upload pipeline (T1+T2+T3)
+T-do-plan  (done: this file) ─┬─► [01 BE-1] Backend migration + upload pipeline (T1+T2+T3)       profile: meta-backend
                               │         │
                               │         ▼
-                              │    [BE-2] Backend flag + widget-config (T4)  ──┐
-                              │         │                                      │
-                              │         ▼                                      │
-                         [BE-R] meta-reviewer: review BE-1..BE-2                │
-                              │         │                                      │
-                              └─────────┼──────────────────────────────────────┤
-                                        │                                      │
-                              ┌─────────▼──────────────────────────────────────▼──┐
-                              │  [FE-1] Widget chooser + CSS (T5)                │
-                              │         │  (needs BE widget-config shape frozen)  │
-                              │         ▼                                        │
-                              │  [FE-2] Widget video-capture module + state      │
-                              │       machine + submission (T6+T7)               │
-                              │         │                                        │
-                              │         ▼                                        │
-                              │  [FE-3] Dashboard list+detail video UI (T8)     │
-                              │         │                                        │
-                              │  [FE-M] Mirror/size gate (T9)                   │
-                              │         │                                        │
-                              │         ▼                                        │
-                              │  [FE-R] meta-reviewer: review FE-1..FE-3+FE-M   │
-                              │         │                                        │
-                              └─────────┼────────────────────────────────────────┘
+                              │    [02 BE-2] Backend flag + widget-config (T4)                   profile: meta-backend   parents: [01]
+                              │         │
+                              │         ▼
+                              │    [03 BE-R] Review BE-1..BE-2                                    profile: meta-reviewer  parents: [01,02]
+                              │         │
+                              └─────────┼───────────────────────────────────────────────────────────┤
+                                        │                                                           │
+                              ┌─────────▼───────────────────────────────────────────────────────────▼──┐
+                              │  [04 FE-1] Widget chooser + CSS (T5) with size reclaim               profile: meta-frontend  parents: [03]  (needs BE widget-config shape frozen)
+                              │         │
+                              │         ▼
+                              │  [05 FE-2] Widget video-capture module + state machine + submit (T6+T7) profile: meta-frontend  parents: [04]
+                              │         │
+                              │         ▼
+                              │  [06 FE-3] Dashboard list+detail video UI (T8)                       profile: meta-frontend  parents: [05]
+                              │         │
+                              │  [07 FE-M] Mirror/size gate (T9) — RED test + diff check             profile: meta-frontend  parents: [04,05,06] (or co-requisite with 05/06)
+                              │         │
+                              │         ▼
+                              │  [08 FE-R] Review FE-1..FE-3+FE-M                                     profile: meta-reviewer  parents: [04,05,06,07,03]
+                              │         │
+                              └─────────┼───────────────────────────────────────────────────────────┘
                                         │
-                              ┌─────────▼──────────┐
-                              │ [QA-BOT] Bot review │
-                              │  (codex/opencode    │
-                              │   automated pass)   │
-                              └─────────┬──────────┘
+                              ┌─────────▼──────────────────────────────────────────────┐
+                              │ [09 QA-BOT] GitHub Actions bot review + CI gate        │ profile: meta-reviewer  parents: [03,08]
+                              │  (github-actions[bot] / opencode-pr-review automated) │ No additional review bots beyond the existing GitHub Actions bot.
+                              └─────────┬──────────────────────────────────────────────┘
                                         │
-                              ┌─────────▼──────────────────────┐
-                              │ [QA-BROWSER] Browser QA (QA    │
-                              │  matrix §11 headed)            │
-                              │  assignee: meta-frontend or a  │
-                              │  dedicated browser QA profile  │
-                              └─────────┬──────────────────────┘
+                              ┌─────────▼──────────────────────────────────────────────┐
+                              │ [10 CANARY] Isolated feature-branch Coolify canary      │ profile: meta-devops    parents: [09]
+                              │  + headed allow AND deny permission tests (§11.2+§12.2) │ Builds feature-branch SHA, separate volume/domain.
+                              └─────────┬──────────────────────────────────────────────┘
                                         │
-                              ┌─────────▼──────────┐
-                              │ [RV-INT] Final     │
-                              │  integration review│
-                              │  (meta-reviewer)   │
-                              │  verifies no       │
-                              │  screenshot/snapshot│
-                              │  regression        │
-                              └─────────┬──────────┘
+                              ┌─────────▼──────────────────────────────────────────────┐
+                              │ [11 RV-INT] Final integration review                    │ profile: meta-reviewer  parents: [10]
+                              │  (verifies no screenshot/snapshot regression, API +    │  CSP/Range/auth, size gate, canary evidence)
+                              │  dashboard + widget together)                           │
+                              └─────────┬──────────────────────────────────────────────┘
                                         │
-                              ┌─────────▼──────────┐
-                              │ [MERGE] Merge to   │
-                              │  main — meta-     │
-                              │  reviewer creates │
-                              │  draft PR, Nik    │
-                              │  approves, merge  │
-                              └─────────┬──────────┘
+                              ┌─────────▼──────────────────────────────────────────────┐
+                              │ [12 MERGE] Merge to main (draft PR)                     │ profile: meta-reviewer  parents: [11]
+                              │  Records exact origin/main SHA pre-merge as rollback.   │  Autonomy to merge when gates green; no manual Nik gate.
+                              └─────────┬──────────────────────────────────────────────┘
                                         │
-                              ┌─────────▼──────────┐
-                              │ [DEPLOY-CANARY]    │
-                              │  meta-devops:      │
-                              │  isolated Coolify  │
-                              │  canary app +      │
-                              │  headed allow/deny │
-                              │  canary acceptance │
-                              └─────────┬──────────┘
-                                        │
-                              ┌─────────▼──────────┐
-                              │ [DEPLOY-PROD]      │
-                              │  meta-devops:      │
-                              │  promote to prod   │
-                              │  (verify            │
-                              │   health/CSP/Range)│
-                              └────────────────────┘
+                              ┌─────────▼──────────────────────────────────────────────┐
+                              │ [13 DEPLOY-CANARY-ACCEPT] (alt lane if canary already │ profile: meta-devops    parents: [10] (if canary is post-merge verification)
+                              │  ran pre-merge, this is a no-op/evidence gate)        │  In hardened order this merges into [10] — keep separate only if canary is rebuilt from main.
+                              └─────────┬──────────────────────────────────────────────┘
+                                        │  (hardened order keeps canary at [10] before merge; [13] is optional/merged)
+                              ┌─────────▼──────────────────────────────────────────────┐
+                              │ [14 DEPLOY-PROD] Promote to prod + production         │ profile: meta-devops    parents: [12] (and [10] evidence)
+                              │  verification (health/CSP/Range/auth + widget.js)     │
+                              └──────────────────────────────────────────────────────┘
 ```
+
+Lane count: 14 enumerated above (01–14). If the optional [13] is merged into [10] (recommended — single pre-merge canary), the active DAG is 13 cards. Previous drafts miscounted ~12 while diagramming ~14 — this table is the source of truth.
 
 Dependency notes:
 
 - `BE-1` must land before `FE-1` reads the widget-config shape and before FE-2 submits `video`.
-- `BE-2` can run in parallel with FE-1 once the rough shape is agreed, but `FE-R` waits for both.
+- `BE-2` can run in parallel with FE-1 once the rough shape is agreed, but `FE-R` [08] waits for both and for mirror/size [07].
 - `FE-2` depends on `FE-1` chooser scaffolding.
-- `QA-BROWSER` depends on bot review green — no headed work until static/tool checks pass.
-- `DEPLOY-CANARY` depends on `MERGE` only if canary is built from `main`; it can also be wired to the feature branch SHA before merge — either way it precedes `DEPLOY-PROD`.
+- `QA-BOT` [09] waits for backend + frontend reviews [03,08]; no headed work until bot review + CI green.
+- `CANARY` [10] is **before merge** and before `RV-INT`/`MERGE` — it builds the feature-branch SHA on an isolated volume/domain and runs headed allow+deny tests there.
+- `RV-INT` [11] verifies canary evidence + no screenshot/snapshot regression.
+- `MERGE` [12] records the exact `origin/main` SHA immediately before merge as the rollback target and merges when [09]+[10]+[11] are green; no manual Nik approval gate, no additional bot trigger.
+- `DEPLOY-PROD` [14] auto-deploys `main` and verifies health/CSP/Range/auth and `widget.js`.
 
-Estimated card count: 10 implementation/QA/merge/deploy cards + 2 intermediate review cards = ~12 future cards. Keep each card title focused (e.g. `BE: video upload pipeline (mime/size/magic/Range/CSP)`) and encode parents so dispatch respects the DAG.
-
-Never create these cards inside this planning task — they are planned but not yet instantiated. The plan file is the only artifact of `t_ef8a5815`.
+Never create these cards inside this planning task — they are planned but not yet instantiated. The plan file is the only artifact of `t_ef8a5815` / `t_59155575`.
 
 ---
 
@@ -855,7 +856,7 @@ All paths relative to `/home/hermes/workspaces/bugaputa-video-plan` at commit `4
 - Audio transcription.
 - Camera (`getUserMedia` video) capture.
 - Multi-video per report.
-- Auth-gated `/uploads/:video` (signed URL).
+- Auth-gated `/uploads/:video` — **now in hardened MVP as `GET /api/reports/:id/video` (owner auth+Range); signed-URL variant remains an optional alternative, not a deferral.**
 - Client-side thumbnail generation for list.
 - Server-side transcoding to normalize codec (mp4 vs webm).
 
