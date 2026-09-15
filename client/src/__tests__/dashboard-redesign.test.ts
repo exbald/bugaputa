@@ -78,6 +78,7 @@ describe("Dashboard redesign — search, sort, summary, composer, rows", () => {
     const raw = readDashboard();
     expect(raw).toMatch(/DashboardSkeleton/);
     expect(raw).toMatch(/animate-pulse/);
+    expect(raw).toMatch(/aria-busy/);
     // Old lone text fallback should not remain as only loading state
     expect(raw).not.toMatch(/Loading projects\.\.\./);
   });

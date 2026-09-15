@@ -221,7 +221,7 @@ function WorkspaceRow({
 
 function DashboardSkeleton() {
   return (
-    <div className="mt-6 space-y-3" aria-hidden="true">
+    <div className="mt-6 space-y-3" aria-busy="true" aria-live="polite">
       {[0, 1, 2].map((i) => (
         <div
           key={i}
