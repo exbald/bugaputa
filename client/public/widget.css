@@ -82,12 +82,18 @@
 
 #bugaputa-live-video{position:absolute;inset:0;z-index:2147483646;pointer-events:none}
 #bugaputa-live-video canvas{position:absolute;left:0;top:0;pointer-events:auto;touch-action:none;z-index:1}
-#bugaputa-live-toolbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:4;pointer-events:auto;display:flex;align-items:center;gap:5px;max-width:calc(100vw - 16px);overflow-x:auto;padding:7px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.28)}
-#bugaputa-live-toolbar button{min-width:44px;min-height:44px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#0f172a;font:600 12px system-ui;cursor:pointer}
-#bugaputa-live-toolbar button[aria-pressed=true]{background:#a3e635;border-color:#a3e635}
+#bugaputa-live-toolbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:2147483647;pointer-events:auto;display:flex;align-items:center;gap:6px;max-width:min(720px,calc(100vw - 16px));overflow-x:auto;overflow-y:hidden;padding:8px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.28);scrollbar-width:thin;scrollbar-color:#94a3b8 #f1f5f9}
+#bugaputa-live-toolbar button{min-width:44px;min-height:44px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#0f172a;font:600 12px system-ui;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 8px}
+#bugaputa-live-toolbar button[aria-pressed=true]{background:#0f172a;border-color:#0f172a;color:#fff}
 #bugaputa-live-toolbar button:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
 #bugaputa-live-toolbar button:disabled{opacity:.45}
-@media(max-width:480px){#bugaputa-live-toolbar{left:8px;right:8px;bottom:8px;transform:none}}
+#bugaputa-live-toolbar .bugaputa-live-sep{width:1px;align-self:stretch;min-height:28px;background:#e2e8f0;flex-shrink:0;margin:0 2px}
+#bugaputa-live-toolbar .bugaputa-live-icon{width:18px;height:18px;display:block;flex-shrink:0}
+#bugaputa-live-toolbar .bugaputa-live-primary{background:#0f172a;color:#fff;border-color:#0f172a}
+#bugaputa-live-toolbar .bugaputa-live-primary[aria-pressed=true]{background:#0f172a}
+#bugaputa-live-toolbar .bugaputa-live-danger{color:#b91c1c}
+#bugaputa-live-toolbar .bugaputa-live-mic-on{background:#dcfce7;border-color:#86efac;color:#14532d}
+@media(max-width:480px){#bugaputa-live-toolbar{left:8px;right:8px;bottom:8px;transform:none;max-width:calc(100vw - 16px)}}
 /* video pane */
 #bugaputa-video-pane{margin-top:4px}
 #bugaputa-video-consent{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
