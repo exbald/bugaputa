@@ -138,7 +138,7 @@ describe("Video chooser polish: unified choice-card (release-blocking visual fix
   it("gzip still under ceilings after polish", () => {
     const gzBase = gzipSync(fs.readFileSync(WJS));
     expect(gzBase.length).toBeLessThan(30720);
-    expect(gzBase.length).toBeLessThanOrEqual(29900);
+    expect(gzBase.length).toBeLessThanOrEqual(29696);
     const gzCss = gzipSync(fs.readFileSync(WCSS));
     expect(gzCss.length).toBeLessThan(4096);
   });

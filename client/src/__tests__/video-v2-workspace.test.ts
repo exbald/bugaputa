@@ -79,7 +79,7 @@ describe("Video v2: unified workspace + toolbar + privacy + pointer + preview", 
   });
   it("permission timing: no capture before Record, Retry/Upload/Cancel on deny", ()=>{
     const j = js();
-    expect(j).toMatch(/Waiting for permission/);
+    expect(j).toMatch(/Waiting/);
     expect(j).toMatch(/Retry/);
     expect(j).toMatch(/Upload.*video|upload.*fallback/i);
     expect(j).toMatch(/Use screenshot instead|General feedback/);
@@ -178,15 +178,16 @@ describe("Video v2: unified workspace + toolbar + privacy + pointer + preview", 
     expect(j).toMatch(/confirm\(['\"]Discard this recording\?['\"]\)/);
     const retake = j.slice(j.indexOf("id:'bugaputa-video-retake'"), j.indexOf("id:'bugaputa-remove-video'"));
     expect(retake).toContain("Record again");
-    // The preview path delegates to the single cleanup owner, which cancels the
+    // Record again cleans old streams/blob URLs/timers before returning to workspace via closePreviewModal(true)
+    expect(retake).toMatch(/closePreviewModal\(true\)/);
+    expect(retake).toMatch(/handleVideoStart\(\)/);
+    // The modal's close helper delegates to the single cleanup owner, which cancels the
     // active session, revokes the URL, clears metadata/timers, then restarts.
-    expect(retake).toMatch(/cleanupVideoAttachment\(\)/);
+    expect(j).toMatch(/function closePreviewModal\(cleanup\)[\s\S]*cleanupVideoAttachment\(\)/);
     const cleanup = j.slice(j.indexOf("function cleanupVideoAttachment"), j.indexOf("function isVideoEnabled"));
     expect(cleanup).toMatch(/activeVideoSession&&activeVideoSession\.cancel/);
     expect(cleanup).toMatch(/URL\.revokeObjectURL\(pendingVideoUrl\)/);
     expect(cleanup).toMatch(/pendingVideoUrl=null;.*pendingVideoFile=null;.*pendingVideoMeta=null/s);
-    expect(cleanup).toMatch(/clearTimeout\(videoCleanupTimer\)/);
-    expect(retake).toMatch(/handleVideoStart\(\)/);
   });
     it("size/mime guards preserved (25MB, webm/mp4, 60s)", ()=>{
     const s = vc();

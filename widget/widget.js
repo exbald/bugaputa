@@ -92,11 +92,12 @@
   var pendingAnnotatedFile=null;
   var capturedSnapshotHtml=null;
   var pendingSnapshotFile=null, pendingAnnotationsFile=null;
-  var pendingVideoFile=null, pendingVideoUrl=null, pendingVideoMeta=null, videoCleanupTimer=null, activeVideoSession=null;
-  function cleanupVideoAttachment(){ try{ if(activeVideoSession&&activeVideoSession.cancel) activeVideoSession.cancel(); }catch(_){} activeVideoSession=null; if(pendingVideoUrl){ try{ URL.revokeObjectURL(pendingVideoUrl); }catch(_){} pendingVideoUrl=null; } pendingVideoFile=null; pendingVideoMeta=null; if(videoCleanupTimer){ try{ clearTimeout(videoCleanupTimer); }catch(_){} videoCleanupTimer=null; } var vp=document.getElementById('bugaputa-video-preview'); if(vp){ try{ var kids=Array.prototype.slice.call(vp.childNodes); for(var _vi=0;_vi<kids.length;_vi++){ var n=kids[_vi]; if(n.id==='bugaputa-remove-video') continue; try{ vp.removeChild(n); }catch(_){} } }catch(_){} } var vs=document.getElementById('bugaputa-video-status'); if(vs){ vs.style.display='none'; vs.textContent=''; vs.style.color=''; } var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='none'; var fi=document.getElementById('bugaputa-video-file'); if(fi) try{ fi.value=''; }catch(_){} }
+  var pendingVideoFile=null, pendingVideoUrl=null, pendingVideoMeta=null, activeVideoSession=null;
+  function cleanupVideoAttachment(){ try{ if(activeVideoSession&&activeVideoSession.cancel) activeVideoSession.cancel(); }catch(_){} activeVideoSession=null; if(pendingVideoUrl){ try{ URL.revokeObjectURL(pendingVideoUrl); }catch(_){} pendingVideoUrl=null; } pendingVideoFile=null; pendingVideoMeta=null; var vs=document.getElementById('bugaputa-video-status'); if(vs){ vs.style.display='none'; vs.textContent=''; vs.style.color=''; } var fl=document.getElementById('bugaputa-v-fl'); if(fl) fl.style.display='none'; var fi=document.getElementById('bugaputa-video-file'); if(fi) try{ fi.value=''; }catch(_){} }
+  function markDiscarded(){ var vs=document.getElementById('bugaputa-video-status'); if(vs){ vs.style.display='block'; vs.style.color='#475569'; vs.textContent='Discarded \u2014 you can record again.'; } var f=document.getElementById('bugaputa-v-fl'); if(f) f.style.display='block'; }
   function isVideoEnabled(){ return !!widgetConfig.videoCaptureEnabled; }
   function refreshVideoChooser(){ try{ var ca=document.getElementById('bugaputa-chooser-actions'); var bv=document.getElementById('bugaputa-choose-video'); if(!ca||!bv) return; bv.style.display=isVideoEnabled()?'':'none'; if(isVideoEnabled()&&!ca.contains(bv)) ca.insertBefore(bv, ca.firstChild); }catch(_){} }
-  function isVideoSupported(){ try{return !!(navigator.mediaDevices&&(navigator.mediaDevices.getDisplayMedia||navigator.mediaDevices.getViewportMedia));}catch(_){return false;}} // isVideoEnabled gates getDisplayMedia
+  function isVideoSupported(){ try{return !!(navigator.mediaDevices&&(navigator.mediaDevices.getDisplayMedia||navigator.mediaDevices.getViewportMedia));}catch(_){return false;}}
   // v2 document coords with scroll compensation
   function getDocPoint(e){ return {x:(e.clientX||0)+(window.scrollX||0),y:(e.clientY||0)+(window.scrollY||0)}; }
   function haloClickRipple(e){ try{spawnRipple(e.clientX,e.clientY);}catch(_){} }
@@ -144,24 +145,27 @@
   function onOverlayEsc(){
     var ed=document.getElementById('bugaputa-annotate');
     if(ed){ requestDiscard(); return; }
-    // if video is recording, confirm discard when >5s
+    // Guarded ESC: if a recording preview exists, ESC must not silently discard — require explicit Delete.
+    var vp=document.getElementById('bugaputa-video-pane');
+    if(vp && vp.style.display!=='none'){
+      if(pendingVideoFile){
+        if(!confirm('Discard this recording?')) return;
+        cleanupVideoAttachment();
+        markDiscarded();
+      }
+      vp.style.display='none'; var ch=document.getElementById('bugaputa-chooser'); if(ch) ch.style.display='block'; var bv=document.getElementById('bugaputa-choose-video'); var bc=document.getElementById('bugaputa-choose-screenshot'); try{ (bv&&bv.style.display!=='none'?bv:bc).focus(); }catch(_){} return;
+    }
     try{
       if(activeVideoSession){
-        var metaDur=(pendingVideoMeta&&pendingVideoMeta.durationMs)||0;
-        // active session exists — check timer via status elapsed heuristic or just confirm
         if(!confirm('Discard this recording?')) return;
         try{ activeVideoSession.cancel(); }catch(_){}
         activeVideoSession=null;
       }
     }catch(_){}
-    var vp=document.getElementById('bugaputa-video-pane');
-    if(vp && vp.style.display!=='none'){
-      // if preview with pending video exists, ESC returns to chooser only after cleaning preview? No — keep preview for retry, just hide pane to chooser
-      vp.style.display='none'; var ch=document.getElementById('bugaputa-chooser'); if(ch) ch.style.display='block'; var bv=document.getElementById('bugaputa-choose-video'); var bc=document.getElementById('bugaputa-choose-screenshot'); try{ (bv&&bv.style.display!=='none'?bv:bc).focus(); }catch(_){} return;
-    }
     close();
   }
   function close(){ try{ clearAttachmentState(); }catch(_){}
+    try{ var _pm=document.getElementById('bugaputa-video-preview-modal'); if(_pm){ try{ if(_pm._trap) document.removeEventListener('keydown', _pm._trap); }catch(_){} try{ _pm.remove(); }catch(_){} try{ window.__bugaputaPreviewModal=null; }catch(_){} } }catch(_){}
     try{ if(activeVideoSession&&activeVideoSession.cancel) activeVideoSession.cancel(); }catch(_){} activeVideoSession=null;
     try{ hidePointerHalo(); if(pointerRaf) { cancelAnimationFrame(pointerRaf); pointerRaf=0; } try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} try{ if(window.__bugaputaCloseLiveWorkspace) window.__bugaputaCloseLiveWorkspace(); }catch(_){} }catch(_){}
     // onError intentionally does NOT call clearAttachmentState so retry keeps the file.
@@ -231,7 +235,7 @@
     var capturePane=h('div',{id:'bugaputa-capture-pane',style:'display:none'});
     var videoPane=h('div',{id:'bugaputa-video-pane',style:'display:none'});
     var videoConsent=h('div',{id:'bugaputa-video-consent'});
-    videoConsent.innerHTML='<strong style="display:block;font-size:13px;margin-bottom:6px">Before you record</strong><p style="font-size:12px;color:#475569;line-height:1.5">We will record only this browser tab. Your browser asks permission — hints cannot force tab-only; unverifiable browsers show upload fallback. Mic off unless enabled.</p>';
+    videoConsent.innerHTML='<strong style="display:block;font-size:13px;margin-bottom:6px">Before you record</strong><p style="font-size:12px;color:#475569;line-height:1.5">We record only this tab. Browser asks permission. Mic off unless enabled.</p>';
     var videoMicChk=h('input',{id:'bugaputa-video-mic',type:'checkbox',style:'margin:0;cursor:pointer'});
     var videoMicLbl=h('label',{style:'display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:#334155;cursor:pointer;user-select:none'},[videoMicChk,h('span',{text:'Include microphone (off by default)'})]);
     var videoDontChk=h('input',{id:'bugaputa-video-dont-show',type:'checkbox',style:'margin:0;cursor:pointer'});
@@ -240,15 +244,14 @@
     videoStartBtn.setAttribute('aria-label','Start recording');
     var videoBackBtn=h('button',{id:'bugaputa-video-back',type:'button',text:'Back'});
     var videoStatus=h('div',{id:'bugaputa-video-status',style:'display:none;margin-top:10px;font-size:12px',role:'status','aria-live':'polite'});
-    var videoPreview=h('div',{id:'bugaputa-video-preview',style:'margin-top:10px'});
     var videoFallbackInput=h('input',{id:'bugaputa-video-file',type:'file',accept:'video/webm,video/mp4',style:'display:none;margin-top:8px'});
-    var videoFallbackLbl=h('label',{id:'bugaputa-video-file-label',style:'display:none;margin-top:8px;font-size:11px;color:#64748b'},[h('span',{text:'Or upload a video (webm/mp4 \u226425MB)'}), videoFallbackInput]);
+    var videoFallbackLbl=h('label',{id:'bugaputa-v-fl',style:'display:none;margin-top:8px;font-size:11px;color:#64748b'},[h('span',{text:'Or upload video (webm/mp4 25MB)'}), videoFallbackInput]);
     var videoRow=h('div',{style:'display:flex;gap:8px;margin-top:12px'});
     videoRow.appendChild(videoStartBtn); videoRow.appendChild(videoBackBtn);
-    videoPane.appendChild(videoConsent); videoPane.appendChild(videoMicLbl); videoPane.appendChild(videoDontLbl); videoPane.appendChild(videoRow); videoPane.appendChild(videoStatus); videoPane.appendChild(videoPreview); videoPane.appendChild(videoFallbackLbl);
+    videoPane.appendChild(videoConsent); videoPane.appendChild(videoMicLbl); videoPane.appendChild(videoDontLbl); videoPane.appendChild(videoRow); videoPane.appendChild(videoStatus); videoPane.appendChild(videoFallbackLbl);
 
     var consent=h('div',{id:'bugaputa-consent-box'});
-    consent.innerHTML='<strong style="display:block;font-size:13px;margin-bottom:6px">Before you capture</strong><p style="font-size:12px;color:#475569;line-height:1.5">We will capture only the visible part of this page you are seeing. Cross-origin iframes or video may appear blank. No passwords or form values are collected. You can annotate the screenshot before sending.</p><p style="font-size:11px;color:#94a3b8;margin-top:8px">Limits: cross-origin iframes, video/canvas may appear blank. You can still upload an image manually if capture fails.</p>';
+    consent.innerHTML='<strong style="display:block;font-size:13px;margin-bottom:6px">Before you capture</strong><p style="font-size:12px;color:#475569;line-height:1.5">We capture the visible page. Cross-origin iframes may appear blank. No passwords collected.</p><p style="font-size:11px;color:#94a3b8;margin-top:8px">Limits: iframes/video may blank — upload an image.</p>';
     var dontShowChk=h('input',{id:'bugaputa-dont-show-consent',type:'checkbox',style:'margin:0;cursor:pointer'});var dontShowLbl=h('label',{style:'display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:#64748b;cursor:pointer;user-select:none'},[dontShowChk,h('span',{text:"Don't show this again"})]);capBtn=h('button',{id:'bugaputa-do-capture',type:'button',text:'Capture this page'});
     capBtn.setAttribute('aria-label','Capture this page');
     var capBack=h('button',{id:'bugaputa-cap-back',type:'button',text:'Back'});
@@ -286,6 +289,10 @@
 
 
     // Video pane helpers
+    function _videoFallbackBtns(){ var f=document.createDocumentFragment();
+      var s=h('button',{id:'bugaputa-video-to-screenshot',type:'button',text:'Use screenshot instead'}); s.addEventListener('click', function(){ videoPane.style.display='none'; capturePane.style.display='block'; try{ document.getElementById('bugaputa-do-capture').focus(); }catch(_){} });
+      var g=h('button',{id:'bugaputa-video-to-general',type:'button',text:'General feedback'}); g.addEventListener('click', function(){ videoPane.style.display='none'; chooser.style.display='none'; showForm(null); });
+      f.appendChild(s); f.appendChild(g); return f; }
     function ensureVideoCaptureLoaded(cb, errCb){
       if(window.__bugaputaVideoCapture&&window.__bugaputaVideoCapture.startSession) { cb(); return; }
       loadScript(scriptBase()+'/video-capture.js', cb, errCb);
@@ -294,88 +301,115 @@
       var isMicDenied=typeof msg==='string'&&msg.indexOf('Microphone')!==-1;
       videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg;
       try{ if(videoStartBtn) videoStartBtn.style.display=''; var sb2=document.getElementById('bugaputa-video-stop'); if(sb2) sb2.style.display='none'; }catch(_){}
-      var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='block';
-      var sub=document.getElementById('bugaputa-video-pane-subactions');
+      var fl=document.getElementById('bugaputa-v-fl'); if(fl) fl.style.display='block';
+      var sub=document.getElementById('bugaputa-v-pane-sub');
       if(sub){ try{ sub.remove(); }catch(_){} sub=null; }
-      sub=h('div',{id:'bugaputa-video-pane-subactions',style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'});
-      var rtry=h('button',{id:'bugaputa-video-retry',type:'button',text:'Retry'}); rtry.setAttribute('aria-label','Retry recording'); rtry.addEventListener('click', function(){ var s=document.getElementById('bugaputa-video-pane-subactions'); if(s) s.style.display='none'; handleVideoStart(); });
+      sub=h('div',{id:'bugaputa-v-pane-sub',style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'});
+      var rtry=h('button',{id:'bugaputa-video-retry',type:'button',text:'Retry'}); rtry.setAttribute('aria-label','Retry'); rtry.addEventListener('click', function(){ var s=document.getElementById('bugaputa-v-pane-sub'); if(s) s.style.display='none'; handleVideoStart(); });
       sub.appendChild(rtry);
       if(isMicDenied){
-        var contNoMic=h('button',{id:'bugaputa-video-continue-without-mic',type:'button',text:'Continue without microphone'}); contNoMic.setAttribute('aria-label','Continue without microphone'); contNoMic.addEventListener('click', function(){ var s=document.getElementById('bugaputa-video-pane-subactions'); if(s) s.style.display='none'; handleVideoStartWithoutMic(); });
+        var contNoMic=h('button',{id:'bugaputa-v-continue-mic',type:'button',text:'Continue without microphone'}); contNoMic.setAttribute('aria-label','Continue w/o mic'); contNoMic.addEventListener('click', function(){ var s=document.getElementById('bugaputa-v-pane-sub'); if(s) s.style.display='none'; handleVideoStartWithoutMic(); });
         sub.appendChild(contNoMic);
       }
-      var toShot=h('button',{id:'bugaputa-video-to-screenshot',type:'button',text:'Use screenshot instead'}); toShot.addEventListener('click', function(){ videoPane.style.display='none'; capturePane.style.display='block'; try{ document.getElementById('bugaputa-do-capture').focus(); }catch(_){} });
-      var toGeneral=h('button',{id:'bugaputa-video-to-general',type:'button',text:'General feedback'}); toGeneral.addEventListener('click', function(){ videoPane.style.display='none'; chooser.style.display='none'; showForm(null); });
-      sub.appendChild(toShot); sub.appendChild(toGeneral);
+      sub.appendChild(_videoFallbackBtns());
       videoPane.appendChild(sub);
       // ensure controls remain; do not hide chooser restoration — user picks
     }
     function renderVideoUnsupported(msg){
-      videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent=msg+' — you can still upload a video file or use another feedback type.';
-      var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='block';
-      var sub=document.getElementById('bugaputa-video-pane-subactions'); if(!sub){
-        sub=h('div',{id:'bugaputa-video-pane-subactions',style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'});
-        var toShot2=h('button',{id:'bugaputa-video-to-screenshot',type:'button',text:'Use screenshot instead'}); toShot2.addEventListener('click', function(){ videoPane.style.display='none'; capturePane.style.display='block'; try{ document.getElementById('bugaputa-do-capture').focus(); }catch(_){} });
-        var toGeneral2=h('button',{id:'bugaputa-video-to-general',type:'button',text:'General feedback'}); toGeneral2.addEventListener('click', function(){ videoPane.style.display='none'; chooser.style.display='none'; showForm(null); });
-        sub.appendChild(toShot2); sub.appendChild(toGeneral2);
+      videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent=msg+' — upload a video or use feedback.';
+      var fl=document.getElementById('bugaputa-v-fl'); if(fl) fl.style.display='block';
+      var sub=document.getElementById('bugaputa-v-pane-sub'); if(!sub){
+        sub=h('div',{id:'bugaputa-v-pane-sub',style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'});
+        sub.appendChild(_videoFallbackBtns());
         videoPane.appendChild(sub);
       } else sub.style.display='flex';
     }
+    function renderVideoRecovery(msg){
+      videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg;
+      var fl=document.getElementById('bugaputa-v-fl'); if(fl) fl.style.display='block';
+      var sub=document.getElementById('bugaputa-v-pane-sub'); if(sub) sub.style.display='flex';
+      else { sub=h('div',{id:'bugaputa-v-pane-sub',style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'});
+        var rtry=h('button',{id:'bugaputa-video-retry',type:'button',text:'Retry'}); rtry.addEventListener('click', function(){ handleVideoStart(); });
+        sub.appendChild(rtry); sub.appendChild(_videoFallbackBtns()); videoPane.appendChild(sub);
+      }
+    }
     function renderVideoPreview(file, url, mime, durMs){
       pendingVideoFile=file; pendingVideoUrl=url; pendingVideoMeta={mime:mime,durationMs:durMs,sizeBytes:file.size||0};
-      videoStatus.style.display='block'; videoStatus.style.color='#16a34a'; videoStatus.textContent='Recording ready — '+fmtVideoTime(durMs)+' · '+fmtVideoSize(file.size||0)+' · '+mime;
-      var vp=document.getElementById('bugaputa-video-preview');
-      // clear previous preview children except remove btn
-      try{ var kids=Array.prototype.slice.call(vp.childNodes); for(var i=0;i<kids.length;i++){ var n=kids[i]; if(n.id==='bugaputa-remove-video') continue; try{ vp.removeChild(n); }catch(_){} } }catch(_){}
-      var vid=document.createElement('video');
-      vid.setAttribute('controls',''); vid.setAttribute('playsinline',''); vid.setAttribute('preload','metadata');
-      vid.src=url;
-      vid.style.cssText='max-width:100%;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;background:#0f172a;display:block';
-      vp.appendChild(vid);
-      var meta=h('div',{id:'bugaputa-video-meta',text:fmtVideoTime(durMs)+' · '+fmtVideoSize(file.size||0)+' · '+mime,style:'font-size:11px;color:#64748b;margin-top:6px'});
-      vp.appendChild(meta);
-      var row=h('div',{id:'bugaputa-video-preview-actions',style:'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap'});
-      var contBtn=h('button',{id:'bugaputa-video-continue',type:'button',text:'Use recording'}); contBtn.setAttribute('aria-label','Use recording'); contBtn.style.minHeight='44px'; contBtn.addEventListener('click', function(){ videoPane.style.display='none'; chooser.style.display='none'; var fw=overlay._formWrap||document.getElementById('bugaputa-form-wrap'); if(fw) fw.style.display='block'; showForm(null); });
-      var retakeBtn=h('button',{id:'bugaputa-video-retake',type:'button',text:'Record again'}); retakeBtn.setAttribute('aria-label','Record again'); retakeBtn.style.minHeight='44px'; retakeBtn.addEventListener('click', function(){ cleanupVideoAttachment(); var sub2=document.getElementById('bugaputa-video-pane-subactions'); if(sub2) sub2.style.display='none'; handleVideoStart(); });
+      videoStatus.style.display='block'; videoStatus.style.color='#16a34a'; videoStatus.textContent='Ready — '+fmtVideoTime(durMs)+' · '+fmtVideoSize(file.size||0)+' · '+mime;
+      var existingModal=document.getElementById('bugaputa-video-preview-modal'); if(existingModal) { try{ existingModal.remove(); }catch(_){} }
+      var modalOverlay=h('div',{id:'bugaputa-video-preview-modal',role:'dialog','aria-modal':'true','aria-label':'Review your recording'});
+      var card=h('div',{id:'bugaputa-video-preview-card'});
+      var cardTitle=h('h2',{text:'Review your recording'}); cardTitle.id='bugaputa-video-preview-title'; modalOverlay.setAttribute('aria-labelledby','bugaputa-video-preview-title');
+      var body=h('div',{}); body.className='bugaputa-preview-body';
+      var vid=document.createElement('video'); vid.setAttribute('controls',''); vid.setAttribute('playsinline',''); vid.src=url; body.appendChild(vid);
+      var meta=h('div',{text:fmtVideoTime(durMs)+' · '+fmtVideoSize(file.size||0)+' · '+mime,style:'font-size:11px;color:#64748b;margin-top:8px'}); body.appendChild(meta);
+      var actions=h('div',{}); actions.className='bugaputa-preview-actions';
+      var contBtn=h('button',{id:'bugaputa-video-continue',type:'button',text:'Use recording'}); contBtn.setAttribute('aria-label','Use recording'); contBtn.style.minHeight='44px';
+      contBtn.addEventListener('click', function(){ closePreviewModal(false); videoPane.style.display='none'; chooser.style.display='none'; var fw=overlay&&overlay._formWrap||document.getElementById('bugaputa-form-wrap'); if(fw) fw.style.display='block'; showForm(null); });
+      var retakeBtn=h('button',{id:'bugaputa-video-retake',type:'button',text:'Record again'}); retakeBtn.setAttribute('aria-label','Record again'); retakeBtn.style.minHeight='44px';
+      retakeBtn.addEventListener('click', function(){ closePreviewModal(true); handleVideoStart(); });
       var removeVideoBtn=h('button',{id:'bugaputa-remove-video',type:'button','aria-label':'Remove recording',title:'Remove recording'}); removeVideoBtn.textContent='Delete recording'; removeVideoBtn.style.minHeight='44px';
-      removeVideoBtn.addEventListener('click', function(){ if(!confirm('Delete this recording? This cannot be undone.')) return; cleanupVideoAttachment(); videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Recording deleted — you can record again or upload a file.'; var fl2=document.getElementById('bugaputa-video-file-label'); if(fl2) fl2.style.display='block'; });
-      row.appendChild(contBtn); row.appendChild(retakeBtn); row.appendChild(removeVideoBtn);
-      vp.appendChild(row);
-      // keep file fallback visible for replace
-      var fl3=document.getElementById('bugaputa-video-file-label'); if(fl3) fl3.style.display='block';
-      // hide subactions row when preview active
-      var sub3=document.getElementById('bugaputa-video-pane-subactions'); if(sub3) sub3.style.display='none';
+      removeVideoBtn.addEventListener('click', function(){ if(!confirm('Delete this recording?')) return; closePreviewModal(true); var vs=document.getElementById('bugaputa-video-status'); if(vs){ vs.style.display='block'; vs.style.color='#475569'; vs.textContent='Deleted \u2014 you can record again.';} var fl2=document.getElementById('bugaputa-v-fl'); if(fl2) fl2.style.display='block'; });
+      actions.appendChild(contBtn); actions.appendChild(retakeBtn); actions.appendChild(removeVideoBtn);
+      card.appendChild(cardTitle); card.appendChild(body); card.appendChild(actions);
+      modalOverlay.appendChild(card);
+      var prevFocus=document.activeElement; modalOverlay._prevFocus=prevFocus;
+      function modalTrap(e){
+        if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); if(!confirm('Discard this recording?')) return; closePreviewModal(true); markDiscarded(); return; }
+        if(e.key!=='Tab') return;
+        var focusable=modalOverlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if(!focusable.length) return;
+        var first=focusable[0], last=focusable[focusable.length-1];
+        if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+        else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+      }
+      modalOverlay._trap=modalTrap;
+      modalOverlay.addEventListener('click', function(e){ if(e.target===modalOverlay){ e.preventDefault(); if(!confirm('Discard this recording?')) return; closePreviewModal(true); markDiscarded(); }});
+      document.addEventListener('keydown', modalTrap);
+      document.body.appendChild(modalOverlay);
+      try{ window.__bugaputaPreviewModal=modalOverlay; }catch(_){}
+      window.__bugaputaClosePreviewModal=closePreviewModal;
+      function closePreviewModal(cleanup){
+        try{ document.removeEventListener('keydown', modalTrap); }catch(_){}
+        try{ if(cleanup) cleanupVideoAttachment(); }catch(_){}
+        try{ modalOverlay.remove(); }catch(_){}
+        try{ window.__bugaputaPreviewModal=null; }catch(_){}
+        if(!cleanup && prevFocus && prevFocus.focus) try{ prevFocus.focus(); }catch(_){}
+        var sub3=document.getElementById('bugaputa-v-pane-sub'); if(sub3) sub3.style.display='none';
+        var fl3=document.getElementById('bugaputa-v-fl'); if(fl3) fl3.style.display='block';
+      }
+      var sub3b=document.getElementById('bugaputa-v-pane-sub'); if(sub3b) sub3b.style.display='none';
+      var fl3b=document.getElementById('bugaputa-v-fl'); if(fl3b) fl3b.style.display='block';
+      try{ contBtn.focus(); }catch(_){}
     }
     function handleVideoFileFallback(file){
       if(!file) return;
       if(file.size>25*1024*1024){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='File too large (max 25MB)'; return; }
       var t=(file.type||'').split(';')[0].trim().toLowerCase();
-      if(t!=='video/webm'&&t!=='video/mp4'){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Invalid file type (webm/mp4 only)'; return; }
-      var durMs=0;
-      // try client-side duration probe via video element
+      if(t!=='video/webm'&&t!=='video/mp4'){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Invalid file (webm/mp4)'; return; }
       var url=''; try{ url=URL.createObjectURL(file); }catch(_){}
       if(!url){ renderVideoPreview(file, '', file.type, 0); return; }
-      var probe=document.createElement('video'); probe.preload='metadata'; probe.muted=true;
+      var durMs=0; var probe=document.createElement('video'); probe.preload='metadata'; probe.muted=true;
       var timed=false;
       var to=setTimeout(function(){ if(timed) return; timed=true; try{ probe.src=''; }catch(_){} renderVideoPreview(file, url, file.type, 0); }, 4000);
       probe.addEventListener('loadedmetadata', function(){
         if(timed) return; timed=true; clearTimeout(to);
         var d=probe.duration;
         if(isFinite(d)&&d>0) durMs=Math.round(d*1000);
-        if(durMs>61000){ try{ URL.revokeObjectURL(url); }catch(_){} videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Video too long — max 60s'; return; }
+        if(durMs>61000){ try{ URL.revokeObjectURL(url); }catch(_){} videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Too long — max 60s'; return; }
         renderVideoPreview(file, url, file.type, durMs);
       });
       probe.addEventListener('error', function(){ if(timed) return; timed=true; clearTimeout(to); renderVideoPreview(file, url, file.type, 0); });
       try{ probe.src=url; }catch(_){ if(!timed){ timed=true; clearTimeout(to); renderVideoPreview(file, url, file.type, 0); } }
     }
     function handleVideoStart(){
-      if(!isVideoEnabled()){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Video capture is disabled for this project.'; return; }
-      if(!isVideoSupported()){ renderVideoUnsupported('Screen recording not supported on this device'); return; }
+      if(!isVideoEnabled()){ videoStatus.style.display='block';videoStatus.style.color='#dc2626';videoStatus.textContent='Video capture disabled.'; return; }
+      if(!isVideoSupported()){ renderVideoUnsupported('Recording not supported'); return; }
       if(videoDontChk&&videoDontChk.checked) try{ localStorage.setItem('bugaputa-skip-video-consent','1'); }catch(_){}
-      videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Waiting for permission…';
+      videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Waiting…';
       var cancelBtn=document.getElementById('bugaputa-video-cancel'); if(!cancelBtn){
         cancelBtn=h('button',{id:'bugaputa-video-cancel',type:'button',text:'Cancel'});
-        cancelBtn.addEventListener('click', function(){ try{ if(activeVideoSession&&activeVideoSession.cancel) activeVideoSession.cancel(); }catch(_){} activeVideoSession=null; videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Cancelled.'; var flc=document.getElementById('bugaputa-video-file-label'); if(flc) flc.style.display='block'; });
+        cancelBtn.addEventListener('click', function(){ try{ if(activeVideoSession&&activeVideoSession.cancel) activeVideoSession.cancel(); }catch(_){} activeVideoSession=null; videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Cancelled.'; var flc=document.getElementById('bugaputa-v-fl'); if(flc) flc.style.display='block'; });
         var rowEl=videoPane.querySelector('div'); // first row container
         if(videoRow) videoRow.appendChild(cancelBtn);
       }
@@ -383,47 +417,25 @@
       function _startWithMic(micFlag){
         ensureVideoCaptureLoaded(function(){
           var vc=window.__bugaputaVideoCapture;
-          if(!vc||!vc.startSession){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Video capture failed to load.'; return; }
-          videoStatus.textContent='Waiting for permission…';
+          if(!vc||!vc.startSession){ videoStatus.style.display='block';videoStatus.style.color='#dc2626';videoStatus.textContent='Load failed.'; return; }
+          videoStatus.textContent='Waiting…';
           activeVideoSession=vc.startSession({
             micEnabled: micFlag,
-            onRequesting:function(){ videoStatus.textContent='Waiting for permission…'; },
+            onRequesting:function(){ videoStatus.textContent='Waiting…'; },
             onRecording:function(_stream,_rec){ videoStatus.style.color='#dc2626'; videoStatus.textContent='\u25CF Recording '+fmtVideoTime(0)+' / 01:00 — click Stop to finish'; var stopBtn=document.getElementById('bugaputa-video-stop'); if(!stopBtn){ stopBtn=h('button',{id:'bugaputa-video-stop',type:'button',text:'Stop'}); stopBtn.setAttribute('aria-label','Stop recording'); stopBtn.style.minHeight='44px'; stopBtn.addEventListener('click', function(){ try{ if(activeVideoSession&&activeVideoSession.stop) activeVideoSession.stop(); }catch(_){} try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} hidePointerHalo(); }); if(videoRow) videoRow.insertBefore(stopBtn, videoRow.firstChild.nextSibling||null); } videoStartBtn.style.display='none'; stopBtn.style.display=''; try{ ensureHalo(); document.addEventListener('pointermove', movePointerHalo); document.addEventListener('click', haloClickRipple); }catch(_){} },
             onTick:function(elapsed){ videoStatus.textContent='\u25CF Recording '+fmtVideoTime(elapsed)+' / 01:00 — click Stop to finish'; },
             onPreview:function(file,url,mime,durMs){ try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} hidePointerHalo(); videoStartBtn.style.display=''; var sb=document.getElementById('bugaputa-video-stop'); if(sb) sb.style.display='none'; activeVideoSession=null; renderVideoPreview(file,url,mime,durMs); },
             onDenied:function(msg){ try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} hidePointerHalo(); videoStartBtn.style.display=''; var sb=document.getElementById('bugaputa-video-stop'); if(sb) sb.style.display='none'; activeVideoSession=null; renderVideoDenied(msg); },
             onUnsupported:function(msg){ try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} hidePointerHalo(); videoStartBtn.style.display=''; activeVideoSession=null; renderVideoUnsupported(msg); },
-            onError:function(msg){ try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} hidePointerHalo(); videoStartBtn.style.display=''; var sb2=document.getElementById('bugaputa-video-stop'); if(sb2) sb2.style.display='none'; activeVideoSession=null; videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg; var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='block'; }
+            onError:function(msg){ try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} hidePointerHalo(); videoStartBtn.style.display=''; var sb2=document.getElementById('bugaputa-video-stop'); if(sb2) sb2.style.display='none'; activeVideoSession=null; videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg; var fl=document.getElementById('bugaputa-v-fl'); if(fl) fl.style.display='block'; }
           });
         }, function(){
-          videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Load failed.';
+          videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Failed.';
         });
       }
       _startWithMic(micOn);
     }
-    function handleVideoStartWithoutMic(){
-      if(!isVideoEnabled()){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Video capture is disabled for this project.'; return; }
-      if(!isVideoSupported()){ renderVideoUnsupported('Screen recording not supported on this device'); return; }
-      videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Waiting for permission…';
-      var sub=document.getElementById('bugaputa-video-pane-subactions'); if(sub) sub.style.display='none';
-      ensureVideoCaptureLoaded(function(){
-        var vc=window.__bugaputaVideoCapture;
-        if(!vc||!vc.startSession){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Video capture failed to load.'; return; }
-        videoStatus.textContent='Waiting for permission…';
-        activeVideoSession=vc.startSession({
-          micEnabled: false,
-          onRequesting:function(){ videoStatus.textContent='Waiting for permission…'; },
-          onRecording:function(_stream,_rec){ videoStatus.style.color='#dc2626'; videoStatus.textContent='\u25CF Recording '+fmtVideoTime(0)+' / 01:00 — click Stop to finish'; var stopBtn=document.getElementById('bugaputa-video-stop'); if(!stopBtn){ stopBtn=h('button',{id:'bugaputa-video-stop',type:'button',text:'Stop'}); stopBtn.addEventListener('click', function(){ try{ if(activeVideoSession&&activeVideoSession.stop) activeVideoSession.stop(); }catch(_){} }); if(videoRow) videoRow.insertBefore(stopBtn, videoRow.firstChild.nextSibling||null); } videoStartBtn.style.display='none'; stopBtn.style.display=''; },
-          onTick:function(elapsed){ videoStatus.textContent='\u25CF Recording '+fmtVideoTime(elapsed)+' / 01:00 — click Stop to finish'; },
-          onPreview:function(file,url,mime,durMs){ videoStartBtn.style.display=''; var sb=document.getElementById('bugaputa-video-stop'); if(sb) sb.style.display='none'; activeVideoSession=null; renderVideoPreview(file,url,mime,durMs); },
-          onDenied:function(msg){ videoStartBtn.style.display=''; var sb=document.getElementById('bugaputa-video-stop'); if(sb) sb.style.display='none'; activeVideoSession=null; renderVideoDenied(msg); },
-          onUnsupported:function(msg){ videoStartBtn.style.display=''; activeVideoSession=null; renderVideoUnsupported(msg); },
-          onError:function(msg){ videoStartBtn.style.display=''; var sb2=document.getElementById('bugaputa-video-stop'); if(sb2) sb2.style.display='none'; activeVideoSession=null; videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg; var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='block'; }
-        });
-      }, function(){
-        videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Load failed.';
-      });
-    }
+    function handleVideoStartWithoutMic(){ var c=!!(videoMicChk&&videoMicChk.checked); try{ if(videoMicChk) videoMicChk.checked=false; }catch(_){} try{ handleVideoStart(); }finally{ try{ if(videoMicChk) videoMicChk.checked=c; }catch(_){} } }
     // wire file fallback
     try{
       var vfi=document.getElementById('bugaputa-video-file');
@@ -468,14 +480,14 @@
       var vEl=document.createElement('video'); vEl.setAttribute('controls',''); vEl.setAttribute('playsinline',''); vEl.src=vUrl; vEl.style.cssText='max-width:100%;max-height:160px;border-radius:8px;border:1px solid #e2e8f0;background:#0f172a;display:block';
       preview.appendChild(vEl);
       var vMeta=pendingVideoMeta? (fmtVideoTime(pendingVideoMeta.durationMs)+' · '+fmtVideoSize(pendingVideoMeta.sizeBytes)+' · '+(pendingVideoMeta.mime||pendingVideoFile.type)) : fmtVideoSize(pendingVideoFile.size||0);
-      var vHint=h('div',{text:'Video attached — will be sent with your report. '+vMeta,style:'font-size:11px;color:#64748b;margin-top:6px'});
+      var vHint=h('div',{text:'Video attached — '+vMeta,style:'font-size:11px;color:#64748b;margin-top:6px'});
       preview.appendChild(vHint);
       fileLabel.firstChild && (fileLabel.firstChild.textContent='Replace screenshot');
     } else if(pendingAnnotatedFile){
       var blobUrl=URL.createObjectURL(pendingAnnotatedFile);
       var img=document.createElement('img'); img.alt='Annotated screenshot preview'; img.src=blobUrl;
       preview.appendChild(img);
-      var hint=h('div',{text:'Annotated screenshot ready — you can replace it by choosing another file.',style:'font-size:11px;color:#64748b;margin-top:6px'});
+      var hint=h('div',{text:'Annotated screenshot ready — replace by choosing another file.',style:'font-size:11px;color:#64748b;margin-top:6px'});
       preview.appendChild(hint);
       preview._blobUrl=blobUrl;
       fileLabel.firstChild && (fileLabel.firstChild.textContent='Replace screenshot');
@@ -502,7 +514,7 @@
       var esc=function(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
       ctx.innerHTML='<strong>Will be sent:</strong><br>URL: '+esc(location.href.length>80?location.href.slice(0,80)+'…':location.href)+'<br>Browser: '+esc(navigator.userAgent.slice(0,120))+'<br>Viewport: '+esc(vw)+'<br>Language: '+esc(navigator.language||'');
     })();
-    var consent=h('div',{id:'bugaputa-consent',text:'We will send page URL, browser info, and your message. No passwords.'});
+    var consent=h('div',{id:'bugaputa-consent',text:'We send URL, browser info, message. No passwords.'});
     var actions=h('div',{id:'bugaputa-actions'});
     var cancelBtn=h('button',{id:'bugaputa-cancel',type:'button',text:'Cancel'}); cancelBtn.addEventListener('click', close);
     var submitBtn=h('button',{id:'bugaputa-submit',type:'submit',text:'Send report'});
@@ -1905,23 +1917,12 @@
       if(_revealTimer){ try{ clearTimeout(_revealTimer); }catch(_){} _revealTimer=null; }
       return;
     }
-    var fastPath=(_initialLabel&&_initialColor&&_initialPos);
-    if(fastPath){
-      if(!document.body){ setTimeout(mount, 50); return; }
-      revealOnce();
-      return;
-    }
-    var needFetch=(!_initialLabel||!_initialColor||!_initialPos);
-    if(needFetch&&!projectKey){
-      if(!document.body){ setTimeout(mount, 50); return; }
-      revealOnce();
-      return;
-    }
-    if(!_revealed&&!_revealTimer){
-      _revealTimer=setTimeout(function(){ if(!_revealed) revealOnce(); }, WIDGET_REVEAL_TIMEOUT_MS);
-    }
     if(!document.body){ setTimeout(mount, 50); return; }
     if(_revealed) return;
+    // Single deterministic reveal path: fetchWidgetConfig IIFE owns the fallback timer;
+    // flag refresh is fetchWidgetConfig -> widgetConfig -> open() + refreshVideoChooser().
+    // Mount reveals immediately only when no projectKey will fetch; otherwise fetch handles reveal.
+    if(!projectKey){ revealOnce(); }
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 })();

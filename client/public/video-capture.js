@@ -187,6 +187,18 @@ function openLive(ctx){
   tb.appendChild(drag); tb.appendChild(rec); tb.appendChild(cnt); tb.appendChild(tim); tb.appendChild(stp); tb.appendChild(mic); tb.appendChild(undo); tb.appendChild(redo); tb.appendChild(del); tb.appendChild(clr); tb.appendChild(done); tb.appendChild(cancel); document.body.appendChild(tb);
   (function(){ var sx=0,sy=0,ox=0,oy=0,dg=false; drag.addEventListener('pointerdown',function(e){ dg=true; drag.setPointerCapture(e.pointerId); sx=e.clientX; sy=e.clientY; var r=tb.getBoundingClientRect(); ox=r.left; oy=r.top; drag.style.cursor='grabbing'; tb.setAttribute('aria-grabbed','true'); e.preventDefault(); }); drag.addEventListener('pointermove',function(e){ if(!dg) return; var nx=ox+(e.clientX-sx), ny=oy+(e.clientY-sy); nx=Math.max(8,Math.min(window.innerWidth-tb.offsetWidth-8,nx)); ny=Math.max(8,Math.min(window.innerHeight-tb.offsetHeight-8,ny)); tb.style.left=nx+'px'; tb.style.right='auto'; tb.style.bottom='auto'; tb.style.top=ny+'px'; tb.style.transform='none'; }); function up(e){ dg=false; drag.style.cursor='grab'; tb.removeAttribute('aria-grabbed'); try{drag.releasePointerCapture(e.pointerId);}catch(_){} } drag.addEventListener('pointerup',up); drag.addEventListener('pointercancel',up); })();
   __liveState={tool:'pen',color:'#ef4444',annotations:[],selectedId:null,undoStack:[],redoStack:[],nextPin:1};
+  var PALETTE=['#ef4444','#f59e0b','#22c55e','#3b82f6','#ec4899'];
+  var paletteWrap=h('div',{style:'display:flex;gap:4px;align-items:center'});
+  PALETTE.forEach(function(c){
+    var b=h('button',{type:'button','aria-label':'Color '+c, title:'Color '+c});
+    b.style.background=c; b.style.width='28px'; b.style.height='28px'; b.style.borderRadius='999px'; b.style.border='2px solid transparent'; b.style.cursor='pointer';
+    b.style.minWidth='28px'; b.style.minHeight='28px';
+    if(c===__liveState.color) b.style.borderColor='#0f172a';
+    b.addEventListener('click', function(){ __liveState.color=c; Array.prototype.slice.call(paletteWrap.children).forEach(function(ch){ ch.style.borderColor='transparent'; }); b.style.borderColor='#0f172a'; });
+    paletteWrap.appendChild(b);
+  });
+  // Insert palette after tools, before undo group
+  tb.insertBefore(paletteWrap, undo);
   function pushU(){ __liveState.undoStack.push(JSON.stringify(__liveState.annotations)); if(__liveState.undoStack.length>40) __liveState.undoStack.shift(); __liveState.redoStack=[]; }
   function doUndo(){ if(!__liveState.undoStack.length) return; __liveState.redoStack.push(JSON.stringify(__liveState.annotations)); __liveState.annotations=JSON.parse(__liveState.undoStack.pop()); __liveState.selectedId=null; draw(); }
   function doRedo(){ if(!__liveState.redoStack.length) return; __liveState.undoStack.push(JSON.stringify(__liveState.annotations)); __liveState.annotations=JSON.parse(__liveState.redoStack.pop()); __liveState.selectedId=null; draw(); }
@@ -194,7 +206,16 @@ function openLive(ctx){
   var ctx=cvs.getContext('2d'), raf=0; function draw(){ if(raf) return; raf=requestAnimationFrame(function(){ raf=0; ctx.clearRect(0,0,W,H); __liveState.annotations.forEach(function(a){ ctx.save(); ctx.strokeStyle=a.color; ctx.fillStyle=a.color; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round'; if(a.type==='rect') ctx.strokeRect(Math.min(a.x,a.x2),Math.min(a.y,a.y2),Math.abs(a.x2-a.x),Math.abs(a.y2-a.y)); else if(a.type==='arrow'){ ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(a.x2,a.y2); ctx.stroke(); var ang=Math.atan2(a.y2-a.y,a.x2-a.x),L=14; ctx.beginPath(); ctx.moveTo(a.x2,a.y2); ctx.lineTo(a.x2-L*Math.cos(ang-Math.PI/6),a.y2-L*Math.sin(ang-Math.PI/6)); ctx.lineTo(a.x2-L*Math.cos(ang+Math.PI/6),a.y2-L*Math.sin(ang+Math.PI/6)); ctx.closePath(); ctx.fill(); } else if(a.type==='pen'&&a.points.length>=2){ ctx.beginPath(); ctx.moveTo(a.points[0][0],a.points[0][1]); for(var i=1;i<a.points.length;i++) ctx.lineTo(a.points[i][0],a.points[i][1]); ctx.stroke(); } else if(a.type==='text'){ ctx.font='14px Inter,system-ui'; ctx.fillText(a.text||'',a.x,a.y); } ctx.restore(); }); }); }
   var ro=null;
   var onScroll=function(){ draw(); }; window.addEventListener('scroll',onScroll,{passive:true});
-  function updatePointer(){ cvs.style.pointerEvents=__liveState.tool==='select'?'none':'auto'; }
+  function updatePointer(){
+    var isSel=__liveState.tool==='select';
+    cvs.style.pointerEvents=isSel?'none':'auto';
+    if(isSel){
+      // Pointer mode allows normal page interaction and preserves wheel/trackpad scrolling
+      cvs.style.touchAction='pan-x pan-y';
+    } else {
+      cvs.style.touchAction='none';
+    }
+  }
   updatePointer();
   var drawing=null,isDown=false;
   cvs.addEventListener('pointerdown',function(e){ var pt=getDocPoint(e); if(__liveState.tool==='select'){ var hit=null; for(var i=__liveState.annotations.length-1;i>=0;i--){ var a=__liveState.annotations[i]; if(a.type==='rect'&&pt.x>=Math.min(a.x,a.x2)&&pt.x<=Math.max(a.x,a.x2)&&pt.y>=Math.min(a.y,a.y2)&&pt.y<=Math.max(a.y,a.y2)){ hit=a; break; } if(a.type==='pen') for(var p=0;p<a.points.length;p++) if(Math.hypot(a.points[p][0]-pt.x,a.points[p][1]-pt.y)<14){ hit=a; break; } if(hit) break; } if(hit) __liveState.selectedId=hit.id; else __liveState.selectedId=null; draw(); return; } if(__liveState.tool==='text'){ var t=prompt('Enter text:',''); if(t===null) return; t=String(t).slice(0,200); if(!t.trim()) return; pushU(); __liveState.annotations.push({id:'a_'+Math.random().toString(36).slice(2,9),type:'text',x:pt.x,y:pt.y,text:t,color:__liveState.color}); draw(); return; } pushU(); isDown=true; try{cvs.setPointerCapture(e.pointerId);}catch(_){} if(__liveState.tool==='pen') drawing={id:'a_'+Math.random().toString(36).slice(2,9),type:'pen',color:__liveState.color,points:[[pt.x,pt.y]]}; else if(__liveState.tool==='rect') drawing={id:'a_'+Math.random().toString(36).slice(2,9),type:'rect',color:__liveState.color,x:pt.x,y:pt.y,x2:pt.x,y2:pt.y}; else if(__liveState.tool==='arrow') drawing={id:'a_'+Math.random().toString(36).slice(2,9),type:'arrow',color:__liveState.color,x:pt.x,y:pt.y,x2:pt.x,y2:pt.y}; if(drawing) __liveState.annotations.push(drawing); draw(); });
