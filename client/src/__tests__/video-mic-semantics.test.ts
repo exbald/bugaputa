@@ -25,7 +25,9 @@ describe("Video mic semantics: executable behavior, not regex-only", () => {
 
   describe("behavior: getDisplayMedia always video-only; mic branch semantics", () => {
     function makeTrack(kind: string, id: string){
-      return { kind, id, stop: vi.fn(), addEventListener: vi.fn(), label: id } as any;
+      const base:any = { kind, id, stop: vi.fn(), addEventListener: vi.fn(), label: id };
+      if(kind==='video') { base.getSettings = ()=> ({displaySurface:'browser'}); base.getCaptureHandle = ()=> null; }
+      return base as any;
     }
     function makeStream(){ const tracks:any[]=[]; return { getTracks:()=>tracks.slice(), getAudioTracks:()=>tracks.filter((t:any)=>t.kind==='audio'), getVideoTracks:()=>tracks.filter((t:any)=>t.kind==='video'), addTrack:(t:any)=>{tracks.push(t)}, _tracks:tracks } as any; }
 

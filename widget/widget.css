@@ -93,3 +93,19 @@
 #bugaputa-close:hover{background:#f8fafc;color:#0f172a;border-color:#cbd5e1}
 #bugaputa-close:active{background:#f1f5f9}
 #bugaputa-close:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+/* video v2: pointer halo + ripple (non-blocking, high-contrast, reduced-motion, captured pixels) */
+#bugaputa-pointer-halo{position:fixed;width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #0f172a,0 2px 8px rgba(0,0,0,.35);pointer-events:none;z-index:2147483646;transform:translate(-50%,-50%);mix-blend-mode:normal;will-change:transform}
+#bugaputa-pointer-ripple{position:fixed;width:36px;height:36px;border-radius:50%;border:2px solid #a3e635;pointer-events:none;z-index:2147483645;transform:translate(-50%,-50%) scale(.6);opacity:.9;animation:bugaputa-ripple 320ms ease-out forwards}
+@keyframes bugaputa-ripple{to{transform:translate(-50%,-50%) scale(2.2);opacity:0}}
+@media(prefers-reduced-motion:reduce){#bugaputa-pointer-ripple{animation:none;opacity:0;transition:opacity 120ms}}
+/* movable toolbar drag handle */
+#bugaputa-ann-toolbar[aria-grabbed="true"]{cursor:grabbing}
+#bugaputa-ann-drag{cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;min-width:20px;display:flex;align-items:center;justify-content:center;color:#94a3b8}
+#bugaputa-ann-drag:active{cursor:grabbing}
+/* document-relative annotation layer helper: when video workspace is live, annotations are stored in document coords and rendered with scroll compensation (see widget.js cssPoint doc) */
+#bugaputa-ann-canvas-wrap.bugaputa-live{will-change:transform}
+/* preview modal polish (accessible, responsive 390px, fixed actions, focus trap) */
+#bugaputa-video-preview-modal{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55)}
+#bugaputa-video-preview-card{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column}
+#bugaputa-video-preview-card header{padding:16px 20px 12px;border-bottom:1px solid #e2e8f0}
+#bugaputa-video-preview-card .bugaputa-preview-actions{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;background:#fff}
