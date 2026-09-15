@@ -79,8 +79,10 @@ function mimeToExt(mime: string): string {
 
 const upload = multer({
   storage,
-  // multer's fileSize limit is global, so it must allow the largest accepted
-  // artifact; the tighter per-image cap is enforced in the handler below.
+  // multer's fileSize limit is global (applies to every part), so it must allow the largest
+  // accepted artifact (25 MiB video). The tighter per-image cap (5 MiB) is enforced in the
+  // handler below. Files are streamed to disk in UPLOAD_DIR and must be cleaned via
+  // cleanupUploads() on every early exit (including multer's error branch) to avoid temp-disk leaks.
   limits: { fileSize: MAX_VIDEO_BYTES, files: 4 },
   fileFilter(_req, file, cb) {
     const base = baseMime(file.mimetype);
@@ -264,6 +266,7 @@ router.post(
       return;
     }
     // Per-video cap
+    let cachedVideoDur: number | null = null;
     if (files.video) {
       if ((files.video.size || 0) > MAX_VIDEO_BYTES) {
         cleanupUploads(req);
@@ -283,8 +286,9 @@ router.post(
         return;
       }
       // Duration check: only reject when parse succeeds and >61s
-      const dur = probeVideoDurationMs(files.video.path!, claimedMime);
-      if (dur !== null && dur > MAX_VIDEO_DURATION_MS + VIDEO_DURATION_TOLERANCE_MS) {
+      // probeVideoDurationMs reads first 2MiB; duration reused below to avoid double I/O
+      cachedVideoDur = probeVideoDurationMs(files.video.path!, claimedMime);
+      if (cachedVideoDur !== null && cachedVideoDur > MAX_VIDEO_DURATION_MS + VIDEO_DURATION_TOLERANCE_MS) {
         cleanupUploads(req);
         res.status(400).json({ error: "Video too long — max 60s" });
         return;
@@ -318,8 +322,7 @@ router.post(
       const claimedMime: string = rawVideoFile?.mimetype || "";
       videoPath = files.video.filename || null;
       videoMime = baseMime(claimedMime);
-      const probed = probeVideoDurationMs(files.video.path!, claimedMime);
-      videoDurationMs = probed;
+      videoDurationMs = cachedVideoDur;
       videoSizeBytes = files.video.size || 0;
       console.info(`[video] project=${project.id} mime=${videoMime} size=${videoSizeBytes} durationMs=${videoDurationMs}`);
     }

@@ -47,8 +47,7 @@
     try{ document.body.appendChild(createTrigger()); }catch(_){}
   }
   (function fetchWidgetConfig(){
-    var needFetch=(!_initialLabel||!_initialColor||!_initialPos);
-    if(!needFetch||!projectKey) return;
+    if(!projectKey) return;
     var cfgUrl='';
     try{
       var base='';

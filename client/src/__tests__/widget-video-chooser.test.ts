@@ -112,4 +112,21 @@ describe("Video 04: size reclaim + flagged 3-way chooser (RED)", () => {
     expect(j).toMatch(/already revealed|timeout won/i);
     expect(j).toMatch(/onError intentionally does NOT clear attachment/);
   });
+
+  it("fetches videoCaptureEnabled even when data-label/color/pos all present", () => {
+    const j = js();
+    // must not gate fetchWidgetConfig on needFetch; flag fetch must happen when projectKey present
+    // the fetch block should start with if(!projectKey) return; not needFetch||!projectKey
+    expect(j).toContain("(function fetchWidgetConfig(){");
+    const fetchIdx = j.indexOf("(function fetchWidgetConfig(){");
+    const block = j.slice(fetchIdx, fetchIdx + 1100);
+    expect(block).not.toMatch(/needFetch/);
+    expect(block).toMatch(/if\(!projectKey\) return/);
+    // label/color still only overridden when initial missing (further in file, not necessarily within 700 chars)
+    expect(j).toMatch(/if\(!_initialLabel&&fetchedLabel\)/);
+    expect(j).toMatch(/if\(!_initialColor&&fetchedColor\)/);
+    expect(j).toMatch(/if\(!_initialPos&&fetchedPos\)/);
+    // video flag always set from response
+    expect(j).toMatch(/widgetConfig\.videoCaptureEnabled\s*=\s*!!fetchedVideo/);
+  });
 });
