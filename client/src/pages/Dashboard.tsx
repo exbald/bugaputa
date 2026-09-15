@@ -101,7 +101,7 @@ function WorkspaceRow({
     Boolean(lastReportAt);
 
   return (
-    <div className="group bg-white border border-slate-200 rounded-xl sm:rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-sm transition min-w-0">
+    <div className="group bg-white border border-slate-200 rounded-xl sm:rounded-2xl hover:border-slate-300 hover:shadow-sm transition min-w-0">
       {/* Desktop: dense horizontal row. Mobile: compact stacked panel */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 py-4 sm:px-5 sm:py-4 min-w-0">
         {/* Primary: name + meta + presence */}
@@ -257,6 +257,7 @@ export default function Dashboard() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
   const composerInputRef = useRef<HTMLInputElement>(null);
+  const newProjectBtnRef = useRef<HTMLButtonElement>(null);
   const mutationVersionRef = useRef(0);
   const requestVersionRef = useRef(0);
 
@@ -424,6 +425,7 @@ export default function Dashboard() {
               </p>
             </div>
             <button
+              ref={newProjectBtnRef}
               type="button"
               onClick={() => {
                 setComposerOpen((v) => !v);
@@ -447,6 +449,15 @@ export default function Dashboard() {
               className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm"
               role="region"
               aria-label="Create new project"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setComposerOpen(false);
+                  setName("");
+                  setComposerErr("");
+                  newProjectBtnRef.current?.focus();
+                }
+              }}
             >
               <form
                 onSubmit={create}
@@ -467,9 +478,11 @@ export default function Dashboard() {
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Escape") {
+                        e.stopPropagation();
                         setComposerOpen(false);
                         setName("");
                         setComposerErr("");
+                        newProjectBtnRef.current?.focus();
                       }
                     }}
                     disabled={creating}

@@ -74,6 +74,30 @@ describe("Dashboard redesign — search, sort, summary, composer, rows", () => {
     expect(raw).toMatch(/focus-visible:ring-2/);
   });
 
+  it("overflow menu not clipped: WorkspaceRow container does not apply overflow-hidden", () => {
+    const raw = readDashboard();
+    // The absolute Delete menu must escape the row — previous overflow-hidden hid it entirely (P1)
+    // Only the menu itself may use overflow-hidden for rounded corners; the row container must not clip
+    const rowContainer = raw.match(/return\s*\(\s*<div className=\"group[^>]*>/);
+    expect(rowContainer, "WorkspaceRow group container missing").toBeTruthy();
+    expect(rowContainer![0]).not.toMatch(/overflow-hidden/);
+  });
+
+  it("composer Escape: handled on form/region with focus return to disclosure", () => {
+    const raw = readDashboard();
+    // P2: Escape must work from input, Cancel, and Create — not only the input field
+    expect(raw).toMatch(/newProjectBtnRef/);
+    expect(raw).toMatch(/newProjectBtnRef\.current\?\.focus/);
+    // region owns Escape via bubbling (covers buttons even if input not focused)
+    expect(raw).toMatch(/role=\"region\"/);
+    expect(raw).toMatch(/aria-label=\"Create new project\"/);
+    const regionIdx = raw.indexOf('role=\"region\"');
+    const regionSlice = raw.slice(regionIdx, regionIdx + 600);
+    expect(regionSlice).toMatch(/onKeyDown/);
+    expect(regionSlice).toMatch(/Escape/);
+    expect(regionSlice).toMatch(/newProjectBtnRef/);
+  });
+
   it("loading uses skeleton, not lone text", () => {
     const raw = readDashboard();
     expect(raw).toMatch(/DashboardSkeleton/);
