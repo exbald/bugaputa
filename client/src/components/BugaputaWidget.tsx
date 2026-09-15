@@ -1,7 +1,11 @@
 import { useEffect } from "react";
 
 import { WIDGET_SRC, CANONICAL_ORIGIN } from "../lib/canonical";
-export const WIDGET_PROJECT_KEY = "pk_live_OXoMeigFh6QMxkui";
+const DEFAULT_LANDING_PROJECT_KEY = "pk_live_OXoMeigFh6QMxkui";
+export const WIDGET_PROJECT_KEY: string =
+  (import.meta.env.VITE_LANDING_WIDGET_PROJECT_KEY || DEFAULT_LANDING_PROJECT_KEY).trim() ||
+  DEFAULT_LANDING_PROJECT_KEY;
+export const DEFAULT_LANDING_KEY = DEFAULT_LANDING_PROJECT_KEY;
 
 /**
  * Singleton, React-safe live widget loader.
