@@ -370,11 +370,13 @@ export default function Dashboard() {
       mutationVersionRef.current += 1;
       const msg = e instanceof Error ? e.message : "Failed to create";
       setComposerErr(msg);
-    } finally {
       setCreating(false);
-      // Focus after re-enabling disclosure (disabled={creating}) so .focus() not ignored — next tick
-      setTimeout(() => newProjectBtnRef.current?.focus(), 0);
+      setTimeout(() => composerInputRef.current?.focus(), 0);
+      return;
     }
+    setCreating(false);
+    // Focus after re-enabling disclosure (disabled={creating}) so .focus() not ignored — next tick
+    setTimeout(() => newProjectBtnRef.current?.focus(), 0);
   };
 
   const del = async (id: string) => {
