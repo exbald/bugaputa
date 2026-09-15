@@ -347,13 +347,14 @@ export default function Dashboard() {
       setName("");
       setComposerOpen(false);
       setComposerErr("");
-      newProjectBtnRef.current?.focus();
     } catch (e: unknown) {
       mutationVersionRef.current += 1;
       const msg = e instanceof Error ? e.message : "Failed to create";
       setComposerErr(msg);
     } finally {
       setCreating(false);
+      // Focus after re-enabling disclosure (disabled={creating}) so .focus() not ignored
+      queueMicrotask(() => newProjectBtnRef.current?.focus());
     }
   };
 
