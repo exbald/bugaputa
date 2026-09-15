@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { TopNav } from "../components/Layout";
@@ -217,13 +217,12 @@ function WorkspaceRow({
             {isMenuOpen && (
               <div
                 ref={menuRef}
-                role="menu"
+                role="group"
                 aria-label={`Actions for ${project.name}`}
                 className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
-                  role="menuitem"
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -386,6 +385,7 @@ export default function Dashboard() {
       await api.deleteProject(id);
       mutationVersionRef.current += 1;
       setProjects((prev) => prev.filter((p) => p.id !== id));
+      setTimeout(() => newProjectBtnRef.current?.focus(), 0);
     } catch (e: unknown) {
       mutationVersionRef.current += 1;
       const msg = e instanceof Error ? e.message : "Failed to delete";
@@ -431,6 +431,9 @@ export default function Dashboard() {
   }, [projects, query, sort]);
 
   const showSort = projects.length > 2;
+
+  const handleCloseMenu = useCallback(() => setOpenMenuId(null), []);
+  const handleToggleMenu = useCallback((id: string) => setOpenMenuId((cur) => (cur === id ? null : id)), []);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -698,8 +701,8 @@ export default function Dashboard() {
                     project={p}
                     onDelete={del}
                     isMenuOpen={openMenuId === p.id}
-                    onToggleMenu={() => setOpenMenuId((cur) => (cur === p.id ? null : p.id))}
-                    onCloseMenu={() => setOpenMenuId(null)}
+                    onToggleMenu={() => handleToggleMenu(p.id)}
+                    onCloseMenu={handleCloseMenu}
                   />
                 ))}
               </div>
