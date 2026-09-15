@@ -169,7 +169,9 @@ function openLive(ctx){
   var overlay=document.getElementById('bugaputa-overlay');
   __liveActive=true; try{ if(window.__bugaputaLiveActiveSetter) window.__bugaputaLiveActiveSetter(true);}catch(_){}
   if(overlay) overlay.style.display='none';
-  document.body.style.overflow='hidden';
+  // Live workspace must NOT hide body overflow: brief #8 requires normal page scroll
+  // in select/pointer mode (canvas uses pointerEvents none + touchAction pan-x pan-y).
+  // Overflow hidden is only correct for the screenshot annotate full-viewport editor.
   var ex=document.getElementById('bugaputa-live-video'); if(ex) ex.remove();
   var et=document.getElementById('bugaputa-live-toolbar'); if(et) et.remove();
   var W=Math.max(document.documentElement.scrollWidth,document.body.scrollWidth||0,window.innerWidth);
@@ -204,7 +206,9 @@ function openLive(ctx){
   function doRedo(){ if(!__liveState.redoStack.length) return; __liveState.undoStack.push(JSON.stringify(__liveState.annotations)); __liveState.annotations=JSON.parse(__liveState.redoStack.pop()); __liveState.selectedId=null; draw(); }
   undo.addEventListener('click',doUndo); redo.addEventListener('click',doRedo); del.addEventListener('click',function(){ if(!__liveState.selectedId) return; pushU(); __liveState.annotations=__liveState.annotations.filter(function(a){return a.id!==__liveState.selectedId;}); __liveState.selectedId=null; draw(); }); clr.addEventListener('click',function(){ if(!__liveState.annotations.length) return; if(!confirm('Clear?')) return; pushU(); __liveState.annotations=[]; __liveState.selectedId=null; draw(); });
   var ctx=cvs.getContext('2d'), raf=0; function draw(){ if(raf) return; raf=requestAnimationFrame(function(){ raf=0; ctx.clearRect(0,0,W,H); __liveState.annotations.forEach(function(a){ ctx.save(); ctx.strokeStyle=a.color; ctx.fillStyle=a.color; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round'; if(a.type==='rect') ctx.strokeRect(Math.min(a.x,a.x2),Math.min(a.y,a.y2),Math.abs(a.x2-a.x),Math.abs(a.y2-a.y)); else if(a.type==='arrow'){ ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(a.x2,a.y2); ctx.stroke(); var ang=Math.atan2(a.y2-a.y,a.x2-a.x),L=14; ctx.beginPath(); ctx.moveTo(a.x2,a.y2); ctx.lineTo(a.x2-L*Math.cos(ang-Math.PI/6),a.y2-L*Math.sin(ang-Math.PI/6)); ctx.lineTo(a.x2-L*Math.cos(ang+Math.PI/6),a.y2-L*Math.sin(ang+Math.PI/6)); ctx.closePath(); ctx.fill(); } else if(a.type==='pen'&&a.points.length>=2){ ctx.beginPath(); ctx.moveTo(a.points[0][0],a.points[0][1]); for(var i=1;i<a.points.length;i++) ctx.lineTo(a.points[i][0],a.points[i][1]); ctx.stroke(); } else if(a.type==='text'){ ctx.font='14px Inter,system-ui'; ctx.fillText(a.text||'',a.x,a.y); } ctx.restore(); }); }); }
-  var ro=null;
+  // W/H is document-sized at open time (scrollWidth/scrollHeight) via getDocPoint
+  // document-relative layer; static W/H is sufficient for MVP — ResizeObserver not
+  // needed until long-session DOM growth is supported; avoid dead variable.
   var onScroll=function(){ draw(); }; window.addEventListener('scroll',onScroll,{passive:true});
   function updatePointer(){
     var isSel=__liveState.tool==='select';
@@ -228,7 +232,7 @@ function openLive(ctx){
   stp.addEventListener('click',function(){ try{ if(window.__bugaputaActiveVideoSession&&window.__bugaputaActiveVideoSession.stop) window.__bugaputaActiveVideoSession.stop(); }catch(_){} try{document.removeEventListener('pointermove',movePointerHalo);}catch(_){} hidePointerHalo(); });
   cancel.addEventListener('click',function(){ closeLive(); var ov=document.getElementById('bugaputa-overlay'); if(ov){ ov.style.display='flex'; var ch=document.getElementById('bugaputa-chooser'); if(ch) ch.style.display='block'; }});
   done.addEventListener('click',function(){ closeLive(); var ov=document.getElementById('bugaputa-overlay'); if(ov){ ov.style.display='flex'; var ch=document.getElementById('bugaputa-chooser'); if(ch) ch.style.display='block'; }});
-  function closeLive(){ __liveActive=false; try{ if(window.__bugaputaLiveActiveSetter) window.__bugaputaLiveActiveSetter(false);}catch(_){} try{ if(ro) ro.disconnect();}catch(_){} window.removeEventListener('scroll',onScroll); try{document.removeEventListener('pointermove',movePointerHalo);}catch(_){} hidePointerHalo(); var w=document.getElementById('bugaputa-live-video'); if(w) w.remove(); var t=document.getElementById('bugaputa-live-toolbar'); if(t) t.remove(); document.body.style.overflow=''; }
+  function closeLive(){ __liveActive=false; try{ if(window.__bugaputaLiveActiveSetter) window.__bugaputaLiveActiveSetter(false);}catch(_){} window.removeEventListener('scroll',onScroll); try{document.removeEventListener('pointermove',movePointerHalo);}catch(_){} hidePointerHalo(); var w=document.getElementById('bugaputa-live-video'); if(w) w.remove(); var t=document.getElementById('bugaputa-live-toolbar'); if(t) t.remove(); }
   window.__bugaputaCloseLiveWorkspace=closeLive;
 }
 window.__bugaputaVideoLive={open:openLive, isActive:isLiveActive, close:function(){ try{ if(window.__bugaputaCloseLiveWorkspace) window.__bugaputaCloseLiveWorkspace(); }catch(_){} }, _elapsed:0};

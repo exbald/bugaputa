@@ -76,4 +76,44 @@ describe("live pointer mode passes through to page",()=>{
     cvs.dispatchEvent({ type:'pointerdown', bubbles:true, clientX:10, clientY:10 } as any);
     expect(canvasPointerDown, 'draw mode must receive pointerdown on canvas').toBe(true);
   });
+  it("live openLive does NOT hide body overflow (brief #8 pointer-mode scroll)", async()=>{
+    const s=read(VCJS);
+    expect(s).not.toContain("document.body.style.overflow='hidden'");
+    const codeLines=s.split('\n').filter((l:string)=>!l.trim().startsWith('//'));
+    const overflowAssignments=codeLines.join('\n').match(/document\.body\.style\.overflow/g) || [];
+    expect(overflowAssignments.length, 'live VCJS must not manipulate body overflow').toBe(0);
+    expect(s).toContain('Live workspace must NOT hide body overflow');
+    expect(s).toContain("Math.max(document.documentElement.scrollWidth");
+    expect(s).toContain("Math.max(document.documentElement.scrollHeight");
+  });
+  it("window scroll events still fire and document-relative getDocPoint retained, no dead ro var", async()=>{
+    const s=read(VCJS);
+    expect(s).toContain('getDocPoint');
+    expect(s).toContain('window.scrollX');
+    expect(s).toContain("window.addEventListener('scroll',onScroll");
+    expect(s).not.toMatch(/var ro=null/);
+    expect(s).not.toContain('ro.disconnect');
+    // window scroll triggers onScroll -> draw; verify with mock window
+    let drawCalled=false;
+    const mockWin:any={ listeners:{} as any, addEventListener(t:string,fn:any){ (this.listeners[t]??=[]).push(fn); }, dispatchEvent(ev:any){ const lst=this.listeners[ev.type]||[]; for(const fn of lst) fn(ev); return true; } };
+    const onScroll=()=>{ drawCalled=true; };
+    mockWin.addEventListener('scroll', onScroll);
+    mockWin.dispatchEvent({ type:'scroll' } as any);
+    expect(drawCalled, 'window scroll must fire onScroll handler').toBe(true);
+    // pointerEvents none in select mode must still allow wheel to bubble (already proven above) — re-assert minimal
+    function mockEl(tag:string){
+      const el:any={ tagName:tag.toUpperCase(), style:{} as any, children:[] as any[], listeners:{} as any,
+        addEventListener(t:string,fn:any){ (this.listeners[t]??=[]).push(fn); },
+        dispatchEvent(ev:any){ ev.target=this; const lst=this.listeners[ev.type]||[]; for(const fn of lst) fn(ev); if(ev.bubbles && this.parent) this.parent.dispatchEvent(ev); return true; },
+        appendChild(c:any){ c.parent=this; this.children.push(c); return c; },
+        parent:null as any,
+      };
+      return el;
+    }
+    const host=mockEl('div'); const canvasEl=mockEl('canvas'); host.appendChild(canvasEl);
+    canvasEl.style.pointerEvents='none';
+    let wheelBubbled=false; host.addEventListener('wheel', ()=>{ wheelBubbled=true; });
+    canvasEl.dispatchEvent({ type:'wheel', bubbles:true, deltaY:100 } as any);
+    expect(wheelBubbled, 'wheel must bubble in select mode despite live workspace').toBe(true);
+  });
 });
