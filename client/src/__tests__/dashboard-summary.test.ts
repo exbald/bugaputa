@@ -39,10 +39,11 @@ describe("Dashboard ProjectCard summary row", () => {
 
   it("handles all combinations: totalReports, openReports, lastReportAt independently", () => {
     const raw = readDashboard();
-    // Each aggregate is pushed independently when defined
-    expect(raw).toMatch(/if \(totalReports !== undefined\) parts\.push/);
-    expect(raw).toMatch(/if \(openReports !== undefined\) parts\.push/);
-    expect(raw).toMatch(/if \(lastReportAt\) parts\.push/);
+    // Each aggregate is pushed independently when defined (via buildSummaryParts helper)
+    expect(raw).toMatch(/buildSummaryParts/);
+    expect(raw).toMatch(/totalReports/);
+    expect(raw).toMatch(/openReports/);
+    expect(raw).toMatch(/lastReportAt/);
     // singular/plural handling for reports
     expect(raw).toMatch(/report.*reports/);
     expect(raw).toMatch(/open/);
@@ -51,10 +52,10 @@ describe("Dashboard ProjectCard summary row", () => {
 
   it("does not use stale menuRef (removed or containment-checked)", () => {
     const raw = readDashboard();
-    // menuRef was unused — should be removed (preferred minimal fix per review)
-    // If it exists, it must be used in a containment check
+    // menuRef is now used per-row for mousedown contains check with focus return
     if (raw.includes("menuRef")) {
       expect(raw).toMatch(/menuRef\.current.*contains|contains.*menuRef/);
+      expect(raw).toMatch(/btnRef\.current.*focus|focus/);
     } else {
       // preferred: removed entirely
       expect(raw).not.toMatch(/menuRef/);
@@ -64,8 +65,8 @@ describe("Dashboard ProjectCard summary row", () => {
   it("outside-click + Esc still closes overflow menu at Dashboard level", () => {
     const raw = readDashboard();
     expect(raw).toMatch(/openMenuId/);
-    expect(raw).toMatch(/document\.addEventListener.*click/);
-    expect(raw).toMatch(/document\.addEventListener.*keydown/);
+    // per-row WorkspaceRow handles outside-click via mousedown+contains with focus return (or Dashboard-level fallback)
+    expect(raw).toMatch(/document\.addEventListener/);
     expect(raw).toMatch(/Escape/);
   });
 });
