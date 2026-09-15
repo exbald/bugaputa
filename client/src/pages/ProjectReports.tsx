@@ -17,6 +17,19 @@ function Badge({s}:{s:string}){
   const map:any={open:"bg-amber-100 text-amber-800 border-amber-200", in_progress:"bg-blue-100 text-blue-800 border-blue-200", resolved:"bg-green-100 text-green-800 border-green-200", archived:"bg-slate-100 text-slate-600 border-slate-200"};
   return <span className={'inline-flex px-2 py-0.5 rounded-full text-xs font-medium border '+(map[s]||"bg-slate-100")}>{s}</span>
 }
+function formatDuration(ms:number|null|undefined){
+  if(!ms || ms<=0) return "";
+  const s=Math.round(ms/1000);
+  const m=Math.floor(s/60);
+  const sec=s%60;
+  return m+":"+String(sec).padStart(2,"0");
+}
+function formatBytes(b:number|null|undefined){
+  if(b==null || b<=0) return "";
+  if(b<1024) return b+" B";
+  if(b<1024*1024) return (b/1024).toFixed(b>=10*1024?0:1)+" KB";
+  return (b/(1024*1024)).toFixed(b>=10*1024*1024?1:2)+" MB";
+}
 
 const WIDGET_POSITIONS = [
   { value: "left", label: "Left" },
@@ -92,6 +105,10 @@ export default function ProjectReports(){
   const [wSaving,setWSaving]=useState(false);
   const [wSaved,setWSaved]=useState(false);
   const [wErr,setWErr]=useState("");
+  const [videoEnabled,setVideoEnabled]=useState(false);
+  const [videoSaving,setVideoSaving]=useState(false);
+  const [videoSaved,setVideoSaved]=useState(false);
+  const [videoErr,setVideoErr]=useState("");
   useEffect(()=>{ const t=setTimeout(()=> setQDebounced(q), 350); return ()=> clearTimeout(t); },[q]);
   useEffect(()=>{ setPage(1); },[status,qDebounced]);
   const loadProject=useCallback(async()=>{
@@ -103,6 +120,7 @@ export default function ProjectReports(){
       setWLabel(proj.widget_label || proj.widgetLabel || WIDGET_DEFAULTS.label);
       setWColor(proj.widget_color || proj.widgetColor || WIDGET_DEFAULTS.color);
       setWPos(proj.widget_position || proj.widgetPosition || WIDGET_DEFAULTS.position);
+      setVideoEnabled(!!proj.videoCaptureEnabled);
     } catch(e:any){ setErr(e.message); }
   },[id]);
   const loadReports=useCallback(async()=>{
@@ -156,6 +174,32 @@ export default function ProjectReports(){
       }
     }
     finally{ setWSaving(false); }
+  };
+  const handleToggleVideo=async()=>{
+    if(!id) return;
+    const next=!videoEnabled;
+    setVideoSaving(true); setVideoErr(""); setVideoSaved(false);
+    try{
+      const d:any=await api.updateProject(id, { videoCaptureEnabled: next });
+      const updated=d.project||d;
+      setProject(updated);
+      setVideoEnabled(!!updated.videoCaptureEnabled);
+      try{
+        const fresh:any=await api.getProject(id);
+        const proj=fresh.project||fresh;
+        setProject(proj);
+        setVideoEnabled(!!proj.videoCaptureEnabled);
+      }catch{}
+      setVideoSaved(true);
+      setTimeout(()=> setVideoSaved(false), 2500);
+    }catch(e:any){
+      setVideoSaved(false);
+      if(e instanceof ApiError && (e.status===401 || e.status===403)){
+        setVideoErr("Session expired — please log in again.");
+      } else {
+        setVideoErr(e.message || "Failed to save — please try again.");
+      }
+    } finally{ setVideoSaving(false); }
   };
   const totalPages=Math.max(1, Math.ceil(total/limit));
 
@@ -231,6 +275,7 @@ export default function ProjectReports(){
                         <span>{new Date(r.createdAt||r.created_at).toLocaleString()}</span>
                         {r.contactEmail && <span className="truncate max-w-[200px]">{r.contactEmail}</span>}
                         {r.pageUrl && <span className="truncate max-w-[200px]">{r.pageUrl}</span>}
+                        {r.videoPath ? (()=>{ const dur=formatDuration(r.videoDurationMs as any); const sz=formatBytes(r.videoSizeBytes as any); const meta=[dur,sz].filter(Boolean).join(" · "); return <span className="inline-flex items-center gap-1.5 bg-slate-900 text-white rounded-full px-2.5 py-1 text-xs font-medium"><span aria-hidden>▶</span> Video{meta? <span className="opacity-70">{meta}</span>:null}</span>; })():null}
                       </div>
                     </Link>
                   ))}
@@ -286,6 +331,26 @@ export default function ProjectReports(){
                       {wErr.includes("Session expired") && <button onClick={()=> navigate("/login")} className="text-xs font-semibold underline underline-offset-2 hover:no-underline flex-shrink-0">Log in</button>}
                     </div>
                   )}
+                  <div className="border-t border-slate-100 pt-4 mt-2">
+                    <h3 className="text-xs font-semibold text-slate-900">Video capture</h3>
+                    <p className="text-xs text-slate-500 mt-1">Enable screen-recording for this project. When off the widget shows 2 choices.</p>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <label htmlFor="video-capture-toggle" className="text-sm font-medium text-slate-700">Enable video capture</label>
+                      <button id="video-capture-toggle" type="button" role="switch" aria-checked={videoEnabled} aria-label="Enable video capture" disabled={videoSaving} onClick={handleToggleVideo} className={'relative inline-flex h-7 w-[46px] items-center rounded-full border transition min-h-[28px] min-w-[46px] '+(videoEnabled? 'bg-slate-900 border-slate-900' : 'bg-slate-200 border-slate-200')+(videoSaving ? ' opacity-50' : '')}>
+                        <span className={'inline-block h-5 w-5 transform rounded-full bg-white shadow transition '+(videoEnabled ? 'translate-x-[22px]' : 'translate-x-1')} />
+                      </button>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 min-h-[24px]">
+                      {videoSaving ? <span aria-live="polite" className="text-xs text-slate-500">Saving...</span> : null}
+                      {videoSaved ? <span aria-live="polite" className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" /> Saved</span> : null}
+                    </div>
+                    {videoErr && (
+                      <div role="alert" aria-live="assertive" className={videoErr.includes("Session expired") ? "mt-2 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-3 py-2.5" : "mt-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2.5"}>
+                        <span className="flex items-center gap-2"><span className={videoErr.includes("Session expired") ? "w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0 inline-block" : "w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0 inline-block"} />{videoErr}</span>
+                        {videoErr.includes("Session expired") && <button onClick={()=> navigate("/login")} className="text-xs font-semibold underline underline-offset-2 hover:no-underline flex-shrink-0">Log in</button>}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-slate-700 mb-1.5">Live preview</div>

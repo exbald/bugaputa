@@ -76,6 +76,70 @@ function SnapshotViewer({src, annotationsSrc}:{src:string; annotationsSrc:string
     </div>
   );
 }
+
+function formatDuration(ms:number|null|undefined){
+  if(!ms || ms<=0) return "";
+  const s=Math.round(ms/1000);
+  const m=Math.floor(s/60);
+  const sec=s%60;
+  return m+":"+String(sec).padStart(2,"0");
+}
+function formatBytes(b:number|null|undefined){
+  if(b==null || b<=0) return "";
+  if(b<1024) return b+" B";
+  if(b<1024*1024) return (b/1024).toFixed(b>=10*1024?0:1)+" KB";
+  return (b/(1024*1024)).toFixed(b>=10*1024*1024?1:2)+" MB";
+}
+
+function VideoViewer({reportId, report}:{reportId:string; report:any}){
+  const videoMime:string|null = report.videoMime ?? null;
+  const videoDurationMs:number|null = report.videoDurationMs ?? null;
+  const videoSizeBytes:number|null = report.videoSizeBytes ?? null;
+  const src = `/api/reports/${reportId}/video`;
+  const downloadHref = `/api/reports/${reportId}/video?download=1`;
+  const [loading,setLoading]=useState(true);
+  const [err,setErr]=useState("");
+  const [unsupported,setUnsupported]=useState(false);
+  const durLabel = formatDuration(videoDurationMs);
+  const sizeLabel = formatBytes(videoSizeBytes);
+  const meta=[videoMime, durLabel, sizeLabel].filter(Boolean).join(" · ");
+  return (
+    <div className="mt-3">
+      {loading && !err && !unsupported && <div className="text-sm text-slate-400">Loading video…</div>}
+      {err && (
+        <div role="alert" className="border rounded-xl p-4 bg-red-50 text-red-700 text-sm">
+          Video unavailable — {err} <a href={downloadHref} className="underline">Download</a>
+        </div>
+      )}
+      {unsupported && !err && (
+        <div role="alert" className="border rounded-xl p-4 bg-amber-50 text-amber-800 text-sm">
+          This browser cannot play this video — <a href={downloadHref} className="underline">Download</a> it and open locally.
+        </div>
+      )}
+      <video
+        controls
+        preload="metadata"
+        playsInline
+        onLoadedMetadata={()=>{ setLoading(false); setErr(""); }}
+        onError={()=>{
+          setLoading(false);
+          // Distinguish network vs decode: show unsupported codec fallback
+          // Always keep download available
+          setUnsupported(true);
+          setErr("");
+        }}
+        onCanPlay={()=> setLoading(false)}
+        className="w-full rounded-xl border bg-black max-h-[480px]"
+      >
+        <source src={src} type={videoMime || undefined} />
+      </video>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <a href={downloadHref} className="inline-flex items-center gap-1.5 text-sm font-medium text-lime-600 hover:underline min-h-[44px]">Download</a>
+        {meta && <span className="text-xs text-slate-500">{meta}</span>}
+      </div>
+    </div>
+  );
+}
 export default function ReportDetail(){
   const {id}=useParams();
   const nav=useNavigate();
@@ -152,6 +216,13 @@ export default function ReportDetail(){
             </div>
           </div>
           <div className="md:col-span-2 space-y-4">
+            {report.videoPath ? (
+              <div className="bg-white border rounded-2xl p-5">
+                <h2 className="font-semibold text-sm">Screen recording</h2>
+                <VideoViewer reportId={report.id} report={report} />
+                <p className="mt-2 text-xs text-slate-400">Plays inline with native controls. Download keeps the original file.</p>
+              </div>
+            ):null}
             {snapSrc && (
               <div className="bg-white border rounded-2xl p-5">
                 <h2 className="font-semibold text-sm">Pixel-perfect snapshot</h2>
