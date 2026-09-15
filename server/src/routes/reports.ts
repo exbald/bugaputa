@@ -271,7 +271,6 @@ router.post(
         return;
       }
       // Magic-byte validation
-      const base = baseMime(files.video.filename ? "" : "");
       // Use the file's stored path and the mime from the upload's contentType.
       // We need the actual mime that passed fileFilter — retrieve from req.files metadata?
       // multer preserves original mimetype in file.mimetype; but our UploadedFile type lost it.
@@ -408,19 +407,52 @@ router.get("/:id/video", authMiddleware, (req, res) => {
     return;
   }
 
-  // Parse Range: bytes=START-END
-  const m = range.match(/bytes=(\d*)-(\d*)/);
+  // Single-range only: reject multi-range requests with 416 as we do not
+  // produce multipart/byteranges. Also require strict bytes= form.
+  if (range.includes(",")) {
+    res.status(416).setHeader("Content-Range", `bytes */${total}`).end();
+    return;
+  }
+  const m = range.trim().match(/^bytes=(\d*)-(\d*)$/);
   if (!m) {
     res.status(416).setHeader("Content-Range", `bytes */${total}`).end();
     return;
   }
-  let start = m[1] ? parseInt(m[1], 10) : 0;
-  let end = m[2] ? parseInt(m[2], 10) : total - 1;
-  if (isNaN(start) || isNaN(end) || start > end || start >= total) {
+  const startStr = m[1];
+  const endStr = m[2];
+  if (startStr === "" && endStr === "") {
     res.status(416).setHeader("Content-Range", `bytes */${total}`).end();
     return;
   }
-  if (end >= total) end = total - 1;
+  let start: number;
+  let end: number;
+  if (startStr === "") {
+    // Suffix range: bytes=-N means last N bytes
+    const suffix = parseInt(endStr, 10);
+    if (isNaN(suffix) || suffix <= 0) {
+      res.status(416).setHeader("Content-Range", `bytes */${total}`).end();
+      return;
+    }
+    if (suffix >= total) {
+      start = 0;
+      end = total - 1;
+    } else {
+      start = total - suffix;
+      end = total - 1;
+    }
+  } else {
+    start = parseInt(startStr, 10);
+    end = endStr !== "" ? parseInt(endStr, 10) : total - 1;
+    if (isNaN(start) || isNaN(end)) {
+      res.status(416).setHeader("Content-Range", `bytes */${total}`).end();
+      return;
+    }
+    if (end >= total) end = total - 1;
+    if (start > end || start >= total) {
+      res.status(416).setHeader("Content-Range", `bytes */${total}`).end();
+      return;
+    }
+  }
   const chunkSize = end - start + 1;
   res.status(206);
   res.setHeader("Content-Range", `bytes ${start}-${end}/${total}`);
