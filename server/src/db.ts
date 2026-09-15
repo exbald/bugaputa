@@ -124,6 +124,45 @@ function migrate(database: Db) {
     database.exec("UPDATE projects SET widget_position = 'right' WHERE widget_position IS NULL");
     database.exec("UPDATE projects SET videoCaptureEnabled = 0 WHERE videoCaptureEnabled IS NULL");
   }
+  // Canary landing fixture: when SEED_LANDING_VIDEO_PROJECT is set (canary only),
+  // ensure the Landing widget's fixed public key exists and is video-enabled.
+  // Gated by env so production is untouched. Idempotent and safe to run on every boot.
+  if (process.env.SEED_LANDING_VIDEO_PROJECT) {
+    try {
+      const landingKey = "pk_live_OXoMeigFh6QMxkui";
+      const existing = database.prepare("SELECT id, videoCaptureEnabled FROM projects WHERE publicKey = ?").get(landingKey) as any;
+      if (!existing) {
+        let seedUser = database.prepare("SELECT id FROM users WHERE email = ?").get("canary-preview@example.com") as any;
+        let seedUserId: string;
+        if (!seedUser) {
+          seedUserId = randomUUID();
+          const now = new Date().toISOString();
+          let hash: string;
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const bcryptjs = eval("require")("bcrypt");
+            hash = bcryptjs.hashSync("CanaryPreview123!", 10);
+          } catch {
+            hash = "$2b$10$PVIHWi54ryQyL/6mZjYgBOPmQl8yYv7kH.SLKSxDw5n4q26skaMCC";
+          }
+          database.prepare("INSERT INTO users (id, email, passwordHash, createdAt) VALUES (?, ?, ?, ?)").run(seedUserId, "canary-preview@example.com", hash, now);
+        } else {
+          seedUserId = seedUser.id;
+        }
+        const pid = randomUUID();
+        const now = new Date().toISOString();
+        database.prepare(
+          "INSERT INTO projects (id, ownerId, name, publicKey, createdAt, allowedOrigins, widget_label, widget_color, widget_position, videoCaptureEnabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).run(pid, seedUserId, "Canary Landing (video)", landingKey, now, null, WIDGET_DEFAULTS.label, WIDGET_DEFAULTS.color, WIDGET_DEFAULTS.position, 1);
+        console.log("[db] seeded canary landing project", landingKey);
+      } else if (!existing.videoCaptureEnabled) {
+        database.prepare("UPDATE projects SET videoCaptureEnabled = 1 WHERE publicKey = ?").run(landingKey);
+        console.log("[db] enabled videoCapture for canary landing project", landingKey);
+      }
+    } catch (e) {
+      console.warn("[db] canary landing seed failed:", e);
+    }
+  }
 }
 
 export function closeDb() {
