@@ -149,6 +149,29 @@ describe("Dashboard redesign — search, sort, summary, composer, rows", () => {
     expect(layout).not.toMatch(/<header className="[^"]*bg-slate-900/);
   });
 
+  it("composer success: restores focus to New project disclosure", () => {
+    const raw = readDashboard();
+    // success closes composer while focus is on submit — must return to disclosure like Cancel/Escape
+    const createIdx = raw.indexOf("setComposerOpen(false)");
+    expect(createIdx, "setComposerOpen(false) missing").toBeGreaterThan(-1);
+    const slice = raw.slice(createIdx, createIdx + 800);
+    // at least one close path after create should focus disclosure (success path)
+    // check broader window includes newProjectBtnRef focus near creation success
+    const broader = raw.slice(raw.indexOf("await api.createProject"), raw.indexOf("await api.createProject") + 1200);
+    expect(broader).toMatch(/newProjectBtnRef\.current\?\.focus\(\)/);
+  });
+
+  it("composer create error uses inline composer alert only (no double alert)", () => {
+    const raw = readDashboard();
+    const createStart = raw.indexOf("const create = async");
+    const delStart = raw.indexOf("const del = async", createStart);
+    const createBlock = raw.slice(createStart, delStart > -1 ? delStart : createStart + 2000);
+    // error should set composerErr
+    expect(createBlock).toMatch(/setComposerErr\(msg\)/);
+    // should NOT also set global err on creation failure (double role=alert) — del's setErr is allowed
+    expect(createBlock).not.toMatch(/setErr\(msg\)/);
+  });
+
   it("preserves presence refresh and version gating", () => {
     const raw = readDashboard();
     expect(raw).toMatch(/setInterval\(refresh, 60_000\)/);
