@@ -31,15 +31,21 @@
 #bugaputa-hp{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
 @media(max-width:360px){#bugaputa-modal-body{padding:16px} #bugaputa-actions{padding-left:16px;padding-right:16px}}
 #bugaputa-btn svg{display:block;flex-shrink:0}
-/* chooser */
+/* chooser — unified vertical choice cards (solid, equal, left-aligned) */
 #bugaputa-chooser{padding:4px 0}
 #bugaputa-chooser-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}
-#bugaputa-choose-capture,#bugaputa-choose-general{width:100%;min-height:48px;border-radius:12px;border:1px solid #e2e8f0;padding:12px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px}
-#bugaputa-choose-capture{background:#0f172a;color:#fff;border-color:#0f172a}
-#bugaputa-choose-capture:hover{background:#1e293b}
-#bugaputa-choose-general{background:#fff;color:#0f172a}
-#bugaputa-choose-general:hover{background:#f8fafc}
-#bugaputa-choose-capture:focus-visible,#bugaputa-choose-general:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-choose-video,#bugaputa-choose-screenshot,#bugaputa-choose-general{width:100%;min-height:48px;border-radius:12px;border:1px solid #e2e8f0;padding:12px 14px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;background:#fff;color:#0f172a;box-sizing:border-box}
+#bugaputa-choose-video:hover,#bugaputa-choose-screenshot:hover,#bugaputa-choose-general:hover{background:#f8fafc;border-color:#cbd5e1}
+#bugaputa-choose-video:active,#bugaputa-choose-screenshot:active,#bugaputa-choose-general:active{background:#f1f5f9}
+#bugaputa-choose-video:focus-visible,#bugaputa-choose-screenshot:focus-visible,#bugaputa-choose-general:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+.bugaputa-choice-icon{width:36px;height:36px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#334155}
+.bugaputa-choice-icon svg{display:block}
+.bugaputa-choice-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bugaputa-choice-title{font-size:14px;font-weight:600;line-height:1.25;color:#0f172a;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.bugaputa-choice-sub{font-size:12px;font-weight:400;color:#64748b;line-height:1.3}
+.bugaputa-choice-chevron{color:#94a3b8;flex-shrink:0;display:flex;align-items:center}
+.bugaputa-choice-chevron svg{display:block}
+.bugaputa-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#a3e635;color:#0f172a;padding:2px 6px;border-radius:999px;line-height:1}
 #bugaputa-capture-pane{margin-top:4px}
 #bugaputa-consent-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
 #bugaputa-do-capture{flex:1;min-height:44px;border-radius:10px;border:none;background:#0f172a;color:#fff;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
@@ -74,10 +80,7 @@
 #bugaputa-ann-toolbar button:disabled{opacity:0.4;cursor:not-allowed}
 @media(max-width:480px){#bugaputa-ann-header{padding:8px 10px} #bugaputa-palette button{width:44px !important;height:44px !important;min-width:44px;min-height:44px} #bugaputa-ann-toolbar{max-width:calc(100vw - 16px);padding:6px 8px;gap:4px;justify-content:flex-start;scrollbar-width:thin;scrollbar-color:#94a3b8 #f1f5f9;overscroll-behavior-x:contain} #bugaputa-ann-toolbar::-webkit-scrollbar{display:block;height:6px} #bugaputa-ann-toolbar::-webkit-scrollbar-track{background:#f1f5f9;border-radius:999px} #bugaputa-ann-toolbar::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px;border:1px solid #e2e8f0} #bugaputa-ann-toolbar button{min-width:44px !important;min-height:44px !important}}
 
-/* video chooser + pane (Video 04) */
-#bugaputa-choose-video{width:100%;min-height:48px;border-radius:12px;border:1px dashed #cbd5e1;padding:12px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;background:#fff;color:#0f172a}
-#bugaputa-choose-video:hover{background:#f8fafc}
-#bugaputa-choose-video:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+/* video pane */
 #bugaputa-video-pane{margin-top:4px}
 #bugaputa-video-consent{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
 #bugaputa-video-status{padding:8px 10px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0}
@@ -86,3 +89,7 @@
 #bugaputa-video-start:hover{background:#1e293b}
 #bugaputa-video-back{flex:0 0 auto;min-height:44px;min-width:80px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
 #bugaputa-video-file{font-size:13px;color:#475569}
+#bugaputa-close{position:absolute;right:12px;top:12px;width:44px;height:44px;min-width:44px;min-height:44px;border-radius:50%;border:1px solid #e2e8f0;background:#fff;color:#64748b;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;line-height:1}
+#bugaputa-close:hover{background:#f8fafc;color:#0f172a;border-color:#cbd5e1}
+#bugaputa-close:active{background:#f1f5f9}
+#bugaputa-close:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
