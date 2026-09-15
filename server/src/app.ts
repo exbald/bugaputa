@@ -66,6 +66,7 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
         // srcdoc iframe inherits this policy; the frame is sandboxed and sends no
         // credentials, but note remote images do reach the customer's servers.
         imgSrc: ["'self'", "data:", "blob:", "https:"],
+        mediaSrc: ["'self'", "blob:", "data:"],
         frameSrc: ["'self'"],
         objectSrc: ["'none'"],
         scriptSrc: ["'self'", CANONICAL_ORIGIN, LEGACY_ORIGIN],
@@ -113,6 +114,10 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
     // origin — force a download content-type so they can only be read via fetch()
     // (the dashboard) or saved, never executed as same-origin script.
     const lower = filename.toLowerCase();
+    if (lower.endsWith(".webm") || lower.endsWith(".mp4")) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
     if (lower.endsWith(".html") || lower.endsWith(".gz")) {
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.setHeader("X-Content-Type-Options", "nosniff");

@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 20;
+const VIDEO_MAX_PER_WINDOW = 5;
 
 // key: `${namespace}:${ip}:${projectId}` so telemetry cannot exhaust the
 // report-submission quota.
@@ -10,6 +11,7 @@ let lastSweep = 0;
 
 export function rateLimitCheck(ip: string, projectId: string, namespace = "reports"): boolean {
   const key = `${namespace}:${ip}:${projectId}`;
+  const limit = namespace === "video" ? VIDEO_MAX_PER_WINDOW : MAX_PER_WINDOW;
   const now = Date.now();
   if (now - lastSweep >= WINDOW_MS) {
     for (const [bucketKey, timestamps] of buckets) {
@@ -21,7 +23,7 @@ export function rateLimitCheck(ip: string, projectId: string, namespace = "repor
   }
   const timestamps = buckets.get(key) ?? [];
   const recent = timestamps.filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) {
+  if (recent.length >= limit) {
     buckets.set(key, recent);
     return false; // rate limited
   }

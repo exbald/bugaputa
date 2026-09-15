@@ -8,6 +8,17 @@ import { reportPublicSchema, reportStatusSchema } from "../lib/validators.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { hashIp, getClientIp } from "../lib/ip.js";
 import { rateLimitCheck } from "../lib/rateLimit.js";
+import {
+  VIDEO_MIME,
+  MAX_VIDEO_BYTES,
+  MAX_VIDEO_DURATION_MS,
+  VIDEO_DURATION_TOLERANCE_MS,
+  PROJECT_VIDEO_QUOTA_BYTES,
+  baseMime,
+  videoExtFromMime,
+  validateVideoMagic,
+  probeVideoDurationMs,
+} from "../lib/video.js";
 
 const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 // DOM snapshots are HTML, gzipped by the widget when the browser supports it.
@@ -17,6 +28,7 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
 // Image fields carry rasterized artifacts; domSnapshot carries the serialized DOM.
 const IMAGE_FIELDS = new Set(["screenshot", "annotations"]);
+const VIDEO_FIELDS = new Set(["video"]);
 
 function getUploadDir(): string {
   return process.env.UPLOAD_DIR || "/app/data/uploads";
@@ -45,6 +57,11 @@ const storage = multer.diskStorage({
       cb(null, `${randomUUID()}${gz ? ".html.gz" : ".html"}`);
       return;
     }
+    if (file.fieldname === "video") {
+      const ext = videoExtFromMime(file.mimetype);
+      cb(null, `${randomUUID()}${ext}`);
+      return;
+    }
     const ext = path.extname(file.originalname) || mimeToExt(file.mimetype) || "";
     cb(null, `${randomUUID()}${ext}`);
   },
@@ -64,21 +81,32 @@ const upload = multer({
   storage,
   // multer's fileSize limit is global, so it must allow the largest accepted
   // artifact; the tighter per-image cap is enforced in the handler below.
-  limits: { fileSize: MAX_SNAPSHOT_BYTES, files: 3 },
+  limits: { fileSize: MAX_VIDEO_BYTES, files: 4 },
   fileFilter(_req, file, cb) {
-    const allowed = IMAGE_FIELDS.has(file.fieldname) ? ALLOWED_MIME : SNAPSHOT_MIME;
-    if (allowed.has(file.mimetype)) cb(null, true);
+    const base = baseMime(file.mimetype);
+    let allowed: Set<string>;
+    if (IMAGE_FIELDS.has(file.fieldname)) allowed = ALLOWED_MIME;
+    else if (VIDEO_FIELDS.has(file.fieldname)) allowed = VIDEO_MIME;
+    else if (file.fieldname === "domSnapshot") allowed = SNAPSHOT_MIME;
+    else {
+      cb(new Error("Unexpected file field"));
+      return;
+    }
+    // For video, accept codec-suffixed variants by checking base mime
+    const effective = VIDEO_FIELDS.has(file.fieldname) ? base : file.mimetype;
+    const ok = VIDEO_FIELDS.has(file.fieldname) ? VIDEO_MIME.has(base) : allowed.has(effective);
+    if (ok) cb(null, true);
     else cb(new Error(`Invalid file type: ${file.mimetype}`));
   },
 });
 
 type UploadedFile = { path?: string; filename?: string; size?: number };
 
-/** The three optional artifacts, keyed by field name (null when not sent). */
-function pickedFiles(req: any): { screenshot: UploadedFile | null; domSnapshot: UploadedFile | null; annotations: UploadedFile | null } {
+/** The optional artifacts, keyed by field name (null when not sent). */
+function pickedFiles(req: any): { screenshot: UploadedFile | null; domSnapshot: UploadedFile | null; annotations: UploadedFile | null; video: UploadedFile | null } {
   const files = req.files || {};
   const one = (k: string): UploadedFile | null => (files[k] && files[k][0]) || null;
-  return { screenshot: one("screenshot"), domSnapshot: one("domSnapshot"), annotations: one("annotations") };
+  return { screenshot: one("screenshot"), domSnapshot: one("domSnapshot"), annotations: one("annotations"), video: one("video") };
 }
 
 /**
@@ -97,6 +125,21 @@ function cleanupUploads(req: any): void {
   }
   if (req.file?.path) {
     try { fs.unlinkSync(req.file.path); } catch {}
+  }
+}
+
+function hasVideoField(req: any): boolean {
+  const files = req.files || {};
+  return !!(files["video"] && files["video"].length > 0);
+}
+
+function projectVideoUsageBytes(projectId: string): number {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT COALESCE(SUM(videoSizeBytes),0) as total FROM reports WHERE projectId = ?").get(projectId) as any;
+    return Number(row?.total || 0);
+  } catch {
+    return 0;
   }
 }
 
@@ -120,6 +163,7 @@ router.post(
         { name: "screenshot", maxCount: 1 },
         { name: "domSnapshot", maxCount: 1 },
         { name: "annotations", maxCount: 1 },
+        { name: "video", maxCount: 1 },
       ]);
       fields(req, res, (err: any) => {
         if (err) {
@@ -182,21 +226,81 @@ router.post(
       return;
     }
 
-    // Rate limit 20/min/IP/project
+    const isVideo = hasVideoField(req);
+
+    // Rate limit: separate namespace for video so abuse doesn't starve text reports
     const ip = getClientIp(req as any);
-    if (!rateLimitCheck(ip, project.id)) {
-      cleanupUploads(req);
-      res.status(429).json({ error: "Rate limit exceeded. Try again later." });
-      return;
+    if (isVideo) {
+      if (!rateLimitCheck(ip, project.id, "video")) {
+        cleanupUploads(req);
+        res.setHeader("Retry-After", "60");
+        res.status(429).json({ error: "Video rate limit exceeded. Try again later." });
+        return;
+      }
+      // Also enforce the general limiter? No — separate namespace, but keep general limiter
+      // for non-video path only. We already rate-limited video namespace; also check general limiter
+      // if we want to prevent bypass. Spec says separate limiter with existing non-video unchanged,
+      // so don't double-count. Only video limiter for video requests.
+    } else {
+      if (!rateLimitCheck(ip, project.id)) {
+        cleanupUploads(req);
+        res.status(429).json({ error: "Rate limit exceeded. Try again later." });
+        return;
+      }
     }
 
     const files = pickedFiles(req);
-    // Per-image cap — multer's global limit had to be raised for snapshots
+    // Per-file caps — multer's global limit was raised to 25MiB for video
     for (const image of [files.screenshot, files.annotations]) {
       if (image && (image.size || 0) > MAX_FILE_BYTES) {
         cleanupUploads(req);
         res.status(400).json({ error: "File too large (max 5MB)" });
         return;
+      }
+    }
+    if (files.domSnapshot && (files.domSnapshot.size || 0) > MAX_SNAPSHOT_BYTES) {
+      cleanupUploads(req);
+      res.status(400).json({ error: "File too large" });
+      return;
+    }
+    // Per-video cap
+    if (files.video) {
+      if ((files.video.size || 0) > MAX_VIDEO_BYTES) {
+        cleanupUploads(req);
+        res.status(400).json({ error: "File too large — max 25MB" });
+        return;
+      }
+      // Magic-byte validation
+      const base = baseMime(files.video.filename ? "" : "");
+      // Use the file's stored path and the mime from the upload's contentType.
+      // We need the actual mime that passed fileFilter — retrieve from req.files metadata?
+      // multer preserves original mimetype in file.mimetype; but our UploadedFile type lost it.
+      // So we read it from req.files directly.
+      const rawVideoFile = (req.files as any)?.["video"]?.[0] as any;
+      const claimedMime: string = rawVideoFile?.mimetype || "";
+      if (!validateVideoMagic(files.video.path!, claimedMime)) {
+        cleanupUploads(req);
+        res.status(400).json({ error: "Invalid video file" });
+        return;
+      }
+      // Duration check: only reject when parse succeeds and >61s
+      const dur = probeVideoDurationMs(files.video.path!, claimedMime);
+      if (dur !== null && dur > MAX_VIDEO_DURATION_MS + VIDEO_DURATION_TOLERANCE_MS) {
+        cleanupUploads(req);
+        res.status(400).json({ error: "Video too long — max 60s" });
+        return;
+      }
+      // Per-project quota 1 GiB
+      const usage = projectVideoUsageBytes(project.id);
+      const incoming = files.video.size || 0;
+      if (usage + incoming > PROJECT_VIDEO_QUOTA_BYTES) {
+        cleanupUploads(req);
+        res.status(413).json({ error: "Project storage quota exceeded" });
+        return;
+      }
+      // Warning threshold log at 75%
+      if (usage + incoming > PROJECT_VIDEO_QUOTA_BYTES * 0.75) {
+        console.warn(`[quota] project ${project.id} at ${Math.round(((usage+incoming)/PROJECT_VIDEO_QUOTA_BYTES)*100)}% of video quota`);
       }
     }
 
@@ -206,13 +310,27 @@ router.post(
     const screenshotPath = files.screenshot?.filename || null;
     const snapshotPath = files.domSnapshot?.filename || null;
     const annotationsPath = files.annotations?.filename || null;
+    let videoPath: string | null = null;
+    let videoMime: string | null = null;
+    let videoDurationMs: number | null = null;
+    let videoSizeBytes: number | null = null;
+    if (files.video) {
+      const rawVideoFile = (req.files as any)?.["video"]?.[0] as any;
+      const claimedMime: string = rawVideoFile?.mimetype || "";
+      videoPath = files.video.filename || null;
+      videoMime = baseMime(claimedMime);
+      const probed = probeVideoDurationMs(files.video.path!, claimedMime);
+      videoDurationMs = probed;
+      videoSizeBytes = files.video.size || 0;
+      console.info(`[video] project=${project.id} mime=${videoMime} size=${videoSizeBytes} durationMs=${videoDurationMs}`);
+    }
 
     // EXIF strip: for MVP we just store as-is; real EXIF strip would re-encode image.
     // We ensure random filename already prevents path traversal.
 
     db.prepare(
-      `INSERT INTO reports (id, projectId, message, contactEmail, pageUrl, userAgent, viewport, language, screenshotPath, snapshotPath, annotationsPath, status, createdAt, ipHash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`
+      `INSERT INTO reports (id, projectId, message, contactEmail, pageUrl, userAgent, viewport, language, screenshotPath, snapshotPath, annotationsPath, videoPath, videoMime, videoDurationMs, videoSizeBytes, status, createdAt, ipHash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`
     ).run(
       id,
       project.id,
@@ -225,6 +343,10 @@ router.post(
       screenshotPath,
       snapshotPath,
       annotationsPath,
+      videoPath,
+      videoMime,
+      videoDurationMs,
+      videoSizeBytes,
       createdAt,
       ipHash
     );
@@ -238,6 +360,73 @@ router.options("/", (_req, res) => {
   res.header("Access-Control-Allow-Headers", "Content-Type, x-project-key");
   res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.status(204).end();
+});
+
+// Authenticated video streaming — must be before /:id generic route
+router.get("/:id/video", authMiddleware, (req, res) => {
+  const db = getDb();
+  const report = db.prepare("SELECT * FROM reports WHERE id = ?").get(req.params.id) as any;
+  if (!report) {
+    res.status(404).json({ error: "Report not found" });
+    return;
+  }
+  const project = db.prepare("SELECT * FROM projects WHERE id = ?").get(report.projectId) as any;
+  if (!project || project.ownerId !== req.user!.id) {
+    res.status(404).json({ error: "Report not found" });
+    return;
+  }
+  if (!report.videoPath) {
+    res.status(404).json({ error: "No video for this report" });
+    return;
+  }
+  const filePath = resolveStoredFile(report.videoPath);
+  if (!filePath) {
+    res.status(404).json({ error: "Video file not found" });
+    return;
+  }
+  const mime = report.videoMime || (report.videoPath.endsWith(".mp4") ? "video/mp4" : "video/webm");
+  const stat = fs.statSync(filePath);
+  const total = stat.size;
+
+  // Headers
+  res.setHeader("Content-Type", mime);
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "private, max-age=60");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  if (req.query.download === "1" || req.query.download === "true") {
+    res.setHeader("Content-Disposition", `attachment; filename="${path.basename(report.videoPath)}"`);
+  } else {
+    res.setHeader("Content-Disposition", `inline; filename="${path.basename(report.videoPath)}"`);
+  }
+
+  const range = req.headers.range as string | undefined;
+  if (!range) {
+    res.setHeader("Content-Length", String(total));
+    // Use stream to support both small and large files
+    const stream = fs.createReadStream(filePath);
+    stream.pipe(res);
+    return;
+  }
+
+  // Parse Range: bytes=START-END
+  const m = range.match(/bytes=(\d*)-(\d*)/);
+  if (!m) {
+    res.status(416).setHeader("Content-Range", `bytes */${total}`).end();
+    return;
+  }
+  let start = m[1] ? parseInt(m[1], 10) : 0;
+  let end = m[2] ? parseInt(m[2], 10) : total - 1;
+  if (isNaN(start) || isNaN(end) || start > end || start >= total) {
+    res.status(416).setHeader("Content-Range", `bytes */${total}`).end();
+    return;
+  }
+  if (end >= total) end = total - 1;
+  const chunkSize = end - start + 1;
+  res.status(206);
+  res.setHeader("Content-Range", `bytes ${start}-${end}/${total}`);
+  res.setHeader("Content-Length", String(chunkSize));
+  const stream = fs.createReadStream(filePath, { start, end });
+  stream.pipe(res);
 });
 
 // Authenticated single report routes
@@ -290,8 +479,8 @@ router.delete("/:id", authMiddleware, (req, res) => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
-  // Delete stored artifacts if present (screenshot, DOM snapshot, annotations overlay)
-  for (const stored of [report.screenshotPath, report.snapshotPath, report.annotationsPath]) {
+  // Delete stored artifacts if present (screenshot, DOM snapshot, annotations overlay, video)
+  for (const stored of [report.screenshotPath, report.snapshotPath, report.annotationsPath, report.videoPath]) {
     if (!stored) continue;
     const resolved = resolveStoredFile(stored);
     if (!resolved) continue;
