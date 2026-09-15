@@ -103,4 +103,26 @@ describe("live toolbar hit-testing: toolbar above canvas, Hand default, pointerE
     // emoji range check: no direct emoji chars in toolbar creation
     expect(toolbarSlice).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
   });
+
+  it("responsive: at 1440 toolbar fits without clipping; at 390 overflow is reachable via explicit affordance", ()=>{
+    const vc = read(VCJS);
+    const css = read(WCSS);
+    // CSS must allow wide toolbar at desktop but constrain on small viewports; overflow affordance must exist
+    expect(css).toMatch(/#bugaputa-live-toolbar[^}]*overflow-x:\s*auto/);
+    expect(css).toMatch(/#bugaputa-live-toolbar[^}]*max-width:\s*min\(980px,calc\(100vw - 16px\)\)/);
+    expect(css).toMatch(/#bugaputa-live-overflow/);
+    expect(css).toMatch(/#bugaputa-live-overflow\[aria-expanded/);
+    // JS must provide overflow button with aria-label + scrollTo affordance (no silent clipping)
+    expect(vc).toMatch(/bugaputa-live-overflow/);
+    expect(vc).toMatch(/More tools/);
+    expect(vc).toMatch(/scrollTo/);
+    // Record/Mic/Done/Cancel must be present as distinct controls
+    expect(vc).toMatch(/bugaputa-live-mic/);
+    expect(vc).toMatch(/bugaputa-live-record/);
+    // Done/Cancel strings appear as toolbar button labels
+    expect(vc).toMatch(/'Done'/);
+    expect(vc).toMatch(/'Cancel'/);
+    // Toolbar buttons must not shrink away (flex-shrink:0) so they remain hittable via scroll/overflow
+    expect(css).toMatch(/#bugaputa-live-toolbar button[^}]*flex-shrink:\s*0/);
+  });
 });

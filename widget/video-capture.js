@@ -1,25 +1,5 @@
 (function(){
-/*
- * Privacy contract: current-tab-only capture (Capture Handle per-session token)
- * ------------------------------------------------
- * Entering workspace does NOT request capture. Record click is the gesture.
- * Preference: getViewportMedia() if genuinely shipped (rare, origin trial),
- * otherwise getDisplayMedia with strongest hints:
- *   preferCurrentTab:true, selfBrowserSurface:'include',
- *   surfaceSwitching:'exclude', monitorTypeSurfaces:'exclude',
- *   systemAudio:'exclude', video:{displaySurface:'browser'}, audio:false
- * Hints alone cannot legally constrain the browser's chooser; we do not promise
- * more than the browser proves. After granting we validate:
- *   track.getSettings().displaySurface === 'browser'
- *   and, where available, track.getCaptureHandle() origin matches location.origin.
- * If unverifiable or not 'browser', route to unsupported + upload fallback —
- * never silently accept screen/window/other-tab. Audio is always false in
- * display capture; mic via separate getUserMedia({audio:true,video:false}) only
- * after explicit opt-in, OFF default, recoverable. Camera never requested.
- * See spike docs/spike/2026-09-15-viewport-vs-displaymedia.md + plan §5.
- * Mocked getDisplayMedia / synthetic streams are regression tests only, never
- * headed acceptance evidence.
- */
+/* Privacy: current-tab-only (Capture Handle token). Enter≠request; Record=request. Prefer getViewportMedia else getDisplayMedia {preferCurrentTab,selfBrowserSurface,surfaceSwitching,monitorTypeSurfaces,systemAudio,displaySurface:browser,audio:false} + validate displaySurface+handle else fallback. Hints alone cannot legally constrain the browser. See docs/spike/2026-09-15-viewport-vs-displaymedia.md. */
 var CANDIDATES=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm;codecs=av1,opus','video/webm','video/mp4;codecs=h264,aac','video/mp4'];
 function getSupportedMime(){try{if(typeof MediaRecorder==='undefined'||!MediaRecorder.isTypeSupported)return'';for(var i=0;i<CANDIDATES.length;i++){try{if(MediaRecorder.isTypeSupported(CANDIDATES[i]))return CANDIDATES[i];}catch(_){}}}catch(_){}return'';}
 function stopTracks(s){try{if(s)s.getTracks().forEach(function(t){try{t.stop();}catch(_){}});}catch(_){}}
@@ -191,7 +171,10 @@ function openLive(ctx){
   done.className='bugaputa-live-primary'; cancel.className='';
   del.classList.add('bugaputa-live-danger');
   tb.appendChild(_sep()); tb.appendChild(undo); tb.appendChild(redo); tb.appendChild(del); tb.appendChild(clr);
-  tb.appendChild(_sep()); tb.appendChild(drag); tb.appendChild(rec); tb.appendChild(cnt); tb.appendChild(tim); tb.appendChild(stp); tb.appendChild(mic); tb.appendChild(_sep()); tb.appendChild(done); tb.appendChild(cancel); document.body.appendChild(tb);
+  var ob=h('button',{id:'bugaputa-live-overflow',type:'button','aria-label':'More tools','aria-expanded':'false',title:'More',html:'&#8230;'}); ob.addEventListener('click',function(){ var on=ob.getAttribute('aria-expanded')==='true'; ob.setAttribute('aria-expanded',on?'false':'true'); if(!on) tb.scrollTo({left:tb.scrollWidth,behavior:'smooth'}); else tb.scrollTo({left:0,behavior:'smooth'}); });
+  tb.appendChild(_sep()); tb.appendChild(drag); tb.appendChild(rec); tb.appendChild(cnt); tb.appendChild(tim); tb.appendChild(stp); tb.appendChild(mic); tb.appendChild(_sep()); tb.appendChild(done); tb.appendChild(cancel); tb.appendChild(ob); document.body.appendChild(tb);
+  function so(){ try{ ob.style.display=tb.scrollWidth>tb.clientWidth+8?'':'none'; }catch(_){} }
+  setTimeout(so,80); try{ window.addEventListener('resize',so,{passive:true}); }catch(_){}
   (function(){ var sx=0,sy=0,ox=0,oy=0,dg=false; drag.addEventListener('pointerdown',function(e){ dg=true; drag.setPointerCapture(e.pointerId); sx=e.clientX; sy=e.clientY; var r=tb.getBoundingClientRect(); ox=r.left; oy=r.top; drag.style.cursor='grabbing'; tb.setAttribute('aria-grabbed','true'); e.preventDefault(); }); drag.addEventListener('pointermove',function(e){ if(!dg) return; var nx=ox+(e.clientX-sx), ny=oy+(e.clientY-sy); nx=Math.max(8,Math.min(window.innerWidth-tb.offsetWidth-8,nx)); ny=Math.max(8,Math.min(window.innerHeight-tb.offsetHeight-8,ny)); tb.style.left=nx+'px'; tb.style.right='auto'; tb.style.bottom='auto'; tb.style.top=ny+'px'; tb.style.transform='none'; }); function up(e){ dg=false; drag.style.cursor='grab'; tb.removeAttribute('aria-grabbed'); try{drag.releasePointerCapture(e.pointerId);}catch(_){} } drag.addEventListener('pointerup',up); drag.addEventListener('pointercancel',up); })();
   __liveState={tool:'select',color:'#ef4444',annotations:[],selectedId:null,undoStack:[],redoStack:[],nextPin:1};
   var PALETTE=['#ef4444','#f59e0b','#22c55e','#3b82f6','#ec4899'];
