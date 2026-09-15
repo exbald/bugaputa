@@ -98,6 +98,15 @@ describe("Dashboard redesign — search, sort, summary, composer, rows", () => {
     expect(regionSlice).toMatch(/newProjectBtnRef/);
   });
 
+  it("composer disabled during initial load (prevents race with listProjects)", () => {
+    const raw = readDashboard();
+    // must not allow create while loading (mutationVersionRef race)
+    expect(raw).toMatch(/disabled=\{creating \|\| loading/);
+    // at least input + submit gated
+    const hits = raw.match(/disabled=\{creating \|\| loading/g) || [];
+    expect(hits.length).toBeGreaterThanOrEqual(2);
+  });
+
   it("composer Cancel: restores focus to New project disclosure", () => {
     const raw = readDashboard();
     const cancelIdx = raw.indexOf("Cancel");

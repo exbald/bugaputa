@@ -486,7 +486,7 @@ export default function Dashboard() {
                         newProjectBtnRef.current?.focus();
                       }
                     }}
-                    disabled={creating}
+                    disabled={creating || loading}
                     placeholder="Project name"
                     aria-label="Project name"
                     aria-invalid={Boolean(composerErr)}
@@ -516,14 +516,14 @@ export default function Dashboard() {
                       setComposerErr("");
                       newProjectBtnRef.current?.focus();
                     }}
-                    disabled={creating}
+                    disabled={creating || loading}
                     className="min-h-[44px] px-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={creating || !nameValid}
+                    disabled={creating || loading || !nameValid}
                     className="min-h-[44px] px-5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 transition"
                   >
                     {creating ? "Creating…" : "Create project"}
