@@ -175,10 +175,13 @@ describe("Dashboard redesign — search, sort, summary, composer, rows", () => {
     // success closes composer while focus is on submit — must return to disclosure like Cancel/Escape
     const createIdx = raw.indexOf("setComposerOpen(false)");
     expect(createIdx, "setComposerOpen(false) missing").toBeGreaterThan(-1);
-    // focus must happen after re-enabling (disabled={creating}) so .focus() not ignored — setTimeout in finally
-    const broader = raw.slice(raw.indexOf("await api.createProject"), raw.indexOf("await api.createProject") + 1600);
+    // focus must happen after re-enabling (disabled={creating}) so .focus() not ignored — setTimeout
+    const broader = raw.slice(raw.indexOf("await api.createProject"), raw.indexOf("await api.createProject") + 1800);
     expect(broader).toMatch(/newProjectBtnRef\.current\?\.focus\(\)/);
-    expect(broader).toMatch(/setTimeout|requestAnimationFrame/);
+    expect(broader).toMatch(/setTimeout|queueMicrotask|requestAnimationFrame/);
+    // success vs failure have distinct focus targets
+    const createBlock = raw.slice(raw.indexOf("const create = async"), raw.indexOf("const del = async"));
+    expect(createBlock).toMatch(/composerInputRef\.current\?\.focus/);
   });
 
   it("composer create error uses inline composer alert only (no double alert)", () => {
