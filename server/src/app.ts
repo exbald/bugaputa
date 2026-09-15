@@ -87,7 +87,7 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
 
   // Default CORP same-origin for app routes; widget assets override to cross-origin
   app.use((req, res, next) => {
-    const isWidgetAsset = req.path === "/widget.js" || req.path === "/widget.css" || req.path === "/html2canvas.min.js" || req.path === "/modern-screenshot.min.js";
+    const isWidgetAsset = req.path === "/widget.js" || req.path === "/widget.css" || req.path === "/video-capture.js" || req.path === "/html2canvas.min.js" || req.path === "/modern-screenshot.min.js";
     res.setHeader("Cross-Origin-Resource-Policy", isWidgetAsset ? "cross-origin" : "same-origin");
     if (isWidgetAsset) res.setHeader("Access-Control-Allow-Origin", "*");
     next();
@@ -153,8 +153,8 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
     }
     res.type("text/css").send("/* Bugaputa widget.css not built yet */");
   });
-  // Capture engines, lazy-loaded by the widget after capture consent
-  for (const engine of ["modern-screenshot.min.js", "html2canvas.min.js"]) {
+  // Capture engines + video-capture lazy module, lazy-loaded by the widget
+  for (const engine of ["modern-screenshot.min.js", "html2canvas.min.js", "video-capture.js"]) {
     const candidates = [
       path.resolve(`widget/${engine}`),
       path.resolve(`client/public/${engine}`),
