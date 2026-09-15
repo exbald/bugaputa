@@ -31,6 +31,18 @@ function formatDate(v: string | undefined | null) {
   }
 }
 
+function buildSummaryParts(
+  project: { totalReports?: number; openReports?: number; lastReportAt?: string | null },
+  fmt: (v: string | null) => string,
+) {
+  const parts: string[] = [];
+  if (typeof project.totalReports === "number")
+    parts.push(`${project.totalReports} ${project.totalReports === 1 ? "report" : "reports"}`);
+  if (typeof project.openReports === "number") parts.push(`${project.openReports} open`);
+  if (project.lastReportAt) parts.push(`last ${fmt(project.lastReportAt)}`);
+  return parts;
+}
+
 function PresenceBadge({ project }: { project: Project }) {
   const status: PresenceStatus =
     project.presenceStatus === "connected" ||
@@ -87,6 +99,29 @@ function WorkspaceRow({
   onCloseMenu: () => void;
 }) {
   const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      onCloseMenu();
+      btnRef.current?.focus();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCloseMenu();
+        btnRef.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [isMenuOpen, onCloseMenu]);
 
   const totalReports =
     typeof project.totalReports === "number" ? project.totalReports : undefined;
@@ -124,18 +159,14 @@ function WorkspaceRow({
                     <span className="text-slate-300" aria-hidden>
                       {"·"}
                     </span>
-                    {(() => {
-                      const parts: string[] = [];
-                      if (totalReports !== undefined) parts.push(`${totalReports} ${totalReports === 1 ? "report" : "reports"}`);
-                      if (openReports !== undefined) parts.push(`${openReports} open`);
-                      if (lastReportAt) parts.push(`last ${formatDate(lastReportAt)}`);
-                      return parts.map((text, i) => (
+                    {buildSummaryParts({ totalReports, openReports, lastReportAt }, formatDate).map(
+                      (text, i) => (
                         <span key={i} className="inline-flex items-center gap-1">
                           {i > 0 && <span className="mx-1 text-slate-300">{"·"}</span>}
                           <span>{text}</span>
                         </span>
-                      ));
-                    })()}
+                      ),
+                    )}
                   </span>
                 )}
               </div>
@@ -185,6 +216,7 @@ function WorkspaceRow({
 
             {isMenuOpen && (
               <div
+                ref={menuRef}
                 role="menu"
                 aria-label={`Actions for ${project.name}`}
                 className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10 overflow-hidden"
@@ -193,7 +225,6 @@ function WorkspaceRow({
                 <button
                   role="menuitem"
                   type="button"
-                  autoFocus
                   onClick={(e) => {
                     e.stopPropagation();
                     onCloseMenu();
@@ -308,19 +339,7 @@ export default function Dashboard() {
     if (composerOpen) composerInputRef.current?.focus();
   }, [composerOpen]);
 
-  useEffect(() => {
-    if (!openMenuId) return;
-    const onDocClick = () => setOpenMenuId(null);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenMenuId(null);
-    };
-    document.addEventListener("click", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [openMenuId]);
+  // overflow menu outside-click + Escape handled per-row via WorkspaceRow mousedown+contains with focus return
 
   const create = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -353,8 +372,8 @@ export default function Dashboard() {
       setComposerErr(msg);
     } finally {
       setCreating(false);
-      // Focus after re-enabling disclosure (disabled={creating}) so .focus() not ignored
-      queueMicrotask(() => newProjectBtnRef.current?.focus());
+      // Focus after re-enabling disclosure (disabled={creating}) so .focus() not ignored — next tick
+      setTimeout(() => newProjectBtnRef.current?.focus(), 0);
     }
   };
 
@@ -506,7 +525,7 @@ export default function Dashboard() {
                       )}
                     </div>
                     <span className="text-xs text-slate-400 tabular-nums shrink-0" aria-hidden>
-                      {name.length}/80
+                      {nameTrimmed.length}/80
                     </span>
                   </div>
                 </div>
@@ -650,7 +669,7 @@ export default function Dashboard() {
                     <option value="recent">Most recent</option>
                     <option value="name-asc">Name A to Z</option>
                     <option value="name-desc">Name Z to A</option>
-                    <option value="open-desc">Most open</option>
+                    {summary.openTotal !== null && <option value="open-desc">Most open</option>}
                   </select>
                 </label>
               )}
