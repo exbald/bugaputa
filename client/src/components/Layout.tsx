@@ -64,7 +64,7 @@ export function TopNav() {
                   ref={switcherBtnRef}
                   type="button"
                   aria-label="Project switcher"
-                  aria-haspopup="menu"
+                  aria-haspopup="dialog"
                   aria-expanded={open}
                   onClick={() => { setOpen((v) => !v); setAccountOpen(false); }}
                   onKeyDown={(e) => { if (e.key === "Escape") { setOpen(false); switcherBtnRef.current?.focus(); } }}
@@ -76,7 +76,6 @@ export function TopNav() {
                 </button>
                 {open && (
                   <div
-                    role="menu"
                     aria-label="Project switcher"
                     className="absolute right-0 sm:left-0 sm:right-auto mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-20"
                     onClick={(e) => e.stopPropagation()}
@@ -88,7 +87,6 @@ export function TopNav() {
                       {projects.map((p: any) => (
                         <Link
                           key={p.id}
-                          role="menuitem"
                           to={"/p/" + p.id}
                           onClick={() => setOpen(false)}
                           className="block px-3 py-2.5 text-sm text-slate-800 hover:bg-slate-50 border-b border-slate-100 last:border-0 truncate focus:outline-none focus-visible:bg-lime-50"
@@ -113,7 +111,7 @@ export function TopNav() {
                   ref={accountBtnRef}
                   type="button"
                   aria-label="Account menu"
-                  aria-haspopup="menu"
+                  aria-haspopup="dialog"
                   aria-expanded={accountOpen}
                   onClick={() => { setAccountOpen((v) => !v); setOpen(false); }}
                   onKeyDown={(e) => { if (e.key === "Escape") { setAccountOpen(false); accountBtnRef.current?.focus(); } }}
@@ -129,7 +127,6 @@ export function TopNav() {
                 </button>
                 {accountOpen && (
                   <div
-                    role="menu"
                     aria-label="Account"
                     className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-20 py-1"
                   >
@@ -138,7 +135,6 @@ export function TopNav() {
                       <div className="text-sm font-medium text-slate-900 truncate">{(user as any).email}</div>
                     </div>
                     <button
-                      role="menuitem"
                       type="button"
                       onClick={async () => { setAccountOpen(false); await logout(); nav("/login"); }}
                       className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lime-500 min-h-[44px]"
