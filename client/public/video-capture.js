@@ -13,11 +13,10 @@ function startSession(opts){
  function cleanup(){stopped=true;if(timer){try{clearInterval(timer);}catch(_){}timer=null;}if(recorder&&recorder.state!=='inactive'){try{recorder.stop();}catch(_){}}}
  function failDenied(m){cleanup();stopTracks(displayStream);stopTracks(micStream);onDenied(m||'Permission denied');}
  function failError(m){cleanup();stopTracks(displayStream);stopTracks(micStream);onError(m||'Recording failed');}
- var gdmOpts={video:{displaySurface:'browser'},audio:mic};
+ var gdmOpts={video:{displaySurface:'browser'},audio:false};
  navigator.mediaDevices.getDisplayMedia(gdmOpts).then(function(stream){
   displayStream=stream;
   stream.getTracks().forEach(function(t){t.addEventListener('ended',function(){if(!stopped){try{if(recorder&&recorder.state==='recording')recorder.stop();}catch(_){}if(!recorder||recorder.state!=='recording'){stopTracks(displayStream);stopTracks(micStream);onDenied('Recording ended');}}});});
-  var hasAudio=false;try{hasAudio=stream.getAudioTracks().length>0;}catch(_){}
   function startRecorder(finalStream){
    var recMime=mime;
    try{recorder=new MediaRecorder(finalStream,{mimeType:mime});}catch(_){try{recorder=new MediaRecorder(finalStream);recMime=recorder.mimeType||mime;}catch(e){failError('Cannot start recorder');return;}}
@@ -43,8 +42,22 @@ function startSession(opts){
    onRec(finalStream,recorder,0);
    timer=setInterval(function(){var elapsed=Date.now()-startTs;if(elapsed>=60000){try{if(recorder&&recorder.state==='recording')recorder.stop();}catch(_){}try{clearInterval(timer);}catch(_){}timer=null;}else{onTick(elapsed);}},200);
   }
-  if(mic&&!hasAudio&&navigator.mediaDevices.getUserMedia){
-   navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(ms){micStream=ms;try{var at=ms.getAudioTracks()[0];if(at)displayStream.addTrack(at);}catch(_){}startRecorder(displayStream);}).catch(function(){startRecorder(displayStream);});
+  if(mic){
+   if(!navigator.mediaDevices.getUserMedia){
+    cleanup();stopTracks(displayStream);stopTracks(micStream);
+    onDenied('Microphone unavailable — you can retry, continue without microphone, or upload a video instead.');
+    return;
+   }
+   navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(ms){
+    micStream=ms;
+    try{var at=ms.getAudioTracks()[0];if(at)displayStream.addTrack(at);}catch(_){}
+    startRecorder(displayStream);
+   }).catch(function(err){
+    var n=(err&&err.name)||'';
+    var isDenied=n==='NotAllowedError'||n==='PermissionDeniedError'||n==='SecurityError'||n==='AbortError';
+    var msg=isDenied?'Microphone permission denied — you can retry, continue without microphone, or upload a video instead.':'Microphone failed — you can retry, continue without microphone, or upload a video instead.';
+    cleanup();stopTracks(displayStream);stopTracks(micStream);onDenied(msg);
+   });
   }else{startRecorder(displayStream);}
  }).catch(function(err){
   var n=(err&&err.name)||'';

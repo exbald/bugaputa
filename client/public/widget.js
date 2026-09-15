@@ -274,16 +274,23 @@
       loadScript(scriptBase()+'/video-capture.js', cb, errCb);
     }
     function renderVideoDenied(msg){
+      var isMicDenied=typeof msg==='string'&&msg.indexOf('Microphone')!==-1;
       videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg;
+      try{ if(videoStartBtn) videoStartBtn.style.display=''; var sb2=document.getElementById('bugaputa-video-stop'); if(sb2) sb2.style.display='none'; }catch(_){}
       var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='block';
-      var sub=document.getElementById('bugaputa-video-pane-subactions'); if(!sub){
-        sub=h('div',{id:'bugaputa-video-pane-subactions',style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'});
-        var rtry=h('button',{id:'bugaputa-video-retry',type:'button',text:'Retry'}); rtry.setAttribute('aria-label','Retry recording'); rtry.addEventListener('click', function(){ var s=document.getElementById('bugaputa-video-pane-subactions'); if(s) s.style.display='none'; handleVideoStart(); });
-        var toShot=h('button',{id:'bugaputa-video-to-screenshot',type:'button',text:'Use screenshot instead'}); toShot.addEventListener('click', function(){ videoPane.style.display='none'; capturePane.style.display='block'; try{ document.getElementById('bugaputa-do-capture').focus(); }catch(_){} });
-        var toGeneral=h('button',{id:'bugaputa-video-to-general',type:'button',text:'General feedback'}); toGeneral.addEventListener('click', function(){ videoPane.style.display='none'; chooser.style.display='none'; showForm(null); });
-        sub.appendChild(rtry); sub.appendChild(toShot); sub.appendChild(toGeneral);
-        videoPane.appendChild(sub);
-      } else sub.style.display='flex';
+      var sub=document.getElementById('bugaputa-video-pane-subactions');
+      if(sub){ try{ sub.remove(); }catch(_){} sub=null; }
+      sub=h('div',{id:'bugaputa-video-pane-subactions',style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'});
+      var rtry=h('button',{id:'bugaputa-video-retry',type:'button',text:'Retry'}); rtry.setAttribute('aria-label','Retry recording'); rtry.addEventListener('click', function(){ var s=document.getElementById('bugaputa-video-pane-subactions'); if(s) s.style.display='none'; handleVideoStart(); });
+      sub.appendChild(rtry);
+      if(isMicDenied){
+        var contNoMic=h('button',{id:'bugaputa-video-continue-without-mic',type:'button',text:'Continue without microphone'}); contNoMic.setAttribute('aria-label','Continue without microphone'); contNoMic.addEventListener('click', function(){ var s=document.getElementById('bugaputa-video-pane-subactions'); if(s) s.style.display='none'; handleVideoStartWithoutMic(); });
+        sub.appendChild(contNoMic);
+      }
+      var toShot=h('button',{id:'bugaputa-video-to-screenshot',type:'button',text:'Use screenshot instead'}); toShot.addEventListener('click', function(){ videoPane.style.display='none'; capturePane.style.display='block'; try{ document.getElementById('bugaputa-do-capture').focus(); }catch(_){} });
+      var toGeneral=h('button',{id:'bugaputa-video-to-general',type:'button',text:'General feedback'}); toGeneral.addEventListener('click', function(){ videoPane.style.display='none'; chooser.style.display='none'; showForm(null); });
+      sub.appendChild(toShot); sub.appendChild(toGeneral);
+      videoPane.appendChild(sub);
       // ensure controls remain; do not hide chooser restoration — user picks
     }
     function renderVideoUnsupported(msg){
@@ -356,13 +363,38 @@
         if(videoRow) videoRow.appendChild(cancelBtn);
       }
       var micOn=!!(videoMicChk&&videoMicChk.checked);
+      function _startWithMic(micFlag){
+        ensureVideoCaptureLoaded(function(){
+          var vc=window.__bugaputaVideoCapture;
+          if(!vc||!vc.startSession){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Video capture failed to load.'; return; }
+          videoStatus.textContent='Waiting for permission…';
+          activeVideoSession=vc.startSession({
+            micEnabled: micFlag,
+            onRequesting:function(){ videoStatus.textContent='Waiting for permission…'; },
+            onRecording:function(_stream,_rec){ videoStatus.style.color='#dc2626'; videoStatus.textContent='\u25CF Recording '+fmtVideoTime(0)+' / 01:00 — click Stop to finish'; var stopBtn=document.getElementById('bugaputa-video-stop'); if(!stopBtn){ stopBtn=h('button',{id:'bugaputa-video-stop',type:'button',text:'Stop'}); stopBtn.addEventListener('click', function(){ try{ if(activeVideoSession&&activeVideoSession.stop) activeVideoSession.stop(); }catch(_){} }); if(videoRow) videoRow.insertBefore(stopBtn, videoRow.firstChild.nextSibling||null); } videoStartBtn.style.display='none'; stopBtn.style.display=''; },
+            onTick:function(elapsed){ videoStatus.textContent='\u25CF Recording '+fmtVideoTime(elapsed)+' / 01:00 — click Stop to finish'; },
+            onPreview:function(file,url,mime,durMs){ videoStartBtn.style.display=''; var sb=document.getElementById('bugaputa-video-stop'); if(sb) sb.style.display='none'; activeVideoSession=null; renderVideoPreview(file,url,mime,durMs); },
+            onDenied:function(msg){ videoStartBtn.style.display=''; var sb=document.getElementById('bugaputa-video-stop'); if(sb) sb.style.display='none'; activeVideoSession=null; renderVideoDenied(msg); },
+            onUnsupported:function(msg){ videoStartBtn.style.display=''; activeVideoSession=null; renderVideoUnsupported(msg); },
+            onError:function(msg){ videoStartBtn.style.display=''; var sb2=document.getElementById('bugaputa-video-stop'); if(sb2) sb2.style.display='none'; activeVideoSession=null; videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg; var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='block'; }
+          });
+        }, function(){
+          videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Failed to load video capture.';
+        });
+      }
+      _startWithMic(micOn);
+    }
+    function handleVideoStartWithoutMic(){
+      if(!isVideoEnabled()){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Video capture is disabled for this project.'; return; }
+      if(!isVideoSupported()){ renderVideoUnsupported('Screen recording not supported on this device'); return; }
+      videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Waiting for permission…';
+      var sub=document.getElementById('bugaputa-video-pane-subactions'); if(sub) sub.style.display='none';
       ensureVideoCaptureLoaded(function(){
         var vc=window.__bugaputaVideoCapture;
         if(!vc||!vc.startSession){ videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Video capture failed to load.'; return; }
-        // update UI to recording state with timer
         videoStatus.textContent='Waiting for permission…';
         activeVideoSession=vc.startSession({
-          micEnabled: micOn,
+          micEnabled: false,
           onRequesting:function(){ videoStatus.textContent='Waiting for permission…'; },
           onRecording:function(_stream,_rec){ videoStatus.style.color='#dc2626'; videoStatus.textContent='\u25CF Recording '+fmtVideoTime(0)+' / 01:00 — click Stop to finish'; var stopBtn=document.getElementById('bugaputa-video-stop'); if(!stopBtn){ stopBtn=h('button',{id:'bugaputa-video-stop',type:'button',text:'Stop'}); stopBtn.addEventListener('click', function(){ try{ if(activeVideoSession&&activeVideoSession.stop) activeVideoSession.stop(); }catch(_){} }); if(videoRow) videoRow.insertBefore(stopBtn, videoRow.firstChild.nextSibling||null); } videoStartBtn.style.display='none'; stopBtn.style.display=''; },
           onTick:function(elapsed){ videoStatus.textContent='\u25CF Recording '+fmtVideoTime(elapsed)+' / 01:00 — click Stop to finish'; },
