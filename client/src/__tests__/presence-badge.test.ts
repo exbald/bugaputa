@@ -130,15 +130,15 @@ describe("presence helpers", () => {
       // layout: badge between name (flex-1) and Delete, flex-shrink-0
       expect(raw).toMatch(/flex-1 min-w-0/);
       expect(raw).toMatch(/flex-shrink-0/);
-      // grid stays md:grid-cols-2 with explicit mobile track + containment
-      expect(raw).toMatch(/md:grid-cols-2/);
-      expect(raw).toMatch(/grid-cols-1/);
+      // redesigned rows use dense horizontal flex (desktop) / stacked panel (mobile) with containment
+      expect(raw).toMatch(/WorkspaceRow/);
+      expect(raw).toMatch(/flex flex-col sm:flex-row/);
       expect(raw).toMatch(/min-w-0/);
       expect(raw).toMatch(/overflow-hidden/);
-      // Delete action is 44px touch target and row flex is constrained
+      // Delete action is 44px touch target and composer respects disabled states
       expect(raw).toMatch(/min-h-\[44px\]/);
       expect(raw).toMatch(/min-w-\[44px\]/);
-      expect(raw).toMatch(/flex items-start justify-between gap-2/);
+      expect(raw).toMatch(/disabled=\{creating/);
       // Presence and relative recency refresh without a full page reload.
       expect(raw).toMatch(/setInterval\(refresh, 60_000\)/);
       expect(raw).toMatch(/visibilitychange/);
@@ -146,7 +146,6 @@ describe("presence helpers", () => {
       expect(raw).toMatch(/mutationVersionRef\.current \+= 1/);
       expect(raw).toMatch(/requestVersion === requestVersionRef\.current/);
       expect(raw).toMatch(/prev\.filter\(\(item\) => item\.id !==/);
-      expect(raw).toMatch(/disabled=\{loading \|\| creating\}/);
     });
   });
 
