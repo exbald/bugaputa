@@ -17,6 +17,7 @@
     if(t.length>30) t=t.slice(0,30);
     return t;
   }
+  var H2C_ATTR=H2C_ATTR;
   var _dataLabel=script?script.getAttribute('data-label')||script.getAttribute('data-wording'):null;
   var _dataColor=script?script.getAttribute('data-color'):null;
   var _dataPos=script?script.getAttribute('data-position')||script.getAttribute('data-pos'):null;
@@ -162,7 +163,7 @@
   }
   function close(){ try{ clearAttachmentState(); }catch(_){}
     try{ if(activeVideoSession&&activeVideoSession.cancel) activeVideoSession.cancel(); }catch(_){} activeVideoSession=null;
-    try{ hidePointerHalo(); if(pointerRaf) { cancelAnimationFrame(pointerRaf); pointerRaf=0; } try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} }catch(_){}
+    try{ hidePointerHalo(); if(pointerRaf) { cancelAnimationFrame(pointerRaf); pointerRaf=0; } try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} try{ if(window.__bugaputaCloseLiveWorkspace) window.__bugaputaCloseLiveWorkspace(); }catch(_){} }catch(_){}
     // onError intentionally does NOT call clearAttachmentState so retry keeps the file.
     cleanupAnnotate();
     var ed2=document.getElementById('bugaputa-annotate');
@@ -200,9 +201,9 @@
   function open(){
     try{ clearAttachmentState(); }catch(_){}
     lastFocus=document.activeElement;
-    overlay=h('div',{id:'bugaputa-overlay','data-html2canvas-ignore':'true'});
+    overlay=h('div',{id:'bugaputa-overlay',H2C_ATTR:'true'});
     overlay.addEventListener('click', function(e){ if(e.target===overlay) close(); });
-    var modal=h('div',{id:'bugaputa-modal',role:'dialog','aria-modal':'true','aria-label':'Report a bug','data-html2canvas-ignore':'true'});
+    var modal=h('div',{id:'bugaputa-modal',role:'dialog','aria-modal':'true','aria-label':'Report a bug',H2C_ATTR:'true'});
     var closeBtn=h('button',{id:'bugaputa-close',text:'\u00D7','aria-label':'Close'});
     closeBtn.addEventListener('click', close);
     var chooser=h('div',{id:'bugaputa-chooser'});
@@ -274,11 +275,16 @@
     });
     btnVideo.addEventListener('click', function(){
       chooser.style.display='none'; capturePane.style.display='none';
-      if(localStorage.getItem('bugaputa-skip-video-consent')){ videoPane.style.display='block'; videoStartBtn.focus(); }
-      else { videoPane.style.display='block'; videoStartBtn.focus(); }
+      openLiveVideoWorkspace();
     });
     capBack.addEventListener('click', function(){ capturePane.style.display='none'; chooser.style.display='block'; btnCapture.focus(); });
     videoBackBtn.addEventListener('click', function(){ try{ if(activeVideoSession&&activeVideoSession.cancel) activeVideoSession.cancel(); }catch(_){} activeVideoSession=null; videoPane.style.display='none'; chooser.style.display='block'; var vs=document.getElementById('bugaputa-video-status'); if(vs){ vs.style.display='none'; vs.textContent=''; } var toFocus=isVideoEnabled()?btnVideo:btnCapture; try{ toFocus.focus(); }catch(_){} });
+    function openLiveVideoWorkspace(){
+      if(window.__bugaputaVideoLive&&window.__bugaputaVideoLive.open){ window.__bugaputaVideoLive.open({getDocPoint:getDocPoint, fmtVideoTime:fmtVideoTime, ensureHalo:ensureHalo, movePointerHalo:movePointerHalo, haloClickRipple:haloClickRipple, hidePointerHalo:hidePointerHalo, renderVideoPreview:renderVideoPreview, renderVideoDenied:renderVideoDenied, renderVideoUnsupported:renderVideoUnsupported, renderVideoRecovery:renderVideoRecovery, videoStatus:videoStatus, videoPane:videoPane}); return; }
+      loadScript(scriptBase()+'/video-capture.js', function(){ if(window.__bugaputaVideoLive&&window.__bugaputaVideoLive.open) window.__bugaputaVideoLive.open({getDocPoint:getDocPoint, fmtVideoTime:fmtVideoTime, ensureHalo:ensureHalo, movePointerHalo:movePointerHalo, haloClickRipple:haloClickRipple, hidePointerHalo:hidePointerHalo, renderVideoPreview:renderVideoPreview, renderVideoDenied:renderVideoDenied, renderVideoUnsupported:renderVideoUnsupported, renderVideoRecovery:renderVideoRecovery, videoStatus:videoStatus, videoPane:videoPane}); else videoPane.style.display='block'; }, function(){ videoPane.style.display='block'; });
+    }
+
+
     // Video pane helpers
     function ensureVideoCaptureLoaded(cb, errCb){
       if(window.__bugaputaVideoCapture&&window.__bugaputaVideoCapture.startSession) { cb(); return; }
@@ -330,7 +336,7 @@
       vp.appendChild(meta);
       var row=h('div',{id:'bugaputa-video-preview-actions',style:'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap'});
       var contBtn=h('button',{id:'bugaputa-video-continue',type:'button',text:'Use recording'}); contBtn.setAttribute('aria-label','Use recording'); contBtn.style.minHeight='44px'; contBtn.addEventListener('click', function(){ videoPane.style.display='none'; chooser.style.display='none'; var fw=overlay._formWrap||document.getElementById('bugaputa-form-wrap'); if(fw) fw.style.display='block'; showForm(null); });
-      var retakeBtn=h('button',{id:'bugaputa-video-retake',type:'button',text:'Record again'}); retakeBtn.setAttribute('aria-label','Record again'); retakeBtn.style.minHeight='44px'; retakeBtn.addEventListener('click', function(){ try{ if(activeVideoSession&&activeVideoSession.cancel) activeVideoSession.cancel(); activeVideoSession=null; }catch(_){} try{ if(pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl); }catch(_){} pendingVideoUrl=null; pendingVideoFile=null; pendingVideoMeta=null; try{ if(videoCleanupTimer){ clearTimeout(videoCleanupTimer); videoCleanupTimer=null; } }catch(_){} var pr=document.getElementById('bugaputa-video-preview'); if(pr) try{ var kids2=Array.prototype.slice.call(pr.childNodes); for(var j=0;j<kids2.length;j++){ var nn=kids2[j]; if(nn.id==='bugaputa-remove-video') continue; try{ pr.removeChild(nn); }catch(_){} } }catch(_){} videoStatus.style.display='none'; videoStatus.textContent=''; var sub2=document.getElementById('bugaputa-video-pane-subactions'); if(sub2) sub2.style.display='none'; handleVideoStart(); });
+      var retakeBtn=h('button',{id:'bugaputa-video-retake',type:'button',text:'Record again'}); retakeBtn.setAttribute('aria-label','Record again'); retakeBtn.style.minHeight='44px'; retakeBtn.addEventListener('click', function(){ cleanupVideoAttachment(); var sub2=document.getElementById('bugaputa-video-pane-subactions'); if(sub2) sub2.style.display='none'; handleVideoStart(); });
       var removeVideoBtn=h('button',{id:'bugaputa-remove-video',type:'button','aria-label':'Remove recording',title:'Remove recording'}); removeVideoBtn.textContent='Delete recording'; removeVideoBtn.style.minHeight='44px';
       removeVideoBtn.addEventListener('click', function(){ if(!confirm('Delete this recording? This cannot be undone.')) return; cleanupVideoAttachment(); videoStatus.style.display='block'; videoStatus.style.color='#475569'; videoStatus.textContent='Recording deleted — you can record again or upload a file.'; var fl2=document.getElementById('bugaputa-video-file-label'); if(fl2) fl2.style.display='block'; });
       row.appendChild(contBtn); row.appendChild(retakeBtn); row.appendChild(removeVideoBtn);
@@ -390,7 +396,7 @@
             onError:function(msg){ try{ document.removeEventListener('pointermove', movePointerHalo); }catch(_){} try{ document.removeEventListener('click', haloClickRipple); }catch(_){} hidePointerHalo(); videoStartBtn.style.display=''; var sb2=document.getElementById('bugaputa-video-stop'); if(sb2) sb2.style.display='none'; activeVideoSession=null; videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg; var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='block'; }
           });
         }, function(){
-          videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Failed to load video capture.';
+          videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Load failed.';
         });
       }
       _startWithMic(micOn);
@@ -415,7 +421,7 @@
           onError:function(msg){ videoStartBtn.style.display=''; var sb2=document.getElementById('bugaputa-video-stop'); if(sb2) sb2.style.display='none'; activeVideoSession=null; videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent=msg; var fl=document.getElementById('bugaputa-video-file-label'); if(fl) fl.style.display='block'; }
         });
       }, function(){
-        videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Failed to load video capture.';
+        videoStatus.style.display='block'; videoStatus.style.color='#dc2626'; videoStatus.textContent='Load failed.';
       });
     }
     // wire file fallback
@@ -664,7 +670,7 @@
     for(var i=lc.length-1;i>=0;i--){
       var l=lc[i], c=cc[i];
       if(!c) continue;
-      if(l.hasAttribute && l.hasAttribute('data-html2canvas-ignore')){ cloned.removeChild(c); continue; }
+      if(l.hasAttribute && l.hasAttribute(H2C_ATTR)){ cloned.removeChild(c); continue; }
       var tag=l.tagName;
       if(tag==='IFRAME' || tag==='FRAME' || tag==='OBJECT' || tag==='EMBED'){
         cloned.replaceChild(snapshotPlaceholderBox(l, doc, true), c);
@@ -1058,7 +1064,7 @@
       handleCaptureError(err, statusEl, formWrap, chooser, capturePane, btn, prevBtnDisplay, prevOverlayDisplay);
     }
     function ignoreFilter(el){
-      return !(el.getAttribute && el.getAttribute('data-html2canvas-ignore')!==null);
+      return !(el.getAttribute && el.getAttribute(H2C_ATTR)!==null);
     }
     function captureLegacy(){
       function run(){
@@ -1075,7 +1081,7 @@
             backgroundColor: pageBackgroundColor(),
             scale: scale,
             logging:false,
-            ignoreElements: function(el){ return el.hasAttribute && el.hasAttribute('data-html2canvas-ignore'); },
+            ignoreElements: function(el){ return el.hasAttribute && el.hasAttribute(H2C_ATTR); },
             x: sx, y: sy, width: vw, height: vh,
             windowWidth: vw, windowHeight: vh,
             scrollX: sx, scrollY: sy,
@@ -1095,7 +1101,7 @@
         }catch(err){ fail(err); }
       }
       if(window.html2canvas){ run(); return; }
-      statusEl.textContent='Loading capture…';
+      statusEl.textContent='Loading…';
       loadScript(scriptBase()+'/html2canvas.min.js', run, fail);
     }
     function captureModern(){
@@ -1160,7 +1166,7 @@
         capturedDims={w:Math.round(snapVw*snapScale), h:Math.round(snapVh*snapScale), cssW:snapVw, cssH:snapVh, dpr:snapScale};
         openAnnotateEditor(null, null, null, formWrap, chooser, capturePane);
       } else {
-        statusEl.textContent='Loading capture…';
+        statusEl.textContent='Loading…';
       }
       startRaster();
     });
@@ -1169,7 +1175,7 @@
     console.warn('[Bugaputa] capture fail', err);
     statusEl.style.display='block';
     statusEl.style.color='#dc2626';
-    statusEl.textContent=(err&&err.message?err.message:'Capture failed')+' — you can still send feedback via image upload below.';
+    statusEl.textContent=(err&&err.message?err.message:'Capture fail')+' — you can still send feedback via image upload below.';
     if(btn) btn.style.display=prevBtnDisplay||'';
     if(overlay) overlay.style.display=prevOverlayDisplay||'flex';
     var fallbackBtn=document.getElementById('bugaputa-fallback-upload');
@@ -1188,7 +1194,7 @@
   function openAnnotateEditor(blobUrl, dataUrl, capCanvas, formWrap, chooser, capturePane){
     if(overlay) overlay.style.display='none';
     document.body.style.overflow='hidden';
-    var ed=h('div',{id:'bugaputa-annotate','data-html2canvas-ignore':'true',role:'dialog','aria-modal':'true','aria-label':'Annotate screenshot'});
+    var ed=h('div',{id:'bugaputa-annotate',H2C_ATTR:'true',role:'dialog','aria-modal':'true','aria-label':'Annotate screenshot'});
     var PALETTE=['#ef4444','#f59e0b','#22c55e','#3b82f6','#ec4899'];
     var state={
       tool:'select',
@@ -1395,6 +1401,7 @@
     var ctx=cvs.getContext('2d');
     var dpr=window.devicePixelRatio||1;
     function cssPoint(e){
+      if(liveVideoActive) return getDocPoint(e);
       var rect=cvs.getBoundingClientRect();
       if(!rect.width || !rect.height) return {x:0,y:0};
       var sx=capturedDims.cssW / rect.width;
@@ -1836,7 +1843,7 @@
       tabindex:'0',
       'aria-label': label,
       title: label,
-      'data-html2canvas-ignore':'true'
+      H2C_ATTR:'true'
     });
     if(!label) btn.setAttribute('aria-label','Feedback');
     var tabStyle='position:fixed;z-index:2147483640;display:flex;align-items:center;justify-content:center;cursor:pointer;'+

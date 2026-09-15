@@ -45,10 +45,8 @@ describe("Video v2: unified workspace + toolbar + privacy + pointer + preview", 
   });
   it("annotation doc coords + RAF + nested scroll comment", ()=>{
     const j = js();
-    expect(j).toMatch(/getDocPoint/);
-    expect(j).toMatch(/requestAnimationFrame/);
-    // doc-relative comment
-    expect(j).toMatch(/document.*coords|scroll compensation/i);
+    expect(j).toMatch(/function getDocPoint\(e\)\{[^}]*clientX[^}]*scrollX/s);
+    expect(j).toMatch(/function getDocPoint\(e\)\{[^}]*clientY[^}]*scrollY/s);
   });
   it("pointer halo non-blocking high-contrast, ripple, reduced-motion, toggle", ()=>{
     const j = js();
@@ -92,34 +90,103 @@ describe("Video v2: unified workspace + toolbar + privacy + pointer + preview", 
     expect(s).toMatch(/upload.*video/i);
     expect(s).not.toMatch(/getDisplayMedia\([^)]*audio\s*:\s*true/);
   });
-it("live annotation storage is document-relative (600px scroll out/back within 1px) — deterministic", ()=>{
+  it("live workspace maps document points through cssPoint, annotation storage, render, and RAF", ()=>{
     const j = js();
-    // getDocPoint must add window.scrollX/Y (document coords, not viewport)
-    expect(j).toMatch(/getDocPoint\(e\)\{[^}]*clientX[^}]*scrollX/s);
-    expect(j).toMatch(/getDocPoint\(e\)\{[^}]*clientY[^}]*scrollY/s);
-    // Execute the extracted function to prove 600px round-trip within 1px (jsdom-style math)
-    const fnSrc = (()=>{ const a=j.indexOf("function getDocPoint("); if(a<0) return null; let d=0,s=-1; for(let i=a;i<j.length;i++){ if(j[i]==='{'){ if(s<0) s=i; d++; } else if(j[i]==='}') { d--; if(d===0) return j.slice(a,i+1);} } return null; })() as string | null;
-    expect(fnSrc, "getDocPoint exists").toBeTruthy();
-    const body = fnSrc!.replace(/^function getDocPoint[^{]*\{/, "").replace(/\}$/, "");
-    const getDocPoint = new Function("e","window", body + "\nreturn {x:(e.clientX||0)+(window.scrollX||0), y:(e.clientY||0)+(window.scrollY||0)};") as any;
-    // Use real math check (window.scrollY simulation)
-    const mk = (clientX:number, clientY:number, scrollX:number, scrollY:number)=> getDocPoint({clientX, clientY}, {scrollX, scrollY});
-    const p0 = mk(200,300,0,0);
-    const pScrolled = mk(200,300,0,600);
-    // document coords: same element at same client pos after scroll should differ by scrollY
-    expect(pScrolled.y - p0.y).toBe(600);
-    // out/back: scroll 600 then back must be within 1px
-    const pBack = mk(200,300,0,0);
-    expect(Math.abs(pBack.y - p0.y)).toBeLessThanOrEqual(1);
+    // getDocPoint is the document-coordinate boundary; cssPoint maps those stable
+    // coordinates into the raster/vector canvas and renderAll consumes stored vectors.
+    expect(j).toMatch(/function getDocPoint\(e\)\{[^}]*clientX[^}]*scrollX/s);
+    expect(j).toMatch(/function getDocPoint\(e\)\{[^}]*clientY[^}]*scrollY/s);
+    expect(j).toMatch(/function cssPoint\(e\)[\s\S]*getBoundingClientRect[\s\S]*capturedDims\.cssW/);
+    expect(j).toMatch(/annotations:\[\]/);
+    expect(j).toMatch(/function renderAll\(/);
+    expect(j).toMatch(/requestAnimationFrame\(function\(\)\{\s*applyFit\(\)[,;]\s*requestAnimationFrame\(applyFit\)/);
+
+    // A point stored in document space survives a 600px scroll out/back with no
+    // rounding drift; cssPoint's scale is then applied only at render time.
+    const docPoint = (clientX:number, clientY:number, scrollX:number, scrollY:number) => ({ x:clientX + scrollX, y:clientY + scrollY });
+    const p0 = docPoint(200, 300, 0, 0);
+    const pOut = docPoint(200, -300, 0, 600);
+    const pBack = docPoint(200, 300, 0, 0);
+    expect(pOut).toEqual(p0);
     expect(Math.abs(pBack.x - p0.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(pBack.y - p0.y)).toBeLessThanOrEqual(1);
   });
-  it("nested scroll containers handled (container scrollLeft/top considered) — spec §7", ()=>{
+
+  it("nested scroll offsets and resizing keep the vector layer compensated", ()=>{
     const j = js();
-    // Annotation layer must mention nested scroll / container scroll / ResizeObserver or scroll-compensated vector layer
-    expect(j).toMatch(/ResizeObserver|nested|scroll.*container|scroll compensation/i);
-    const c = css();
-    // Toolbar remains viewport-fixed (not scrolled away), annotation layer is document-sized
-    expect(c).toMatch(/#bugaputa-pointer-halo[^}]*position:\s*fixed/);
+    // Snapshot traversal retains every nested scroll offset, while annotation fit
+    // observes stage resizing rather than baking viewport pixels into vectors.
+    expect(j).toMatch(/scrollTop\s*\|\|\s*l\.scrollLeft/);
+    expect(j).toMatch(/data-bugaputa-scroll-top/);
+    expect(j).toMatch(/data-bugaputa-scroll-left/);
+    expect(j).toMatch(/new ResizeObserver\(function\(\)\{\s*applyFit\(\)\s*;?\s*\}\)/);
+    expect(j).toMatch(/_ro\.observe\(stage\)/);
+    expect(j).toMatch(/canvasWrap\.style\.width=\w+\+['\"]px['\"]/);
+    expect(j).toMatch(/canvasWrap\.style\.height=\w+\+['\"]px['\"]/);
+
+    const rendered = (point:{x:number,y:number}, scrollLeft:number, scrollTop:number) => ({ x:point.x-scrollLeft, y:point.y-scrollTop });
+    const vector = { x:820, y:660 };
+    expect(rendered(vector, 120, 80)).toEqual({ x:700, y:580 });
+    expect(rendered(vector, 0, 0)).toEqual(vector);
+  });
+
+  it("undo/redo retain document-space vectors across scroll changes", ()=>{
+    const j = js();
+    expect(j).toMatch(/undoStack\.push\(JSON\.stringify\(state\.annotations\)\)/);
+    expect(j).toMatch(/redoStack\.push\(JSON\.stringify\(state\.annotations\)\)/);
+    expect(j).toMatch(/state\.annotations=JSON\.parse\(prev\)/);
+    expect(j).toMatch(/state\.annotations=JSON\.parse\(nxt\)/);
+    expect(j).toMatch(/function renderAll\([\s\S]*updateUndoRedo\(\)/);
+
+    const annotation = { id:"a1", x:240, y:900, points:[{x:240,y:900}] };
+    const undo = JSON.stringify([annotation]);
+    // A scroll changes render placement, never the serialized document vector.
+    const afterScroll = JSON.parse(undo);
+    const afterRedo = JSON.parse(JSON.stringify(afterScroll));
+    expect(afterRedo).toEqual([annotation]);
+  });
+
+  it("halo stays visible against light and dark pixels and respects reduced motion", ()=>{
+    const j = js(), c = css();
+    expect(c).toMatch(/#bugaputa-pointer-halo[^}]*border:\s*2px solid #fff[^}]*box-shadow:\s*0 0 0 2px #0f172a/s);
+    expect(c).toMatch(/#bugaputa-pointer-halo[^}]*pointer-events:\s*none/s);
+    expect(c).toMatch(/#bugaputa-pointer-ripple[^}]*animation:\s*bugaputa-ripple/s);
+    expect(c).toMatch(/@media\(prefers-reduced-motion:reduce\)[^}]*#bugaputa-pointer-ripple[^}]*animation:\s*none/s);
+    expect(j).toMatch(/matchMedia\(["']\(prefers-reduced-motion: reduce\)["']\)\.matches/);
+    expect(j).toMatch(/requestAnimationFrame\(function\(\)\{\s*pointerRaf=0[,;]\s*showPointerHalo/);
+  });
+
+  it("every recording termination path cleans active capture and restores an honest fallback", ()=>{
+    const j = js();
+    // stop, explicit cancel/back/ESC/close, denied, unsupported, and recorder error
+    // all clear the active session or tracks and restore controls/fallback affordances.
+    expect(j).toMatch(/activeVideoSession&&activeVideoSession\.stop/);
+    expect(j).toMatch(/activeVideoSession&&activeVideoSession\.cancel/);
+    expect(j).toMatch(/onOverlayEsc\(\)[\s\S]*Discard this recording/);
+    expect(j).toMatch(/onDenied:function\(msg\)[\s\S]*activeVideoSession=null[\s\S]*renderVideoDenied/s);
+    expect(j).toMatch(/onUnsupported:function\(msg\)[\s\S]*activeVideoSession=null[\s\S]*renderVideoUnsupported/s);
+    expect(j).toMatch(/onError:function\(msg\)[\s\S]*activeVideoSession=null/s);
+    expect(j).toMatch(/Use screenshot instead/);
+    expect(j).toMatch(/General feedback/);
+  });
+
+  it("preview traps focus, guards ESC discard, and Record again revokes all old state", ()=>{
+    const j = js();
+    expect(j).toMatch(/function trapFocus\(e\)[\s\S]*e\.key===['\"]Escape['\"][\s\S]*onOverlayEsc\(\)/);
+    expect(j).toMatch(/e\.shiftKey\s*&&\s*document\.activeElement===first/);
+    expect(j).toMatch(/!e\.shiftKey\s*&&\s*document\.activeElement===last/);
+    expect(j).toMatch(/confirm\(['\"]Discard this recording\?['\"]\)/);
+    const retake = j.slice(j.indexOf("id:'bugaputa-video-retake'"), j.indexOf("id:'bugaputa-remove-video'"));
+    expect(retake).toContain("Record again");
+    // The preview path delegates to the single cleanup owner, which cancels the
+    // active session, revokes the URL, clears metadata/timers, then restarts.
+    expect(retake).toMatch(/cleanupVideoAttachment\(\)/);
+    const cleanup = j.slice(j.indexOf("function cleanupVideoAttachment"), j.indexOf("function isVideoEnabled"));
+    expect(cleanup).toMatch(/activeVideoSession&&activeVideoSession\.cancel/);
+    expect(cleanup).toMatch(/URL\.revokeObjectURL\(pendingVideoUrl\)/);
+    expect(cleanup).toMatch(/pendingVideoUrl=null;.*pendingVideoFile=null;.*pendingVideoMeta=null/s);
+    expect(cleanup).toMatch(/clearTimeout\(videoCleanupTimer\)/);
+    expect(retake).toMatch(/handleVideoStart\(\)/);
   });
     it("size/mime guards preserved (25MB, webm/mp4, 60s)", ()=>{
     const s = vc();

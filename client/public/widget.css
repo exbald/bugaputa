@@ -80,6 +80,14 @@
 #bugaputa-ann-toolbar button:disabled{opacity:0.4;cursor:not-allowed}
 @media(max-width:480px){#bugaputa-ann-header{padding:8px 10px} #bugaputa-palette button{width:44px !important;height:44px !important;min-width:44px;min-height:44px} #bugaputa-ann-toolbar{max-width:calc(100vw - 16px);padding:6px 8px;gap:4px;justify-content:flex-start;scrollbar-width:thin;scrollbar-color:#94a3b8 #f1f5f9;overscroll-behavior-x:contain} #bugaputa-ann-toolbar::-webkit-scrollbar{display:block;height:6px} #bugaputa-ann-toolbar::-webkit-scrollbar-track{background:#f1f5f9;border-radius:999px} #bugaputa-ann-toolbar::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px;border:1px solid #e2e8f0} #bugaputa-ann-toolbar button{min-width:44px !important;min-height:44px !important}}
 
+#bugaputa-live-video{position:absolute;inset:0;z-index:2147483646;pointer-events:none}
+#bugaputa-live-video canvas{position:absolute;left:0;top:0;pointer-events:auto;touch-action:none;z-index:1}
+#bugaputa-live-toolbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:4;pointer-events:auto;display:flex;align-items:center;gap:5px;max-width:calc(100vw - 16px);overflow-x:auto;padding:7px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+#bugaputa-live-toolbar button{min-width:44px;min-height:44px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#0f172a;font:600 12px system-ui;cursor:pointer}
+#bugaputa-live-toolbar button[aria-pressed=true]{background:#a3e635;border-color:#a3e635}
+#bugaputa-live-toolbar button:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-live-toolbar button:disabled{opacity:.45}
+@media(max-width:480px){#bugaputa-live-toolbar{left:8px;right:8px;bottom:8px;transform:none}}
 /* video pane */
 #bugaputa-video-pane{margin-top:4px}
 #bugaputa-video-consent{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
@@ -104,8 +112,20 @@
 #bugaputa-ann-drag:active{cursor:grabbing}
 /* document-relative annotation layer helper: when video workspace is live, annotations are stored in document coords and rendered with scroll compensation (see widget.js cssPoint doc) */
 #bugaputa-ann-canvas-wrap.bugaputa-live{will-change:transform}
-/* preview modal polish (accessible, responsive 390px, fixed actions, focus trap) */
+
+/* accessible video review modal */
 #bugaputa-video-preview-modal{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55)}
-#bugaputa-video-preview-card{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column}
+#bugaputa-video-preview-card{background:#fff;border-radius:16px;width:min(520px,100%);max-height:90dvh;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}
 #bugaputa-video-preview-card header{padding:16px 20px 12px;border-bottom:1px solid #e2e8f0}
-#bugaputa-video-preview-card .bugaputa-preview-actions{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;background:#fff}
+#bugaputa-video-preview-card header h2{margin:0;font-size:18px;color:#0f172a}
+#bugaputa-video-preview-card .bugaputa-preview-body{padding:16px 20px;overflow:auto}
+#bugaputa-video-preview-card video{display:block;width:100%;max-height:320px;background:#0f172a;border-radius:8px}
+#bugaputa-video-meta,.bugaputa-video-preview-loading{margin-top:8px;font-size:12px;color:#64748b}
+#bugaputa-video-preview-card .bugaputa-preview-actions{display:flex;gap:8px;padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #e2e8f0;background:#fff;flex-shrink:0}
+#bugaputa-video-preview-card button,#bugaputa-video-recovery button,#bugaputa-video-delete-undo{min-height:44px;border-radius:10px;padding:10px 12px;font-weight:600;cursor:pointer}
+#bugaputa-video-continue{flex:1;background:#0f172a;color:#fff;border:0}
+#bugaputa-video-retake{background:#fff;color:#334155;border:1px solid #cbd5e1}
+#bugaputa-remove-video{background:#fff;color:#b91c1c;border:1px solid #fecaca}
+#bugaputa-video-preview-card button:focus-visible,#bugaputa-video-recovery button:focus-visible,#bugaputa-video-delete-undo:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-video-recovery{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:390px){#bugaputa-video-preview-modal{padding:8px}#bugaputa-video-preview-card .bugaputa-preview-body{padding:12px 16px}#bugaputa-video-preview-card header,#bugaputa-video-preview-card .bugaputa-preview-actions{padding-left:16px;padding-right:16px}#bugaputa-video-preview-card .bugaputa-preview-actions{position:sticky;bottom:0;flex-wrap:wrap}#bugaputa-video-preview-card .bugaputa-preview-actions button{flex:1 1 100%}}

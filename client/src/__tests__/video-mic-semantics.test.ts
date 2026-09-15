@@ -23,16 +23,27 @@ describe("Video mic semantics: executable behavior, not regex-only", () => {
     expect(fs.readFileSync(VCJS).equals(fs.readFileSync(VCP))).toBe(true);
   });
 
-  describe("behavior: getDisplayMedia always video-only; mic branch semantics", () => {
-    function makeTrack(kind: string, id: string){
+  describe("behavior: Capture Handle identity, video-only display, and mic semantics", () => {
+    const fakeLocation = { origin: "https://widget.test" };
+    function makeTrack(kind: string, id: string, getCaptureHandle?: () => any){
       const base:any = { kind, id, stop: vi.fn(), addEventListener: vi.fn(), label: id };
-      if(kind==='video') { base.getSettings = ()=> ({displaySurface:'browser'}); base.getCaptureHandle = ()=> null; }
+      if(kind==='video') {
+        base.getSettings = ()=> ({displaySurface:'browser'});
+        base.getCaptureHandle = getCaptureHandle || (() => null);
+      }
       return base as any;
     }
     function makeStream(){ const tracks:any[]=[]; return { getTracks:()=>tracks.slice(), getAudioTracks:()=>tracks.filter((t:any)=>t.kind==='audio'), getVideoTracks:()=>tracks.filter((t:any)=>t.kind==='video'), addTrack:(t:any)=>{tracks.push(t)}, _tracks:tracks } as any; }
 
-    function setupEnv(opts: { gdmAudioTracks?: any[], micShouldFail?: {name:string}, micMissing?: boolean } = {}){
-      const displayTrack = makeTrack('video','display-video');
+    function setupEnv(opts: { gdmAudioTracks?: any[], micShouldFail?: {name:string}, micMissing?: boolean, captureHandle?: "matching" | "mismatch" | "missing" } = {}){
+      // setupCaptureHandle runs immediately before getDisplayMedia. The handle returned
+      // by the captured track therefore models the same per-session token, not a
+      // displaySurface-only synthetic success.
+      let configuredHandle = "";
+      const displayTrack = makeTrack('video','display-video', () => {
+        if(opts.captureHandle === "missing") return null;
+        return { origin: fakeLocation.origin, handle: opts.captureHandle === "mismatch" ? "other-session-token" : configuredHandle };
+      });
       const displayStream = makeStream();
       (displayStream as any)._tracks.push(displayTrack);
       const gdmOptsCapture: any[] = [];
@@ -43,7 +54,8 @@ describe("Video mic semantics: executable behavior, not regex-only", () => {
         if(opts.micShouldFail) return Promise.reject(Object.assign(new Error('denied'), { name: opts.micShouldFail!.name }));
         return Promise.resolve({ getTracks:()=>micStreamTracks.slice(), getAudioTracks:()=>micStreamTracks.slice(), getVideoTracks:()=>[], addTrack: vi.fn() } as any);
       });
-      const med: any = { getDisplayMedia };
+      const setCaptureHandleConfig = vi.fn((config:any) => { configuredHandle = config.handle; });
+      const med: any = { getDisplayMedia, setCaptureHandleConfig };
       if(getUserMedia) med.getUserMedia = getUserMedia;
       const fakeNavigator: any = { mediaDevices: med };
       function MR(this:any, stream:any, o?:any){ this.stream=stream; this.mimeType=o?.mimeType||'video/webm;codecs=vp9,opus'; this.state='inactive'; this.ondataavailable=null as any; this.onstop=null as any; this.onerror=null as any; this.start=vi.fn(()=>{ this.state='recording'; }); this.stop=vi.fn(()=>{ this.state='inactive'; if(this.ondataavailable) this.ondataavailable({data: new Blob(['x'], {type:this.mimeType})}); if(this.onstop) this.onstop({}); }); }
@@ -51,12 +63,46 @@ describe("Video mic semantics: executable behavior, not regex-only", () => {
       const fakeURL: any = { createObjectURL: vi.fn(()=> "blob:fake-url"), revokeObjectURL: vi.fn(()=>{}) };
       const s = src();
       const win:any = {};
-      const exec = new Function("window","navigator","MediaRecorder","Blob","File","URL","document", s + "\nreturn window.__bugaputaVideoCapture;");
-      const cap = exec(win, fakeNavigator, MR as any, Blob, File, fakeURL, {} as any);
-      return { cap, gdmOptsCapture, getDisplayMedia, getUserMedia, displayStream, displayTrack, micAudio, fakeURL, fakeNavigator };
+      const exec = new Function("window","navigator","MediaRecorder","Blob","File","URL","document","location", s + "\nreturn window.__bugaputaVideoCapture;");
+      const cap = exec(win, fakeNavigator, MR as any, Blob, File, fakeURL, {} as any, fakeLocation);
+      return { cap, gdmOptsCapture, getDisplayMedia, getUserMedia, displayStream, displayTrack, micAudio, fakeURL, fakeNavigator, setCaptureHandleConfig };
     }
 
     async function flush(){ await new Promise(r=> setTimeout(r, 0)); await new Promise(r=> setTimeout(r, 0)); await new Promise(r=> setTimeout(r, 10)); }
+
+    it("configures and requires a matching per-session Capture Handle token", async () => {
+      const { cap, gdmOptsCapture, setCaptureHandleConfig, getUserMedia } = setupEnv();
+      const onUnsupported = vi.fn();
+      cap.startSession({ micEnabled:true, onDenied:vi.fn(), onPreview:vi.fn(), onError:vi.fn(), onUnsupported });
+      await flush();
+      expect(gdmOptsCapture[0].captureHandleConfig).toEqual({ exposeOrigin:true });
+      expect(setCaptureHandleConfig).toHaveBeenCalledWith(expect.objectContaining({ exposeOrigin:true, handle: expect.any(String) }));
+      expect(cap._getCaptureToken()).toBe(setCaptureHandleConfig.mock.calls[0][0].handle);
+      expect(onUnsupported).not.toHaveBeenCalled();
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    it("routes token mismatch to the honest upload fallback without requesting mic", async () => {
+      const { cap, displayTrack, getUserMedia } = setupEnv({ captureHandle:"mismatch" });
+      const onUnsupported = vi.fn();
+      cap.startSession({ micEnabled:true, onDenied:vi.fn(), onPreview:vi.fn(), onError:vi.fn(), onUnsupported });
+      await flush();
+      expect(onUnsupported).toHaveBeenCalledTimes(1);
+      expect(onUnsupported.mock.calls[0][0]).toMatch(/upload.*token mismatch|token mismatch/i);
+      expect(displayTrack.stop).toHaveBeenCalledTimes(1);
+      expect(getUserMedia).not.toHaveBeenCalled();
+    });
+
+    it("routes a missing Capture Handle to the honest upload fallback", async () => {
+      const { cap, displayTrack, getUserMedia } = setupEnv({ captureHandle:"missing" });
+      const onUnsupported = vi.fn();
+      cap.startSession({ micEnabled:true, onDenied:vi.fn(), onPreview:vi.fn(), onError:vi.fn(), onUnsupported });
+      await flush();
+      expect(onUnsupported).toHaveBeenCalledTimes(1);
+      expect(onUnsupported.mock.calls[0][0]).toMatch(/Capture Handle unavailable.*upload/i);
+      expect(displayTrack.stop).toHaveBeenCalledTimes(1);
+      expect(getUserMedia).not.toHaveBeenCalled();
+    });
 
     it("mic-off never calls getUserMedia and uses video-only display capture", async () => {
       const { cap, gdmOptsCapture, getUserMedia } = setupEnv();

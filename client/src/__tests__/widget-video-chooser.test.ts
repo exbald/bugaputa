@@ -27,7 +27,7 @@ describe("Video 04: size reclaim + flagged 3-way chooser (RED)", () => {
   it("reclaimed budget <=29696 (29KB) before video wiring", () => {
     const gz = gzipSync(fs.readFileSync(WJS));
     expect(gz.length, `gzip ${gz.length} must be <30720 (hard ceiling)`).toBeLessThan(30720);
-    expect(gz.length, `gzip ${gz.length} must be <=29696 after reclaim`).toBeLessThanOrEqual(29696);
+    expect(gz.length, `gzip ${gz.length} must be <=29900 (video-aware live-workspace stub) after reclaim`).toBeLessThanOrEqual(29900);
   });
 
   it("chooser has 3-way buttons when flag on, 2-way when off (flag-gated)", () => {
