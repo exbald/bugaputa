@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { nanoid } from "nanoid";
 import { getDb, generateId, nowIso, WIDGET_DEFAULTS } from "../db.js";
-import { projectCreateSchema, paginationSchema, widgetSettingsSchema } from "../lib/validators.js";
+import { projectCreateSchema, paginationSchema, widgetSettingsSchema, projectSettingsSchema } from "../lib/validators.js";
 import { authMiddleware } from "../middleware/auth.js";
 
 export const ACTIVE_THRESHOLD_MS = 10 * 60 * 1000;
@@ -56,6 +56,7 @@ function toProject(row: any) {
     widgetLabel: row.widget_label ?? WIDGET_DEFAULTS.label,
     widgetColor: row.widget_color ?? WIDGET_DEFAULTS.color,
     widgetPosition: row.widget_position ?? WIDGET_DEFAULTS.position,
+    videoCaptureEnabled: !!row.videoCaptureEnabled,
     // dashboard aggregates — 0/null when no reports; populated only on list query
     totalReports: row.totalReports != null ? Number(row.totalReports) : 0,
     openReports: row.openReports != null ? Number(row.openReports) : 0,
@@ -131,9 +132,9 @@ router.get("/:id", (req, res) => {
   res.json(toProject(enriched));
 });
 
-// PATCH /:id — generic project update (currently only widget settings, per spec)
+// PATCH /:id — generic project update (video flag + widget settings)
 router.patch("/:id", (req, res) => {
-  const parsed = widgetSettingsSchema.safeParse(req.body);
+  const parsed = projectSettingsSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
     return;
@@ -161,6 +162,10 @@ router.patch("/:id", (req, res) => {
   if (parsed.data.widget_position !== undefined) {
     fields.push("widget_position = ?");
     values.push(parsed.data.widget_position);
+  }
+  if (parsed.data.videoCaptureEnabled !== undefined) {
+    fields.push("videoCaptureEnabled = ?");
+    values.push(parsed.data.videoCaptureEnabled ? 1 : 0);
   }
   if (fields.length === 0) {
     res.status(400).json({ error: "No fields to update" });

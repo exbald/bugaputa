@@ -36,6 +36,16 @@ export const widgetSettingsSchema = z.object({
   widget_position: z.enum(["left", "right", "bottom-left", "bottom-right"]).optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: "At least one widget field required" });
 
+export const projectSettingsSchema = z
+  .object({
+    widget_label: z.string().trim().min(1).max(30).optional(),
+    widget_color: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).optional(),
+    widget_position: z.enum(["left", "right", "bottom-left", "bottom-right"]).optional(),
+    videoCaptureEnabled: z.boolean().optional(),
+  })
+  .strict()
+  .refine((d) => Object.keys(d).length > 0, { message: "At least one field required" });
+
 export const widgetConfigQuerySchema = z.object({
   project: z.string().min(1),
 });
