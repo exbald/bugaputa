@@ -75,8 +75,8 @@ describe("Video mic semantics: executable behavior, not regex-only", () => {
       const onUnsupported = vi.fn();
       cap.startSession({ micEnabled:true, onDenied:vi.fn(), onPreview:vi.fn(), onError:vi.fn(), onUnsupported });
       await flush();
-      expect(gdmOptsCapture[0].captureHandleConfig).toEqual({ exposeOrigin:true });
-      expect(setCaptureHandleConfig).toHaveBeenCalledWith(expect.objectContaining({ exposeOrigin:true, handle: expect.any(String) }));
+      expect(gdmOptsCapture[0].captureHandleConfig).toBeUndefined();
+      expect(setCaptureHandleConfig).toHaveBeenCalledWith(expect.objectContaining({ exposeOrigin:true, handle: expect.any(String), permittedOrigins: [fakeLocation.origin] }));
       expect(cap._getCaptureToken()).toBe(setCaptureHandleConfig.mock.calls[0][0].handle);
       expect(onUnsupported).not.toHaveBeenCalled();
       expect(getUserMedia).toHaveBeenCalledTimes(1);

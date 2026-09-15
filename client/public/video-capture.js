@@ -29,7 +29,7 @@ function setupCaptureHandle(){
     var tok='bugaputa-'+Math.random().toString(36).slice(2,10)+'-'+Date.now().toString(36);
     __bugaputaCaptureToken=tok;
     if(navigator.mediaDevices && typeof navigator.mediaDevices.setCaptureHandleConfig==='function'){
-      try{ navigator.mediaDevices.setCaptureHandleConfig({exposeOrigin:true, handle:tok}); }catch(_){}
+      try{ navigator.mediaDevices.setCaptureHandleConfig({exposeOrigin:true, handle:tok, permittedOrigins:[location.origin]}); }catch(_){}
     }
   }catch(_){}
   return __bugaputaCaptureToken;
@@ -41,7 +41,6 @@ function chooseCaptureStream(md){
   }
   try{ setupCaptureHandle(); }catch(_){}
   var gdmOpts={video:{displaySurface:'browser'},audio:false,preferCurrentTab:true,selfBrowserSurface:'include',surfaceSwitching:'exclude',monitorTypeSurfaces:'exclude',systemAudio:'exclude'};
-  try{ gdmOpts.captureHandleConfig={exposeOrigin:true}; }catch(_){}
   return md.getDisplayMedia(gdmOpts);
 }
 function validateIsCurrentTab(stream){
