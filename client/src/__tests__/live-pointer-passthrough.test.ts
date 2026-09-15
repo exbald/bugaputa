@@ -79,9 +79,12 @@ describe("live pointer mode passes through to page",()=>{
   it("live openLive does NOT hide body overflow (brief #8 pointer-mode scroll)", async()=>{
     const s=read(VCJS);
     expect(s).not.toContain("document.body.style.overflow='hidden'");
+    // Live restores the overflow saved in overlay._prevOverflow (modal leaves it hidden); it
+    // must not re-hide, but must set it back so real wheel/trackpad/touch scroll unlocks.
     const codeLines=s.split('\n').filter((l:string)=>!l.trim().startsWith('//'));
     const overflowAssignments=codeLines.join('\n').match(/document\.body\.style\.overflow/g) || [];
-    expect(overflowAssignments.length, 'live VCJS must not manipulate body overflow').toBe(0);
+    expect(overflowAssignments.length, 'live VCJS must restore (not hide) body overflow').toBe(1);
+    expect(s).toContain('overlay._prevOverflow');
     expect(s).toContain('Live workspace must NOT hide body overflow');
     expect(s).toContain("Math.max(document.documentElement.scrollWidth");
     expect(s).toContain("Math.max(document.documentElement.scrollHeight");

@@ -148,7 +148,12 @@ function openLive(ctx){
   var overlay=document.getElementById('bugaputa-overlay');
   __liveActive=true; try{ if(window.__bugaputaLiveActiveSetter) window.__bugaputaLiveActiveSetter(true);}catch(_){}
   if(overlay) overlay.style.display='none';
-  // Live workspace must NOT hide body overflow: brief #8 requires normal page scroll
+  // Live workspace must NOT hide body overflow: brief #8 - restores original overflow so
+  // normal wheel/trackpad/touch scroll works (programmatic scrollTo already worked; this
+  // unlocks real user input). Hand (select) uses pointerEvents none + touchAction pan-x pan-y
+  // to let wheel/touch reach the document; draw modes keep wheel bubbling (no preventDefault)
+  // and rely on this restore. After drawing, one-tap Hand restores wheel scroll.
+  try{ document.body.style.overflow=(overlay&&overlay._prevOverflow!=null?overlay._prevOverflow:''); }catch(_){}
   var ex=document.getElementById('bugaputa-live-video'); if(ex) ex.remove();
   var et=document.getElementById('bugaputa-live-toolbar'); if(et) et.remove();
   var W=Math.max(document.documentElement.scrollWidth,document.body.scrollWidth||0,window.innerWidth);
