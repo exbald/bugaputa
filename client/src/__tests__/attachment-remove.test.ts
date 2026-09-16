@@ -115,7 +115,7 @@ describe("attachment clear + Remove screenshot control (widget)", () => {
     // re-append removeBtn after preview image
     expect(j).toMatch(/preview\.appendChild\(removeBtn\)/);
     // updates label to Replace when file present
-    expect(j).toMatch(/Replace screenshot \(optional\)/);
+    expect(j).toMatch(/Replace screenshot/);
   });
 
   it("validation preserved: 5MB + png/jpeg/webp/gif", () => {

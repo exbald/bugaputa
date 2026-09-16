@@ -31,15 +31,21 @@
 #bugaputa-hp{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
 @media(max-width:360px){#bugaputa-modal-body{padding:16px} #bugaputa-actions{padding-left:16px;padding-right:16px}}
 #bugaputa-btn svg{display:block;flex-shrink:0}
-/* chooser */
+/* chooser — unified vertical choice cards (solid, equal, left-aligned) */
 #bugaputa-chooser{padding:4px 0}
 #bugaputa-chooser-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}
-#bugaputa-choose-capture,#bugaputa-choose-general{width:100%;min-height:48px;border-radius:12px;border:1px solid #e2e8f0;padding:12px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px}
-#bugaputa-choose-capture{background:#0f172a;color:#fff;border-color:#0f172a}
-#bugaputa-choose-capture:hover{background:#1e293b}
-#bugaputa-choose-general{background:#fff;color:#0f172a}
-#bugaputa-choose-general:hover{background:#f8fafc}
-#bugaputa-choose-capture:focus-visible,#bugaputa-choose-general:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-choose-video,#bugaputa-choose-screenshot,#bugaputa-choose-general{width:100%;min-height:48px;border-radius:12px;border:1px solid #e2e8f0;padding:12px 14px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;background:#fff;color:#0f172a;box-sizing:border-box}
+#bugaputa-choose-video:hover,#bugaputa-choose-screenshot:hover,#bugaputa-choose-general:hover{background:#f8fafc;border-color:#cbd5e1}
+#bugaputa-choose-video:active,#bugaputa-choose-screenshot:active,#bugaputa-choose-general:active{background:#f1f5f9}
+#bugaputa-choose-video:focus-visible,#bugaputa-choose-screenshot:focus-visible,#bugaputa-choose-general:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+.bugaputa-choice-icon{width:36px;height:36px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#334155}
+.bugaputa-choice-icon svg{display:block}
+.bugaputa-choice-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bugaputa-choice-title{font-size:14px;font-weight:600;line-height:1.25;color:#0f172a;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.bugaputa-choice-sub{font-size:12px;font-weight:400;color:#64748b;line-height:1.3}
+.bugaputa-choice-chevron{color:#94a3b8;flex-shrink:0;display:flex;align-items:center}
+.bugaputa-choice-chevron svg{display:block}
+.bugaputa-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#a3e635;color:#0f172a;padding:2px 6px;border-radius:999px;line-height:1}
 #bugaputa-capture-pane{margin-top:4px}
 #bugaputa-consent-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
 #bugaputa-do-capture{flex:1;min-height:44px;border-radius:10px;border:none;background:#0f172a;color:#fff;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
@@ -72,4 +78,66 @@
 #bugaputa-ann-toolbar button[aria-pressed="true"]{background:#a3e635;border-color:#a3e635;color:#0f172a;box-shadow:0 2px 8px rgba(163,230,53,0.4)}
 #bugaputa-ann-toolbar button:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
 #bugaputa-ann-toolbar button:disabled{opacity:0.4;cursor:not-allowed}
-@media(max-width:480px){#bugaputa-ann-header{padding:8px 10px} #bugaputa-palette button{width:44px !important;height:44px !important;min-width:44px;min-height:44px} #bugaputa-ann-toolbar{max-width:calc(100vw - 16px);padding:6px 8px;gap:4px;justify-content:flex-start;scrollbar-width:thin;scrollbar-color:#94a3b8 #f1f5f9;overscroll-behavior-x:contain} #bugaputa-ann-toolbar::-webkit-scrollbar{display:block;height:6px} #bugaputa-ann-toolbar::-webkit-scrollbar-track{background:#f1f5f9;border-radius:999px} #bugaputa-ann-toolbar::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px;border:1px solid #e2e8f0} #bugaputa-ann-toolbar button{min-width:44px !important;min-height:44px !important}}
+@media(max-width:480px){#bugaputa-ann-header{padding:8px 10px} #bugaputa-palette button{width:44px !important;height:44px !important;min-width:44px;min-height:44px} #bugaputa-ann-toolbar{max-width:calc(100vw - 16px);padding:4px 6px;gap:4px;justify-content:flex-start;scrollbar-width:thin;scrollbar-color:#94a3b8 #f1f5f9;overscroll-behavior-x:contain} #bugaputa-ann-toolbar::-webkit-scrollbar{display:block;height:6px} #bugaputa-ann-toolbar::-webkit-scrollbar-track{background:#f1f5f9;border-radius:999px} #bugaputa-ann-toolbar::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px;border:1px solid #e2e8f0} #bugaputa-ann-toolbar button{min-width:44px !important;min-height:44px !important}}
+
+#bugaputa-live-video{position:absolute;inset:0;z-index:2147483646;pointer-events:none}
+#bugaputa-live-video canvas{position:absolute;left:0;top:0;pointer-events:auto;touch-action:none;z-index:1}
+#bugaputa-live-toolbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:2147483647;pointer-events:auto;display:flex;align-items:center;gap:3px;max-width:min(1140px,calc(100vw - 16px));overflow-x:auto;overflow-y:hidden;padding:4px 6px;background:#fff;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 10px 28px rgba(0,0,0,.22),0 1px 4px rgba(0,0,0,.12);scrollbar-width:thin;scrollbar-color:#94a3b8 #f1f5f9;-webkit-overflow-scrolling:touch;scroll-padding-inline:8px}
+#bugaputa-live-toolbar button{min-width:44px;min-height:44px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#0f172a;font:600 12px system-ui;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;flex:0 0 auto;flex-shrink:0;white-space:nowrap}
+#bugaputa-live-toolbar button[aria-pressed=true]{background:#0f172a;border-color:#0f172a;color:#fff}
+#bugaputa-live-toolbar button:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-live-toolbar button:disabled{opacity:.45}
+#bugaputa-live-toolbar .bugaputa-live-sep{width:1px;align-self:stretch;min-height:28px;background:#e2e8f0;flex-shrink:0;margin:0 2px}
+#bugaputa-live-toolbar .bugaputa-live-icon{width:20px;height:20px;display:block;flex-shrink:0}
+#bugaputa-live-toolbar .bugaputa-live-label{margin-left:4px;font-size:12px;font-weight:600;white-space:nowrap}
+#bugaputa-live-toolbar .bugaputa-live-labeled{padding:0 6px;gap:0;white-space:nowrap;flex:0 0 auto;flex-shrink:0;min-width:max-content}
+#bugaputa-live-toolbar .bugaputa-live-primary{background:#0f172a;color:#fff;border-color:#0f172a}
+#bugaputa-live-toolbar .bugaputa-live-primary[aria-pressed=true]{background:#0f172a}
+#bugaputa-live-toolbar .bugaputa-live-danger{color:#b91c1c}
+#bugaputa-live-toolbar .bugaputa-live-mic-on{background:#dcfce7;border-color:#86efac;color:#14532d}
+#bugaputa-live-overflow{flex-shrink:0;display:none;align-items:center;justify-content:center;min-width:44px;min-height:44px;border-radius:9px;border:1px solid #0f172a;background:#fff;color:#0f172a;font:700 14px system-ui;cursor:pointer;position:sticky;right:0;margin-left:8px;box-shadow:0 0 0 6px #fff}
+#bugaputa-live-overflow[aria-expanded=true]{background:#0f172a;color:#fff}
+#bugaputa-live-overflow:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+@media(max-width:820px){#bugaputa-live-toolbar{max-width:min(1140px,calc(100vw - 16px))}}
+@media(max-width:480px){#bugaputa-live-toolbar{left:8px;right:8px;bottom:8px;transform:none;width:auto;max-width:calc(100vw - 16px)}}
+/* video pane */
+#bugaputa-video-pane{margin-top:4px}
+#bugaputa-video-consent{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
+#bugaputa-video-status{padding:8px 10px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0}
+#bugaputa-video-preview video{max-width:100%;max-height:220px;border-radius:8px;border:1px solid #e2e8f0;background:#0f172a}
+#bugaputa-video-start{flex:1;min-height:44px;border-radius:10px;border:none;background:#0f172a;color:#fff;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
+#bugaputa-video-start:hover{background:#1e293b}
+#bugaputa-video-back{flex:0 0 auto;min-height:44px;min-width:80px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-weight:600;font-size:14px;cursor:pointer;padding:10px}
+#bugaputa-video-file{font-size:13px;color:#475569}
+#bugaputa-close{position:absolute;right:12px;top:12px;width:44px;height:44px;min-width:44px;min-height:44px;border-radius:50%;border:1px solid #e2e8f0;background:#fff;color:#64748b;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;line-height:1}
+#bugaputa-close:hover{background:#f8fafc;color:#0f172a;border-color:#cbd5e1}
+#bugaputa-close:active{background:#f1f5f9}
+#bugaputa-close:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+/* video v2: pointer halo + ripple (non-blocking, high-contrast, reduced-motion, captured pixels) */
+#bugaputa-pointer-halo{position:fixed;width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #0f172a,0 2px 8px rgba(0,0,0,.35);pointer-events:none;z-index:2147483646;transform:translate(-50%,-50%);mix-blend-mode:normal;will-change:transform}
+#bugaputa-pointer-ripple{position:fixed;width:36px;height:36px;border-radius:50%;border:2px solid #a3e635;pointer-events:none;z-index:2147483645;transform:translate(-50%,-50%) scale(.6);opacity:.9;animation:bugaputa-ripple 320ms ease-out forwards}
+@keyframes bugaputa-ripple{to{transform:translate(-50%,-50%) scale(2.2);opacity:0}}
+@media(prefers-reduced-motion:reduce){#bugaputa-pointer-ripple{animation:none;opacity:0;transition:opacity 120ms}}
+/* movable toolbar drag handle */
+#bugaputa-ann-toolbar[aria-grabbed="true"]{cursor:grabbing}
+#bugaputa-ann-drag{cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;min-width:20px;display:flex;align-items:center;justify-content:center;color:#94a3b8}
+#bugaputa-ann-drag:active{cursor:grabbing}
+/* document-relative annotation layer helper: when video workspace is live, annotations are stored in document coords and rendered with scroll compensation (see widget.js cssPoint doc) */
+#bugaputa-ann-canvas-wrap.bugaputa-live{will-change:transform}
+
+/* accessible video review modal */
+#bugaputa-video-preview-modal{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55)}
+#bugaputa-video-preview-card{background:#fff;border-radius:16px;width:min(520px,100%);max-height:90dvh;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}
+#bugaputa-video-preview-card header{padding:16px 20px 12px;border-bottom:1px solid #e2e8f0}
+#bugaputa-video-preview-card header h2{margin:0;font-size:18px;color:#0f172a}
+#bugaputa-video-preview-card .bugaputa-preview-body{padding:16px 20px;overflow:auto}
+#bugaputa-video-preview-card video{display:block;width:100%;max-height:320px;background:#0f172a;border-radius:8px}
+#bugaputa-video-meta,.bugaputa-video-preview-loading{margin-top:8px;font-size:12px;color:#64748b}
+#bugaputa-video-preview-card .bugaputa-preview-actions{display:flex;gap:8px;padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #e2e8f0;background:#fff;flex-shrink:0}
+#bugaputa-video-preview-card button,#bugaputa-video-recovery button,#bugaputa-video-delete-undo{min-height:44px;border-radius:10px;padding:10px 12px;font-weight:600;cursor:pointer}
+#bugaputa-video-continue{flex:1;background:#0f172a;color:#fff;border:0}
+#bugaputa-video-retake{background:#fff;color:#334155;border:1px solid #cbd5e1}
+#bugaputa-remove-video{background:#fff;color:#b91c1c;border:1px solid #fecaca}
+#bugaputa-video-preview-card button:focus-visible,#bugaputa-video-recovery button:focus-visible,#bugaputa-video-delete-undo:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+#bugaputa-video-recovery{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:390px){#bugaputa-video-preview-modal{padding:8px}#bugaputa-video-preview-card .bugaputa-preview-body{padding:12px 16px}#bugaputa-video-preview-card header,#bugaputa-video-preview-card .bugaputa-preview-actions{padding-left:16px;padding-right:16px}#bugaputa-video-preview-card .bugaputa-preview-actions{position:sticky;bottom:0;flex-wrap:wrap}#bugaputa-video-preview-card .bugaputa-preview-actions button{flex:1 1 100%}}

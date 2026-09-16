@@ -16,7 +16,11 @@ describe("widget deferred atomic reveal (no wrong-position flash)", () => {
     expect(mountIdx).toBeGreaterThan(0);
     const mountBody = s.slice(mountIdx, s.indexOf("if(document.readyState", mountIdx));
     expect(mountBody, "mount must call revealOnce (deferred/atomic reveal)").toMatch(/revealOnce\(\)/);
-    expect(mountBody, "mount must check fastPath / _initial* for immediate reveal").toMatch(/fastPath|_initialLabel/);
+    expect(mountBody, "mount must be single deterministic path without duplicate timers/branches").not.toMatch(/fastPath|needFetch/);
+    // mount must not set its own _revealTimer = (only clearing is allowed); fetch IIFE owns the single timer
+    expect(mountBody, "mount must not set its own _revealTimer").not.toMatch(/_revealTimer\s*=\s*setTimeout/);
+    // fetchWidgetConfig IIFE owns the single fallback timer; mount only handles no-projectKey immediate reveal
+    expect(mountBody, "mount handles no-projectKey fast immediate, otherwise fetch owns timer").toMatch(/!projectKey/);
     expect(s, "exactly one revealOnce definition").toMatch(/function revealOnce\(\)/);
   });
 

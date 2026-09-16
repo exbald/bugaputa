@@ -66,6 +66,7 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
         // srcdoc iframe inherits this policy; the frame is sandboxed and sends no
         // credentials, but note remote images do reach the customer's servers.
         imgSrc: ["'self'", "data:", "blob:", "https:"],
+        mediaSrc: ["'self'", "blob:", "data:"],
         frameSrc: ["'self'"],
         objectSrc: ["'none'"],
         scriptSrc: ["'self'", CANONICAL_ORIGIN, LEGACY_ORIGIN],
@@ -86,7 +87,7 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
 
   // Default CORP same-origin for app routes; widget assets override to cross-origin
   app.use((req, res, next) => {
-    const isWidgetAsset = req.path === "/widget.js" || req.path === "/widget.css" || req.path === "/html2canvas.min.js" || req.path === "/modern-screenshot.min.js";
+    const isWidgetAsset = req.path === "/widget.js" || req.path === "/widget.css" || req.path === "/video-capture.js" || req.path === "/html2canvas.min.js" || req.path === "/modern-screenshot.min.js";
     res.setHeader("Cross-Origin-Resource-Policy", isWidgetAsset ? "cross-origin" : "same-origin");
     if (isWidgetAsset) res.setHeader("Access-Control-Allow-Origin", "*");
     next();
@@ -113,6 +114,10 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
     // origin — force a download content-type so they can only be read via fetch()
     // (the dashboard) or saved, never executed as same-origin script.
     const lower = filename.toLowerCase();
+    if (lower.endsWith(".webm") || lower.endsWith(".mp4")) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
     if (lower.endsWith(".html") || lower.endsWith(".gz")) {
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.setHeader("X-Content-Type-Options", "nosniff");
@@ -148,8 +153,8 @@ export function createApp(opts?: { dbPath?: string; uploadDir?: string }) {
     }
     res.type("text/css").send("/* Bugaputa widget.css not built yet */");
   });
-  // Capture engines, lazy-loaded by the widget after capture consent
-  for (const engine of ["modern-screenshot.min.js", "html2canvas.min.js"]) {
+  // Capture engines + video-capture lazy module, lazy-loaded by the widget
+  for (const engine of ["modern-screenshot.min.js", "html2canvas.min.js", "video-capture.js"]) {
     const candidates = [
       path.resolve(`widget/${engine}`),
       path.resolve(`client/public/${engine}`),

@@ -97,6 +97,12 @@ function migrate(database: Db) {
       database.exec(`ALTER TABLE reports ADD COLUMN ${column} TEXT`);
     }
   }
+  for (const col of ["videoPath", "videoMime", "videoDurationMs", "videoSizeBytes"] as const) {
+    if (!reportCols.includes(col)) {
+      const def = col === "videoDurationMs" || col === "videoSizeBytes" ? "INTEGER" : "TEXT";
+      database.exec(`ALTER TABLE reports ADD COLUMN ${col} ${def}`);
+    }
+  }
   // Widget customization columns (idempotent for existing DBs)
   {
     const cols = database.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
@@ -110,9 +116,13 @@ function migrate(database: Db) {
     if (!colNames.has("widget_position")) {
       database.exec("ALTER TABLE projects ADD COLUMN widget_position TEXT DEFAULT 'right'");
     }
+    if (!colNames.has("videoCaptureEnabled")) {
+      database.exec("ALTER TABLE projects ADD COLUMN videoCaptureEnabled INTEGER DEFAULT 0");
+    }
     database.exec("UPDATE projects SET widget_label = 'Feedback' WHERE widget_label IS NULL");
     database.exec("UPDATE projects SET widget_color = '#171717' WHERE widget_color IS NULL");
     database.exec("UPDATE projects SET widget_position = 'right' WHERE widget_position IS NULL");
+    database.exec("UPDATE projects SET videoCaptureEnabled = 0 WHERE videoCaptureEnabled IS NULL");
   }
 }
 
