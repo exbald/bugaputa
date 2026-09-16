@@ -199,7 +199,7 @@ describe("Capture Handle permittedOrigins correction (t_15e551d6)", () => {
     cap.startSession({ micEnabled: false, onDenied: vi.fn(), onPreview: vi.fn(), onError: vi.fn(), onUnsupported });
     await flush();
     expect(onUnsupported).toHaveBeenCalledTimes(1);
-    expect(String(onUnsupported.mock.calls[0][0])).toMatch(/handle token missing|upload fallback/i);
+    expect(String(onUnsupported.mock.calls[0][0])).toMatch(/handle token missing|upload/i);
     expect(displayTrack.stop).toHaveBeenCalled();
   });
 

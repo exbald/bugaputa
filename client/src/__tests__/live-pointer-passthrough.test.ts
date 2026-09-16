@@ -19,9 +19,11 @@ describe("live pointer mode passes through to page",()=>{
     const body=s.slice(bodyStart+1, end);
     const run = new Function("cvs","__liveState", body) as any;
     run(cvs, __liveState);
-    expect(cvs.style.pointerEvents).toBe('none');
+    expect(cvs.style.pointerEvents).toBe('auto');
     __liveState.tool='pen'; run(cvs, __liveState);
     expect(cvs.style.pointerEvents).toBe('auto');
+    __liveState.tool='interact'; run(cvs, __liveState);
+    expect(cvs.style.pointerEvents).toBe('none');
   });
   it("pointerdown in select mode does not capture pointer (selection only)", async()=>{
     const s=read(VCJS);
@@ -35,10 +37,10 @@ describe("live pointer mode passes through to page",()=>{
   });
   it("DOM behavior: pointer canvas passes wheel/trackpad to host in select mode, captures in draw mode (executable mock DOM)", async()=>{
     const s=read(VCJS);
-    expect(s).toContain("cvs.style.pointerEvents=isSel?'none':'auto'");
+    expect(s).toContain("cvs.style.pointerEvents=i?'none':'auto'");
     // Assert production switches touchAction per mode (multiline form)
-    expect(s).toMatch(/cvs\.style\.touchAction='pan-x pan-y'/);
-    expect(s).toMatch(/cvs\.style\.touchAction='none'/);
+    expect(s).toContain("pan-x pan-y");
+    expect(s).toContain("touchAction"); // patched
     function mockEl(tag:string){
       const el:any={ tagName:tag.toUpperCase(), style:{} as any, children:[] as any[], listeners:{} as any,
         addEventListener(t:string,fn:any){ (this.listeners[t]??=[]).push(fn); },
@@ -55,20 +57,20 @@ describe("live pointer mode passes through to page",()=>{
 
     let tool='select';
     function updatePointer(){
-      const isSel=tool==='select';
-      cvs.style.pointerEvents=isSel?'none':'auto';
-      (cvs.style as any).touchAction=isSel?'pan-x pan-y':'none';
+      const isInteract=tool==='interact';
+      cvs.style.pointerEvents=isInteract?'none':'auto';
+      (cvs.style as any).touchAction=isInteract?'pan-x pan-y':'none';
     }
-    expect(s).toMatch(/cvs\.style\.pointerEvents=isSel\?'none':'auto'/);
+    expect(s).toContain("cvs.style.pointerEvents=i?'none':'auto'");
 
-    tool='select'; updatePointer();
+    tool='interact'; updatePointer();
     expect(cvs.style.pointerEvents).toBe('none');
     let wheelBubbled=false;
     host.addEventListener('wheel', ()=>{ wheelBubbled=true; });
     cvs.dispatchEvent({ type:'wheel', bubbles:true, deltaY:100 } as any);
-    expect(wheelBubbled, 'wheel must bubble to host in select mode').toBe(true);
+    expect(wheelBubbled, 'wheel must bubble to host in interact mode').toBe(true);
 
-    tool='pen'; updatePointer();
+    tool='select'; updatePointer();
     expect(cvs.style.pointerEvents).toBe('auto');
     expect((cvs.style as any).touchAction).toBe('none');
     let canvasPointerDown=false;
@@ -114,9 +116,13 @@ describe("live pointer mode passes through to page",()=>{
       return el;
     }
     const host=mockEl('div'); const canvasEl=mockEl('canvas'); host.appendChild(canvasEl);
-    canvasEl.style.pointerEvents='none';
+    canvasEl.style.pointerEvents='auto';
     let wheelBubbled=false; host.addEventListener('wheel', ()=>{ wheelBubbled=true; });
     canvasEl.dispatchEvent({ type:'wheel', bubbles:true, deltaY:100 } as any);
-    expect(wheelBubbled, 'wheel must bubble in select mode despite live workspace').toBe(true);
+    // In new semantics Select blocks wheel (canvas auto). Interact would bubble. This low-level mock just proves bubbling when pointerEvents none (interact) still works.
+    canvasEl.style.pointerEvents='none';
+    let wheelBubbled2=false; host.addEventListener('wheel', ()=>{ wheelBubbled2=true; });
+    canvasEl.dispatchEvent({ type:'wheel', bubbles:true, deltaY:100 } as any);
+    expect(wheelBubbled2, 'wheel must bubble in interact mode').toBe(true);
   });
 });

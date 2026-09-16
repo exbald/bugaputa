@@ -38,7 +38,7 @@ describe("live toolbar hit-testing: toolbar above canvas, Hand default, pointerE
     const tool = defaultTool(vc);
     expect(tool, `default tool must be select (Hand), got ${tool}`).toBe("select");
     // updatePointer must map select -> none
-    expect(vc).toContain("cvs.style.pointerEvents=isSel?'none':'auto'");
+    expect(vc).toContain("cvs.style.pointerEvents=i?'none':'auto'");
   });
 
   it("executable: in select mode host CTA is hittable, toolbar buttons are hittable, canvas does not intercept; in draw mode canvas intercepts", ()=>{
@@ -63,11 +63,13 @@ describe("live toolbar hit-testing: toolbar above canvas, Hand default, pointerE
     let __liveState:any={ tool: 'select' };
     const run = new Function("cvs","__liveState", body) as any;
     run(cvs, __liveState);
-    expect(cvs.style.pointerEvents, "select mode must be none so host CTA remains interactive").toBe("none");
+    expect(cvs.style.pointerEvents, "select mode must be auto (blocks host) per fix").toBe("auto");
     __liveState.tool='pen'; run(cvs, __liveState);
     expect(cvs.style.pointerEvents, "draw mode must be auto so canvas captures strokes").toBe("auto");
+    __liveState.tool='interact'; run(cvs, __liveState);
+    expect(cvs.style.pointerEvents, "interact mode must be none so host CTA reachable").toBe("none");
     __liveState.tool='select'; run(cvs, __liveState);
-    expect(cvs.style.pointerEvents).toBe("none");
+    expect(cvs.style.pointerEvents).toBe("auto");
 
     // Also verify toolbar remains pointerEvents auto regardless of mode
     const css = read(WCSS);
