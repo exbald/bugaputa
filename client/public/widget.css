@@ -88,7 +88,9 @@
 #bugaputa-live-toolbar button:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
 #bugaputa-live-toolbar button:disabled{opacity:.45}
 #bugaputa-live-toolbar .bugaputa-live-sep{width:1px;align-self:stretch;min-height:28px;background:#e2e8f0;flex-shrink:0;margin:0 2px}
-#bugaputa-live-toolbar .bugaputa-live-icon{width:20px;height:20px;display:block;flex-shrink:0}
+#bugaputa-live-toolbar .bugaputa-live-icon{width:22px;height:22px;display:block;flex-shrink:0}
+#bugaputa-live-toolbar .bugaputa-live-label{margin-left:6px;font-size:12px;font-weight:600;white-space:nowrap}
+#bugaputa-live-toolbar .bugaputa-live-labeled{padding:0 10px;gap:0}
 #bugaputa-live-toolbar .bugaputa-live-primary{background:#0f172a;color:#fff;border-color:#0f172a}
 #bugaputa-live-toolbar .bugaputa-live-primary[aria-pressed=true]{background:#0f172a}
 #bugaputa-live-toolbar .bugaputa-live-danger{color:#b91c1c}
