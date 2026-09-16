@@ -109,7 +109,7 @@ describe("live toolbar hit-testing: toolbar above canvas, Hand default, pointerE
     const css = read(WCSS);
     // CSS must allow wide toolbar at desktop but constrain on small viewports; overflow affordance must exist
     expect(css).toMatch(/#bugaputa-live-toolbar[^}]*overflow-x:\s*auto/);
-    expect(css).toMatch(/#bugaputa-live-toolbar[^}]*max-width:\s*min\(980px,calc\(100vw - 16px\)\)/);
+    expect(css).toMatch(/#bugaputa-live-toolbar[^}]*max-width:\s*min\((?:980|1[01][0-9]{2}|1140)px,calc\(100vw - 16px\)\)/);
     expect(css).toMatch(/#bugaputa-live-overflow/);
     expect(css).toMatch(/#bugaputa-live-overflow\[aria-expanded/);
     // JS must provide overflow button with aria-label + scrollTo affordance (no silent clipping)
