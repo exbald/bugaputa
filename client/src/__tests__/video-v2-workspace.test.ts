@@ -59,11 +59,11 @@ describe("Video v2: unified workspace + toolbar + privacy + pointer + preview", 
     expect(c).toMatch(/bugaputa-ripple/);
     expect(j).toMatch(/togglePointerHalo|pointerHaloEnabled/);
   });
-  it("toolbar 44px + a11y: Stop/Use recording/Record again/Delete with confirm, focus-visible", ()=>{
+  it("toolbar 44px + a11y: Stop/Attach recording/Record again/Delete with confirm, focus-visible", ()=>{
     const j = js();
     const c = css();
     expect(j).toMatch(/Stop recording/);
-    expect(j).toMatch(/Use recording/);
+    expect(j).toMatch(/Attach recording/);
     expect(j).toMatch(/Record again/);
     expect(j).toMatch(/Delete recording/);
     expect(j).toMatch(/confirm.*Delete/i);
