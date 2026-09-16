@@ -40,9 +40,9 @@ describe("T9: widget mirrors byte-identical and gzip budget", () => {
     expect(gz.length, `widget.js gzip ${gz.length} must be <30720 (ceiling)`).toBeLessThan(30720);
   });
 
-  it("lazy video-capture.js gzip <9200 and stays separate chunk", () => {
+  it("lazy video-capture.js gzip <8192 and stays separate chunk", () => {
     const gzLazy = gzipSync(fs.readFileSync(VCJS));
-    expect(gzLazy.length, `video-capture.js gzip ${gzLazy.length} must be <9200`).toBeLessThan(9200); // t_97bc3dc1 Interact+Select bump
+    expect(gzLazy.length, `video-capture.js gzip ${gzLazy.length} must be <8192`).toBeLessThan(8192);
     // base alone must stay under ceiling; combined is informational only
     const gzBase = gzipSync(fs.readFileSync(WJS));
     const combined = gzBase.length + gzLazy.length;

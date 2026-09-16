@@ -217,7 +217,7 @@ describe("Video 07 executable regression gates", () => {
     const gzCss = gzipSync(fs.readFileSync(WCSS));
     expect(gzBase.length).toBeLessThan(30720);
     expect(gzBase.length).toBeLessThanOrEqual(29696);
-    expect(gzLazy.length).toBeLessThan(9200); // t_97bc3dc1: Select/Move + Interact + blocking+outline requires budget bump (was 8192)
+    expect(gzLazy.length).toBeLessThan(8192);
     expect(gzCss.length).toBeLessThan(4096);
     expect(gzBase.length + gzLazy.length).toBeLessThan(40000);
   });

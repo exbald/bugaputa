@@ -21,7 +21,7 @@ describe("Video 05: lazy MediaRecorder lifecycle, preview and submission (RED-fi
     const gzBase = gzipSync(fs.readFileSync(WJS));
     expect(gzBase.length, `widget.js gzip ${gzBase.length} must be <30720`).toBeLessThan(30720);
     const gzLazy = gzipSync(fs.readFileSync(VCJS));
-    expect(gzLazy.length, `video-capture.js gzip ${gzLazy.length} must be <9200`).toBeLessThan(9200); // t_97bc3dc1 bump for Select/Interact
+    expect(gzLazy.length, `video-capture.js gzip ${gzLazy.length} must be <8192`).toBeLessThan(8192);
   });
 
   it("mirrors byte-identical: widget.js/css + video-capture.js", () => {
